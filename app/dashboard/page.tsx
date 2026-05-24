@@ -1172,7 +1172,7 @@ export default function DashboardPage() {
         {/* Sidebar */}
         <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-zinc-800 bg-zinc-900/50 overflow-y-auto">
           <div className="px-5 py-4 border-b border-zinc-800">
-            <span style={{ fontSize: "22px", fontWeight: 800, color: "#FDF6EC", letterSpacing: "-0.5px", fontFamily: "var(--font-space), system-ui, sans-serif" }}>SPEAR</span>
+            <span style={{ fontSize: "22px", fontWeight: 800, color: "#B8A878", letterSpacing: "-0.5px", fontFamily: "var(--font-space), system-ui, sans-serif" }}>SPEAR</span>
           </div>
 
           <nav className="flex-1 px-3 py-4 space-y-0.5">

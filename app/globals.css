@@ -5,14 +5,14 @@
   /* Brand palette from logo */
   --color-navy:          #0B1221;
   --color-navy-deep:     #070D18;
-  --color-gray-secondary:#FDF6EC;
+  --color-gray-secondary:#B8A878;
   --color-gold:          #C9A84C;
   --color-blue:          #2563EB;
 
   /* Legacy tokens (kept for backward compat) */
   --bg:           #0B1221;
   --bg-card:      #0D1527;
-  --cream:        #FDF6EC;
+  --cream:        #B8A878;
   --cream-dim:    #C8D8E8;
   --gold:         #C9A84C;
   --gold-light:   #DDB96B;
@@ -20,7 +20,7 @@
   --navy:         #0B1221;
   --navy-light:   #132040;
   --navy-muted:   #070D18;
-  --warm-gray:    #FDF6EC;
+  --warm-gray:    #B8A878;
   --divider:      rgba(37,99,235,0.15);
   --accent:       #2563EB;
   --font-space:   "Space Grotesk", system-ui, sans-serif;
@@ -39,16 +39,16 @@
   --color-amber-400:     #C9A84C;
   --color-amber-500:     #B8923E;
   /* All zinc text shades → cream */
-  --color-zinc-50:       #FDF6EC;
-  --color-zinc-100:      #FDF6EC;
-  --color-zinc-200:      #FDF6EC;
-  --color-zinc-300:      #FDF6EC;
-  --color-zinc-400:      #FDF6EC;
-  --color-zinc-500:      #FDF6EC;
-  --color-zinc-600:      #FDF6EC;
-  --color-zinc-700:      #FDF6EC;
-  --color-gray-400:      #FDF6EC;
-  --color-gray-500:      #FDF6EC;
+  --color-zinc-50:       #B8A878;
+  --color-zinc-100:      #B8A878;
+  --color-zinc-200:      #B8A878;
+  --color-zinc-300:      #B8A878;
+  --color-zinc-400:      #B8A878;
+  --color-zinc-500:      #B8A878;
+  --color-zinc-600:      #B8A878;
+  --color-zinc-700:      #B8A878;
+  --color-gray-400:      #B8A878;
+  --color-gray-500:      #B8A878;
 }
 
 /* ── Base ──────────────────────────────────────────────────────────── */
@@ -56,7 +56,7 @@
 
 body {
   background-color: var(--bg);
-  color: #FDF6EC;
+  color: #B8A878;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-family: var(--font-space);
@@ -64,7 +64,7 @@ body {
 
 *, *::before, *::after {
   box-sizing: border-box;
-  color: #FDF6EC !important;
+  color: #B8A878 !important;
 }
 
 /* ── Scrollbar ─────────────────────────────────────────────────────── */
@@ -161,7 +161,7 @@ body {
   inset: 0;
   background-image: url('/spear-logo.PNG');
   background-repeat: no-repeat;
-  background-position: center right;
+  background-position: center center;
   background-size: 600px auto;
   opacity: 0.04;
   pointer-events: none;

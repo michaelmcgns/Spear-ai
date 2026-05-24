@@ -83,7 +83,7 @@ function GHLCard() {
             fontSize: "18px",
           }}>🔗</div>
           <div>
-            <p style={{ fontSize: "15px", fontWeight: 700, color: "#FDF6EC" }}>GoHighLevel</p>
+            <p style={{ fontSize: "15px", fontWeight: 700, color: "#B8A878" }}>GoHighLevel</p>
             <p style={{ fontSize: "11px", color: "#6B7A8D", letterSpacing: "0.06em" }}>CRM Integration</p>
           </div>
         </div>
@@ -130,7 +130,7 @@ function GHLCard() {
           </div>
 
           <div style={{ marginBottom: "20px" }}>
-            <p style={{ fontSize: "12px", color: "#FDF6EC", fontWeight: 600, marginBottom: "10px" }}>What syncs on every call:</p>
+            <p style={{ fontSize: "12px", color: "#B8A878", fontWeight: 600, marginBottom: "10px" }}>What syncs on every call:</p>
             <ul style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
               {[
                 "NEPQ score, DISC profile, and call outcome",
@@ -183,7 +183,7 @@ function GHLCard() {
                   backgroundColor: "rgba(5,10,20,0.8)",
                   border: "1px solid rgba(37,99,235,0.22)",
                   borderRadius: "6px", fontSize: "13px",
-                  color: "#FDF6EC", fontFamily: "var(--font-space)", outline: "none",
+                  color: "#B8A878", fontFamily: "var(--font-space)", outline: "none",
                 }}
               />
               <button type="button" onClick={() => setShowKey(v => !v)} style={{
@@ -211,7 +211,7 @@ function GHLCard() {
                 backgroundColor: "rgba(5,10,20,0.8)",
                 border: "1px solid rgba(37,99,235,0.22)",
                 borderRadius: "6px", fontSize: "13px",
-                color: "#FDF6EC", fontFamily: "var(--font-space)", outline: "none",
+                color: "#B8A878", fontFamily: "var(--font-space)", outline: "none",
               }}
             />
           </div>
@@ -228,7 +228,7 @@ function GHLCard() {
             type="submit"
             disabled={status === "loading"}
             style={{
-              backgroundColor: "#2563EB", color: "#FDF6EC", border: "none",
+              backgroundColor: "#2563EB", color: "#B8A878", border: "none",
               padding: "11px 0", fontSize: "13px", fontWeight: 700,
               letterSpacing: "0.06em", cursor: status === "loading" ? "default" : "pointer",
               borderRadius: "6px", fontFamily: "var(--font-space)",
@@ -253,7 +253,7 @@ function GHLCard() {
         </summary>
         <div style={{ marginTop: "12px", padding: "14px", backgroundColor: "rgba(5,10,20,0.5)", borderRadius: "6px", border: "1px solid rgba(37,99,235,0.1)" }}>
           <p style={{ fontSize: "11px", color: "#8B909A", marginBottom: "10px", lineHeight: 1.6 }}>
-            Create these custom fields in <strong style={{ color: "#FDF6EC" }}>GHL → Settings → Custom Fields → Contacts</strong>:
+            Create these custom fields in <strong style={{ color: "#B8A878" }}>GHL → Settings → Custom Fields → Contacts</strong>:
           </p>
           <ul style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
             {[
@@ -326,7 +326,7 @@ function ZapierCard() {
           fontSize: "18px",
         }}>⚡</div>
         <div>
-          <p style={{ fontSize: "15px", fontWeight: 700, color: "#FDF6EC" }}>Zapier</p>
+          <p style={{ fontSize: "15px", fontWeight: 700, color: "#B8A878" }}>Zapier</p>
           <p style={{ fontSize: "11px", color: "#6B7A8D", letterSpacing: "0.06em" }}>Connect to 6,000+ apps</p>
         </div>
       </div>
@@ -395,7 +395,7 @@ export default function IntegrationsPage() {
         <p style={{ fontSize: "10px", letterSpacing: "0.25em", textTransform: "uppercase", color: "#6B7A8D", fontWeight: 700, marginBottom: "8px" }}>
           Settings
         </p>
-        <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#FDF6EC", letterSpacing: "-0.02em", marginBottom: "8px" }}>
+        <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#B8A878", letterSpacing: "-0.02em", marginBottom: "8px" }}>
           Integrations
         </h1>
         <p style={{ fontSize: "14px", color: "#8B909A", lineHeight: 1.65 }}>

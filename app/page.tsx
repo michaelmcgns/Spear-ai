@@ -9,12 +9,12 @@ import { motion, useInView, AnimatePresence, type Variants } from "framer-motion
 
 const BG        = "#050A14";
 const BG_CARD   = "#080F1E";
-const CREAM     = "#FDF6EC";
-const CREAM_DIM = "#FDF6EC";
+const CREAM     = "#B8A878";
+const CREAM_DIM = "#B8A878";
 const BLUE      = "#2563EB";
 const BLUE_LIGHT = "#3B82F6";
 const GOLD      = "#C9A84C";
-const WARM_GRAY = "#FDF6EC";
+const WARM_GRAY = "#B8A878";
 const DIVIDER   = "rgba(37,99,235,0.14)";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
