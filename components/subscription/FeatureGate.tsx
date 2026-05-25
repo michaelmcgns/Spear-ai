@@ -152,9 +152,9 @@ export function PlanBadge({ plan }: { plan: Plan }) {
     <span style={{
       fontSize: "9px", fontWeight: 700, letterSpacing: "0.1em",
       padding: "2px 6px", borderRadius: "4px",
-      background: plan === "team" ? "rgba(37,99,235,0.15)" : "rgba(201,168,76,0.12)",
-      color: plan === "team" ? "#60A5FA" : GOLD,
-      border: `1px solid ${plan === "team" ? "rgba(37,99,235,0.25)" : "rgba(201,168,76,0.2)"}`,
+      background: plan === "team" ? "rgba(37,99,235,0.3)" : "rgba(201,168,76,0.25)",
+      color: plan === "team" ? "#FFFFFF" : "#FFFFFF",
+      border: `1px solid ${plan === "team" ? "rgba(96,165,250,0.5)" : "rgba(201,168,76,0.5)"}`,
       textTransform: "uppercase" as const,
       marginLeft: "auto",
     }}>
