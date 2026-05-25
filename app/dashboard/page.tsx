@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useCallback, useEffect } from "react";
+import React, { Suspense, useRef, useState, useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { logout } from "@/app/auth/actions";
 import {
@@ -1174,7 +1174,7 @@ function DashboardHome({
 
 type Tab = "dashboard" | "calls" | "analytics" | "coaching" | "agents";
 
-export default function DashboardPage() {
+function DashboardPage() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
 
@@ -1392,5 +1392,13 @@ export default function DashboardPage() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function DashboardPageWithSearchParams() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardPage />
+    </Suspense>
   );
 }
