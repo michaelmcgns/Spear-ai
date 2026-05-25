@@ -2,6 +2,7 @@ import Groq from "groq-sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { filterCoachingCard, filterCoachingItems } from "@/lib/coaching/cardFilter";
 import { createClient } from "@/lib/supabase/server";
+import { requireFeature } from "@/lib/subscription/server";
 
 export const maxDuration = 300;
 
@@ -261,6 +262,12 @@ async function applyFiltersAndLog(
 
 export async function POST(req: NextRequest) {
   try {
+    // Feature gate — call upload requires Agent plan or higher
+    const allowed = await requireFeature("call_upload");
+    if (!allowed) {
+      return NextResponse.json({ error: "Your plan does not include call analysis. Upgrade to Agent or higher." }, { status: 403 });
+    }
+
     const formData = await req.formData();
     const file = formData.get("audio") as File | null;
     const sessionId = (formData.get("sessionId") as string | null) ?? `session-${Date.now()}`;

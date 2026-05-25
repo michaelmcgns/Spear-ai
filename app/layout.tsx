@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { SubscriptionProvider } from "@/components/subscription/SubscriptionContext";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -34,7 +35,7 @@ export default function RootLayout({
       className={`${spaceGrotesk.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col" style={{ fontFamily: "var(--font-space), system-ui, sans-serif" }}>
-        {children}
+        <SubscriptionProvider>{children}</SubscriptionProvider>
       </body>
     </html>
   );

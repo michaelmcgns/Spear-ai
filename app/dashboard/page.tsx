@@ -1,19 +1,115 @@
 "use client";
 
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { logout } from "@/app/auth/actions";
 import {
   LayoutDashboard, Phone, BarChart3, BookOpen, Users,
   Settings, LogOut, Upload, TrendingUp, CheckCircle2, AlertTriangle,
   Brain, Target, MessageSquare, Mic, Search, ChevronDown, ChevronRight,
-  Award, ArrowUp, ArrowDown, Star, Zap, Radio,
+  Award, ArrowUp, ArrowDown, Star, Zap, Radio, X, Lock,
 } from "lucide-react";
 import Link from "next/link";
 import { RegulatoryBanner } from "@/components/compliance/RegulatoryBanner";
 import { ComplianceStatus } from "@/components/compliance/ComplianceStatus";
 import { AIBadge } from "@/components/compliance/AIBadge";
+import { FeatureGate, PlanBadge } from "@/components/subscription/FeatureGate";
+import { useSubscription } from "@/components/subscription/SubscriptionContext";
+import { FEATURE_MIN_PLAN, type Feature } from "@/lib/subscription/plans";
 import { ConsentModal } from "@/components/compliance/ConsentModal";
 import { getConsentRequirement } from "@/lib/compliance/consentStates";
+
+// ─── Welcome Modal ─────────────────────────────────────────────────────────────
+
+function WelcomeModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 100,
+        background: "rgba(5,10,20,0.85)", backdropFilter: "blur(8px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "24px",
+      }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{
+        background: "#0D1527",
+        border: "1px solid rgba(201,168,76,0.25)",
+        borderRadius: "16px",
+        padding: "40px 36px",
+        maxWidth: "460px",
+        width: "100%",
+        position: "relative",
+        boxShadow: "0 0 80px rgba(201,168,76,0.08), 0 32px 64px rgba(0,0,0,0.5)",
+      }}>
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute", top: "16px", right: "16px",
+            background: "none", border: "none", cursor: "pointer",
+            color: "rgba(184,168,120,0.5)", padding: "4px",
+            display: "flex", alignItems: "center",
+          }}
+        >
+          <X size={18} />
+        </button>
+
+        {/* Icon */}
+        <div style={{
+          width: "56px", height: "56px", borderRadius: "14px",
+          background: "rgba(201,168,76,0.12)",
+          border: "1px solid rgba(201,168,76,0.25)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          marginBottom: "20px", fontSize: "26px",
+        }}>
+          🎯
+        </div>
+
+        <h2 style={{
+          fontSize: "22px", fontWeight: 800, color: "#B8A878",
+          marginBottom: "10px", letterSpacing: "-0.02em",
+          fontFamily: "var(--font-space), system-ui, sans-serif",
+        }}>
+          Welcome to Spear.
+        </h2>
+        <p style={{ fontSize: "14px", color: "rgba(184,168,120,0.75)", lineHeight: 1.7, marginBottom: "28px" }}>
+          Your account is active. Start by uploading your first call recording or launching a live call session.
+        </p>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <Link href="/dashboard/live-call" onClick={onClose} style={{ textDecoration: "none" }}>
+            <button style={{
+              width: "100%", padding: "13px",
+              background: "#C9A84C", color: "#060D20",
+              border: "none", borderRadius: "8px",
+              fontWeight: 700, fontSize: "14px", cursor: "pointer",
+              letterSpacing: "0.04em",
+              fontFamily: "var(--font-space), system-ui, sans-serif",
+            }}>
+              Start Live Call
+            </button>
+          </Link>
+          <button
+            onClick={() => {
+              onClose();
+              document.getElementById("upload-section")?.scrollIntoView({ behavior: "smooth" });
+            }}
+            style={{
+              width: "100%", padding: "13px",
+              background: "transparent", color: "#B8A878",
+              border: "1px solid rgba(184,168,120,0.2)", borderRadius: "8px",
+              fontWeight: 600, fontSize: "14px", cursor: "pointer",
+              letterSpacing: "0.04em",
+              fontFamily: "var(--font-space), system-ui, sans-serif",
+            }}
+          >
+            Upload a Call Recording
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1079,7 +1175,20 @@ function DashboardHome({
 type Tab = "dashboard" | "calls" | "analytics" | "coaching" | "agents";
 
 export default function DashboardPage() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
+
+  // Welcome modal — shown once after successful Stripe checkout
+  const [showWelcome, setShowWelcome] = useState(false);
+  useEffect(() => {
+    if (searchParams.get("welcome") === "true") {
+      const alreadySeen = sessionStorage.getItem("spear_welcome_seen");
+      if (!alreadySeen) {
+        setShowWelcome(true);
+        sessionStorage.setItem("spear_welcome_seen", "1");
+      }
+    }
+  }, [searchParams]);
 
   // Analysis state (used in DashboardHome)
   const [isAnalyzing, setIsAnalyzing]         = useState(false);
@@ -1146,12 +1255,14 @@ export default function DashboardPage() {
 
   const consentReq = getConsentRequirement(null);
 
-  const NAV: { id: Tab; label: string; Icon: React.ElementType }[] = [
-    { id: "dashboard", label: "Dashboard",  Icon: LayoutDashboard },
-    { id: "calls",     label: "Calls",       Icon: Phone           },
-    { id: "analytics", label: "Analytics",   Icon: BarChart3       },
-    { id: "coaching",  label: "Coaching",    Icon: BookOpen        },
-    { id: "agents",    label: "Agents",      Icon: Users           },
+  const { hasFeature } = useSubscription();
+
+  const NAV: { id: Tab; label: string; Icon: React.ElementType; feature: Feature }[] = [
+    { id: "dashboard", label: "Dashboard", Icon: LayoutDashboard, feature: "call_upload"  },
+    { id: "calls",     label: "Calls",     Icon: Phone,           feature: "call_history" },
+    { id: "analytics", label: "Analytics", Icon: BarChart3,       feature: "analytics"    },
+    { id: "coaching",  label: "Coaching",  Icon: BookOpen,        feature: "coaching_hub" },
+    { id: "agents",    label: "Agents",    Icon: Users,           feature: "agents_tab"   },
   ];
 
   const tabTitle: Record<Tab, string> = {
@@ -1162,6 +1273,8 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-col h-screen bg-zinc-950 overflow-hidden">
       <RegulatoryBanner />
+
+      {showWelcome && <WelcomeModal onClose={() => setShowWelcome(false)} />}
 
       {showConsentModal && (
         <ConsentModal consentReq={consentReq} sessionId={sessionIdRef.current}
@@ -1186,17 +1299,21 @@ export default function DashboardPage() {
               Live Call
             </Link>
 
-            {NAV.map(({ id, label, Icon }) => (
-              <button key={id} type="button" onClick={() => setActiveTab(id)}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                  activeTab === id
-                    ? "bg-blue-600/15 text-blue-300 border border-blue-500/20"
-                    : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 border border-transparent"
-                }`}>
-                <Icon className="h-4 w-4 shrink-0" />
-                {label}
-              </button>
-            ))}
+            {NAV.map(({ id, label, Icon, feature }) => {
+              const locked = !hasFeature(feature);
+              return (
+                <button key={id} type="button" onClick={() => setActiveTab(id)}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                    activeTab === id
+                      ? "bg-blue-600/15 text-blue-300 border border-blue-500/20"
+                      : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 border border-transparent"
+                  }`}>
+                  {locked ? <Lock className="h-4 w-4 shrink-0 text-zinc-600" /> : <Icon className="h-4 w-4 shrink-0" />}
+                  {label}
+                  {locked && <PlanBadge plan={FEATURE_MIN_PLAN[feature]} />}
+                </button>
+              );
+            })}
           </nav>
 
           <div className="px-3 pb-3">
@@ -1245,12 +1362,32 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            {/* Tab content */}
-            {activeTab === "dashboard"  && <DashboardHome isAnalyzing={isAnalyzing} analyzeStep={analyzeStep} result={result} error={error} selectedFileName={selectedFileName} isDragging={isDragging} fileInputRef={fileInputRef} resultRef={resultRef} handleFileChange={handleFileChange} handleDragOver={handleDragOver} setIsDragging={setIsDragging} handleFile={handleFile} />}
-            {activeTab === "calls"      && <CallsTab />}
-            {activeTab === "analytics"  && <AnalyticsTab />}
-            {activeTab === "coaching"   && <CoachingTab />}
-            {activeTab === "agents"     && <AgentsTab />}
+            {/* Tab content — each wrapped in its feature gate */}
+            {activeTab === "dashboard"  && (
+              <FeatureGate feature="call_upload">
+                <DashboardHome isAnalyzing={isAnalyzing} analyzeStep={analyzeStep} result={result} error={error} selectedFileName={selectedFileName} isDragging={isDragging} fileInputRef={fileInputRef} resultRef={resultRef} handleFileChange={handleFileChange} handleDragOver={handleDragOver} setIsDragging={setIsDragging} handleFile={handleFile} />
+              </FeatureGate>
+            )}
+            {activeTab === "calls"      && (
+              <FeatureGate feature="call_history">
+                <CallsTab />
+              </FeatureGate>
+            )}
+            {activeTab === "analytics"  && (
+              <FeatureGate feature="analytics">
+                <AnalyticsTab />
+              </FeatureGate>
+            )}
+            {activeTab === "coaching"   && (
+              <FeatureGate feature="coaching_hub">
+                <CoachingTab />
+              </FeatureGate>
+            )}
+            {activeTab === "agents"     && (
+              <FeatureGate feature="agents_tab">
+                <AgentsTab />
+              </FeatureGate>
+            )}
           </div>
         </main>
       </div>

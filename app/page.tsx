@@ -263,7 +263,7 @@ interface PricingTier {
   ctaVariant: "outline" | "solid";
 }
 
-function PricingCard({ tier, annual, onCTA }: { tier: PricingTier; annual: boolean; onCTA: () => void }) {
+function PricingCard({ tier, annual, onCTA, loading = false }: { tier: PricingTier; annual: boolean; onCTA: () => void; loading?: boolean }) {
   const isPopular = !!tier.popular;
   const isCustom = tier.monthlyPrice === "Custom";
   const price = annual ? tier.annualPrice : tier.monthlyPrice;
@@ -380,20 +380,33 @@ function PricingCard({ tier, annual, onCTA }: { tier: PricingTier; annual: boole
 
       {/* CTA */}
       <motion.button
-        onClick={onCTA}
-        whileHover={{ scale: 1.02, boxShadow: tier.ctaVariant === "solid" ? `0 0 28px rgba(37,99,235,0.4)` : `0 0 20px rgba(255,255,255,0.06)` }}
-        whileTap={{ scale: 0.98 }}
+        onClick={loading ? undefined : onCTA}
+        whileHover={loading ? {} : { scale: 1.02, boxShadow: tier.ctaVariant === "solid" ? `0 0 28px rgba(37,99,235,0.4)` : `0 0 20px rgba(255,255,255,0.06)` }}
+        whileTap={loading ? {} : { scale: 0.98 }}
         style={{
           width: "100%", padding: "13px 0", fontSize: "13px", fontWeight: 700,
-          letterSpacing: "0.06em", cursor: "pointer", borderRadius: "6px",
+          letterSpacing: "0.06em", cursor: loading ? "not-allowed" : "pointer", borderRadius: "6px",
           fontFamily: "var(--font-space)", border: "none",
           backgroundColor: tier.ctaVariant === "solid" ? BLUE : "transparent",
-          color: CREAM,
+          color: CREAM, opacity: loading ? 0.7 : 1,
           outline: tier.ctaVariant === "outline" ? `1px solid rgba(255,255,255,0.18)` : "none",
-          transition: "background-color 0.2s",
+          transition: "background-color 0.2s, opacity 0.2s",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
         }}
       >
-        {tier.cta}
+        {loading ? (
+          <>
+            <span
+              className="animate-btn-spin"
+              style={{
+                width: "13px", height: "13px", borderRadius: "50%",
+                border: "2px solid rgba(184,168,120,0.25)",
+                borderTopColor: CREAM, flexShrink: 0,
+              }}
+            />
+            Loading…
+          </>
+        ) : tier.cta}
       </motion.button>
     </motion.div>
   );
@@ -1192,26 +1205,42 @@ function DemoModal({ onClose }: { onClose: () => void }) {
 export default function Page() {
   const [annual, setAnnual] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
-  const [waitlistPlan, setWaitlistPlan] = useState<string | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { setDemoOpen(false); setWaitlistPlan(null); }
+      if (e.key === "Escape") setDemoOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  async function handleCheckout(planName: string) {
+    setLoadingPlan(planName);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planName, annual }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error("Stripe checkout error:", data.error);
+        setLoadingPlan(null);
+      }
+    } catch (err) {
+      console.error("Checkout failed:", err);
+      setLoadingPlan(null);
+    }
+  }
 
   return (
     <div style={{ backgroundColor: BG, color: CREAM, fontFamily: "var(--font-space)" }}>
 
       {/* ── DEMO MODAL ───────────────────────────────────── */}
       {demoOpen && <DemoModal onClose={() => setDemoOpen(false)} />}
-
-      {/* ── WAITLIST MODAL ───────────────────────────────── */}
-      {waitlistPlan !== null && (
-        <WaitlistModal plan={waitlistPlan} onClose={() => setWaitlistPlan(null)} />
-      )}
 
       {/* ── NAV ─────────────────────────────────────────── */}
       <motion.nav
@@ -1841,10 +1870,11 @@ export default function Page() {
                 key={tier.name}
                 tier={tier}
                 annual={annual}
+                loading={loadingPlan === tier.name}
                 onCTA={
                   tier.cta === "Talk to Us"
                     ? () => { window.location.href = "mailto:Mj3mcginnis@gmail.com?subject=Spear Enterprise Inquiry"; }
-                    : () => setWaitlistPlan(tier.name)
+                    : () => handleCheckout(tier.name)
                 }
               />
             ))}
@@ -1859,6 +1889,62 @@ export default function Page() {
             <p style={{ textAlign: "center", fontSize: "11px", color: WARM_GRAY, marginTop: "32px", lineHeight: 1.7 }}>
               All plans billed in USD. Cancel anytime. Enterprise pricing based on seat count and contract term.
             </p>
+          </Reveal>
+
+          {/* Trust signals */}
+          <Reveal delay={0.4}>
+            <div style={{
+              display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center",
+              gap: "28px", marginTop: "36px",
+              padding: "20px 24px",
+              border: `1px solid rgba(37,99,235,0.1)`,
+              borderRadius: "10px",
+              background: "rgba(8,15,30,0.6)",
+            }}>
+              {/* Stripe badge */}
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <svg width="20" height="20" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="40" height="40" rx="6" fill="#635BFF" />
+                  <path d="M17.2 16.1c0-.9.8-1.3 2-.1l3.9 2.1V15c-.7-.3-1.7-.5-3-.5-3.1 0-5.2 1.6-5.2 4.3 0 4.2 5.8 3.5 5.8 5.3 0 1-.9 1.4-2.2.3L15 22.3v3.1c.8.4 1.8.6 3 .6 3.1 0 5.3-1.5 5.3-4.3 0-4.4-5.9-3.7-5.9-5.3-.1-.1-.1-.3-.2-.3z" fill="white"/>
+                </svg>
+                <span style={{ fontSize: "12px", color: WARM_GRAY, fontWeight: 600 }}>Payments secured by Stripe</span>
+              </div>
+
+              <div style={{ width: "1px", height: "20px", background: "rgba(37,99,235,0.15)" }} />
+
+              {/* SSL */}
+              <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+                <svg width="14" height="16" viewBox="0 0 14 16" fill="none">
+                  <path d="M7 0L1 2.5V7c0 3.6 2.6 6.9 6 7.8 3.4-.9 6-4.2 6-7.8V2.5L7 0z" fill="rgba(37,99,235,0.3)" stroke="rgba(37,99,235,0.6)" strokeWidth="0.8"/>
+                  <path d="M4.5 8l1.5 1.5L9.5 6" stroke={BLUE} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span style={{ fontSize: "12px", color: WARM_GRAY, fontWeight: 600 }}>256-bit SSL encryption</span>
+              </div>
+
+              <div style={{ width: "1px", height: "20px", background: "rgba(37,99,235,0.15)" }} />
+
+              {/* Cancel anytime */}
+              <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <circle cx="7" cy="7" r="6" stroke="rgba(37,99,235,0.5)" strokeWidth="1"/>
+                  <path d="M4.5 7l2 2 3-3" stroke={BLUE} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span style={{ fontSize: "12px", color: WARM_GRAY, fontWeight: 600 }}>Cancel anytime — no contracts, no fees</span>
+              </div>
+
+              <div style={{ width: "1px", height: "20px", background: "rgba(37,99,235,0.15)" }} />
+
+              {/* Questions email */}
+              <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+                <svg width="14" height="12" viewBox="0 0 14 12" fill="none">
+                  <rect x="0.5" y="0.5" width="13" height="11" rx="1.5" stroke="rgba(37,99,235,0.5)" strokeWidth="1"/>
+                  <path d="M1 1.5l6 4.5 6-4.5" stroke={BLUE} strokeWidth="1" strokeLinecap="round"/>
+                </svg>
+                <a href="mailto:Mj3mcginnis@gmail.com" style={{ fontSize: "12px", color: WARM_GRAY, fontWeight: 600, textDecoration: "none" }}>
+                  Questions? Mj3mcginnis@gmail.com
+                </a>
+              </div>
+            </div>
           </Reveal>
         </div>
       </section>

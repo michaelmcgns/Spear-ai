@@ -1,197 +1,322 @@
-import Link from "next/link";
-import { login } from "@/app/auth/actions";
-import { Sword, BarChart3, Brain, MessageSquare, Mic } from "lucide-react";
+"use client";
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string; message?: string }>;
-}) {
-  const params = await searchParams;
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { login } from "@/app/auth/actions";
+import { useFormStatus } from "react-dom";
+import { useState, Suspense } from "react";
+import { Eye, EyeOff, BarChart3, Brain, MessageSquare, Mic } from "lucide-react";
+
+const CREAM = "#B8A878";
+const GOLD  = "#C9A84C";
+const BLUE  = "#2563EB";
+const BG    = "#0B1221";
+const CARD  = "#0D1527";
+
+const features = [
+  { icon: BarChart3, text: "NEPQ Phase Scoring across 7 phases" },
+  { icon: Brain,     text: "DISC Buyer Profiling from language and tone" },
+  { icon: MessageSquare, text: "Objection detection with NEPQ responses" },
+  { icon: Mic,       text: "Talk Ratio Analysis — stop pitching, start closing" },
+];
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      style={{
+        width: "100%",
+        padding: "12px",
+        borderRadius: "8px",
+        background: pending ? "#1A3A7A" : BLUE,
+        color: "#fff",
+        fontWeight: 700,
+        fontSize: "14px",
+        letterSpacing: "0.03em",
+        border: "none",
+        cursor: pending ? "not-allowed" : "pointer",
+        transition: "background 0.2s",
+        marginTop: "8px",
+      }}
+    >
+      {pending ? "Signing in…" : "Sign In"}
+    </button>
+  );
+}
+
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const error   = searchParams.get("error");
+  const message = searchParams.get("message");
+  const [showPass, setShowPass] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-zinc-950">
-      {/* Left brand panel */}
-      <div className="relative hidden lg:flex lg:w-1/2 flex-col justify-between p-12 overflow-hidden border-r border-zinc-800">
-        {/* Ambient glow */}
-        <div className="absolute -top-32 -left-32 h-96 w-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 right-0 h-64 w-64 bg-purple-600/5 rounded-full blur-3xl pointer-events-none" />
+    <div style={{ display: "flex", minHeight: "100vh", background: BG }}>
+      {/* ── Left brand panel ── */}
+      <div
+        style={{
+          display: "none",
+          width: "50%",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          padding: "48px",
+          borderRight: `1px solid rgba(201,168,76,0.12)`,
+          position: "relative",
+          overflow: "hidden",
+        }}
+        className="lg-panel"
+      >
+        {/* ambient glows */}
+        <div style={{
+          position: "absolute", top: "-80px", left: "-80px",
+          width: "320px", height: "320px",
+          background: "rgba(37,99,235,0.06)", borderRadius: "50%",
+          filter: "blur(60px)", pointerEvents: "none",
+        }} />
+        <div style={{
+          position: "absolute", bottom: "0", right: "0",
+          width: "240px", height: "240px",
+          background: "rgba(201,168,76,0.04)", borderRadius: "50%",
+          filter: "blur(50px)", pointerEvents: "none",
+        }} />
 
-        <div className="relative">
-          <div className="flex items-center gap-2.5 mb-16">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/20 border border-indigo-500/30">
-              <Sword className="h-5 w-5 text-indigo-400" />
+        <div style={{ position: "relative" }}>
+          {/* Logo */}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "56px" }}>
+            <div style={{
+              width: "36px", height: "36px",
+              background: "rgba(201,168,76,0.12)",
+              border: `1px solid rgba(201,168,76,0.25)`,
+              borderRadius: "8px",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <span style={{ color: GOLD, fontWeight: 900, fontSize: "14px" }}>S</span>
             </div>
             <div>
-              <p className="text-base font-bold text-white">Spear</p>
-              <p className="text-[10px] text-zinc-500 leading-tight">
-                AI Sales Co-Pilot
-              </p>
+              <p style={{ color: CREAM, fontWeight: 800, fontSize: "16px", letterSpacing: "0.12em" }}>SPEAR</p>
+              <p style={{ color: "rgba(184,168,120,0.5)", fontSize: "10px", letterSpacing: "0.08em" }}>AI SALES CO-PILOT</p>
             </div>
           </div>
 
-          <h2 className="text-3xl font-bold text-white mb-4 leading-tight">
-            The last call coaching
-            <br />
-            tool your team will need.
+          <h2 style={{ fontSize: "30px", fontWeight: 700, color: CREAM, lineHeight: 1.3, marginBottom: "16px" }}>
+            The last call coaching<br />tool your team will need.
           </h2>
-          <p className="text-sm text-zinc-400 mb-10 leading-relaxed max-w-sm">
-            NEPQ scoring. DISC profiling. Objection detection. Talk ratio
-            analysis. After every call, automatically.
+          <p style={{ fontSize: "14px", color: "rgba(184,168,120,0.7)", marginBottom: "40px", lineHeight: 1.7, maxWidth: "340px" }}>
+            NEPQ scoring. DISC profiling. Objection detection. Talk ratio analysis. After every call, automatically.
           </p>
 
-          <div className="space-y-4">
-            {[
-              {
-                icon: BarChart3,
-                text: "NEPQ Phase Scoring across 7 phases",
-                color: "text-indigo-400",
-              },
-              {
-                icon: Brain,
-                text: "DISC Buyer Profiling from language and tone",
-                color: "text-purple-400",
-              },
-              {
-                icon: MessageSquare,
-                text: "Objection detection with ideal NEPQ responses",
-                color: "text-red-400",
-              },
-              {
-                icon: Mic,
-                text: "Talk Ratio Analysis — stop pitching, start closing",
-                color: "text-amber-400",
-              },
-            ].map(({ icon: Icon, text, color }) => (
-              <div key={text} className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-md bg-zinc-800 border border-zinc-700 shrink-0">
-                  <Icon className={`h-3 w-3 ${color}`} />
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            {features.map(({ icon: Icon, text }) => (
+              <div key={text} style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                <div style={{
+                  width: "28px", height: "28px", borderRadius: "6px",
+                  background: "rgba(201,168,76,0.08)",
+                  border: `1px solid rgba(201,168,76,0.15)`,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <Icon size={13} color={GOLD} />
                 </div>
-                <p className="text-sm text-zinc-300">{text}</p>
+                <p style={{ fontSize: "13px", color: "rgba(184,168,120,0.8)", lineHeight: 1.5, paddingTop: "4px" }}>{text}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="relative rounded-xl border border-zinc-800 bg-zinc-900/80 p-5">
-          <p className="text-sm text-zinc-200 leading-relaxed italic mb-3">
+        {/* Testimonial */}
+        <div style={{
+          position: "relative",
+          borderRadius: "12px",
+          border: `1px solid rgba(201,168,76,0.12)`,
+          background: "rgba(13,21,39,0.8)",
+          padding: "20px",
+        }}>
+          <div style={{ display: "flex", gap: "2px", marginBottom: "12px" }}>
+            {[...Array(5)].map((_, i) => (
+              <span key={i} style={{ color: GOLD, fontSize: "12px" }}>★</span>
+            ))}
+          </div>
+          <p style={{ fontSize: "13px", color: CREAM, lineHeight: 1.7, fontStyle: "italic", marginBottom: "16px" }}>
             &ldquo;Spear took our team from a 28% close rate to 41% in 60 days.
-            Every agent gets coached after every call now — not just the ones
-            the manager has time to review.&rdquo;
+            Every agent gets coached after every call now — not just the ones the manager has time to review.&rdquo;
           </p>
-          <div className="flex items-center gap-2.5">
-            <div className="h-7 w-7 rounded-full bg-indigo-500/30 border border-indigo-500/40 flex items-center justify-center text-xs font-bold text-indigo-300">
-              M
-            </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{
+              width: "32px", height: "32px", borderRadius: "50%",
+              background: `rgba(201,168,76,0.15)`,
+              border: `1px solid rgba(201,168,76,0.25)`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontWeight: 700, fontSize: "13px", color: GOLD,
+            }}>M</div>
             <div>
-              <p className="text-xs font-semibold text-zinc-200">
-                Marcus T.
-              </p>
-              <p className="text-[10px] text-zinc-500">
-                Agency Owner, Enhance Companies
-              </p>
+              <p style={{ fontSize: "13px", fontWeight: 600, color: CREAM }}>Marcus T.</p>
+              <p style={{ fontSize: "11px", color: "rgba(184,168,120,0.5)" }}>Agency Owner, Enhance Companies</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Right form panel */}
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
-        <div className="w-full max-w-sm">
+      {/* ── Right form panel ── */}
+      <div style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "48px 24px",
+      }}>
+        <div style={{ width: "100%", maxWidth: "380px" }}>
           {/* Mobile logo */}
-          <div className="flex items-center gap-2 mb-10 lg:hidden">
-            <Sword className="h-5 w-5 text-indigo-400" />
-            <span className="text-sm font-bold text-white">Spear</span>
-          </div>
-
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-white">Welcome back</h1>
-            <p className="mt-1.5 text-sm text-zinc-400">
-              Sign in to your account
-            </p>
-          </div>
-
-          {process.env.NEXT_PUBLIC_BYPASS_AUTH === "true" && (
-            <div className="mb-6 rounded-lg border border-amber-500/25 bg-amber-500/10 px-4 py-3">
-              <p className="text-xs text-amber-300">
-                <span className="font-semibold">Demo mode active.</span>{" "}
-                <Link
-                  href="/dashboard"
-                  className="underline hover:text-amber-200"
-                >
-                  Go directly to dashboard →
-                </Link>
-              </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "40px" }}>
+            <div style={{
+              width: "32px", height: "32px",
+              background: "rgba(201,168,76,0.12)",
+              border: `1px solid rgba(201,168,76,0.2)`,
+              borderRadius: "7px",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <span style={{ color: GOLD, fontWeight: 900, fontSize: "13px" }}>S</span>
             </div>
-          )}
+            <span style={{ color: CREAM, fontWeight: 800, fontSize: "15px", letterSpacing: "0.1em" }}>SPEAR</span>
+          </div>
 
-          <form action={login} className="space-y-4">
+          <div style={{ marginBottom: "32px" }}>
+            <h1 style={{ fontSize: "26px", fontWeight: 700, color: CREAM, marginBottom: "8px" }}>Welcome back</h1>
+            <p style={{ fontSize: "14px", color: "rgba(184,168,120,0.6)" }}>Sign in to your account</p>
+          </div>
+
+          <form action={login} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {/* Email */}
             <div>
-              <label
-                htmlFor="email"
-                className="mb-1.5 block text-sm font-medium text-zinc-300"
-              >
-                Email
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: CREAM, marginBottom: "6px", letterSpacing: "0.03em" }}>
+                Email address
               </label>
               <input
-                id="email"
                 name="email"
                 type="email"
                 required
                 placeholder="you@example.com"
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 transition focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  border: `1px solid rgba(201,168,76,0.15)`,
+                  background: CARD,
+                  color: CREAM,
+                  fontSize: "14px",
+                  outline: "none",
+                  transition: "border-color 0.2s",
+                }}
+                onFocus={e => (e.currentTarget.style.borderColor = "rgba(201,168,76,0.4)")}
+                onBlur={e  => (e.currentTarget.style.borderColor = "rgba(201,168,76,0.15)")}
               />
             </div>
 
+            {/* Password */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-zinc-300"
-                >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                <label style={{ fontSize: "13px", fontWeight: 600, color: CREAM, letterSpacing: "0.03em" }}>
                   Password
                 </label>
+                <Link href="/forgot-password" style={{ fontSize: "12px", color: GOLD, textDecoration: "none" }}>
+                  Forgot password?
+                </Link>
               </div>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                placeholder="••••••••"
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 transition focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
+              <div style={{ position: "relative" }}>
+                <input
+                  name="password"
+                  type={showPass ? "text" : "password"}
+                  required
+                  placeholder="••••••••"
+                  style={{
+                    width: "100%",
+                    padding: "10px 40px 10px 14px",
+                    borderRadius: "8px",
+                    border: `1px solid rgba(201,168,76,0.15)`,
+                    background: CARD,
+                    color: CREAM,
+                    fontSize: "14px",
+                    outline: "none",
+                    transition: "border-color 0.2s",
+                  }}
+                  onFocus={e => (e.currentTarget.style.borderColor = "rgba(201,168,76,0.4)")}
+                  onBlur={e  => (e.currentTarget.style.borderColor = "rgba(201,168,76,0.15)")}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass(p => !p)}
+                  style={{
+                    position: "absolute", right: "12px", top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "rgba(184,168,120,0.5)", padding: "0",
+                    display: "flex", alignItems: "center",
+                  }}
+                >
+                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
-            {params.error && (
-              <div className="rounded-lg border border-red-800/50 bg-red-950/30 px-3.5 py-2.5 text-sm text-red-300">
-                {params.error}
+            {/* Error / message banners */}
+            {error && (
+              <div style={{
+                borderRadius: "8px",
+                border: "1px solid rgba(239,68,68,0.3)",
+                background: "rgba(239,68,68,0.08)",
+                padding: "10px 14px",
+                fontSize: "13px",
+                color: "#FCA5A5",
+              }}>
+                {error}
               </div>
             )}
-            {params.message && (
-              <div className="rounded-lg border border-emerald-800/50 bg-emerald-950/30 px-3.5 py-2.5 text-sm text-emerald-300">
-                {params.message}
+            {message && (
+              <div style={{
+                borderRadius: "8px",
+                border: "1px solid rgba(34,197,94,0.3)",
+                background: "rgba(34,197,94,0.08)",
+                padding: "10px 14px",
+                fontSize: "13px",
+                color: "#86EFAC",
+              }}>
+                {message}
               </div>
             )}
 
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:ring-offset-2 focus:ring-offset-zinc-950 mt-2"
-            >
-              Sign in
-            </button>
+            <SubmitButton />
           </form>
 
-          <p className="mt-6 text-center text-sm text-zinc-500">
+          {/* Divider */}
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", margin: "24px 0" }}>
+            <div style={{ flex: 1, height: "1px", background: "rgba(201,168,76,0.1)" }} />
+            <span style={{ fontSize: "12px", color: "rgba(184,168,120,0.4)" }}>or</span>
+            <div style={{ flex: 1, height: "1px", background: "rgba(201,168,76,0.1)" }} />
+          </div>
+
+          <p style={{ textAlign: "center", fontSize: "13px", color: "rgba(184,168,120,0.6)" }}>
             Don&apos;t have an account?{" "}
-            <Link
-              href="/signup"
-              className="text-indigo-400 hover:text-indigo-300 transition-colors"
-            >
-              Sign up
+            <Link href="/signup" style={{ color: GOLD, fontWeight: 600, textDecoration: "none" }}>
+              Create one free →
             </Link>
           </p>
         </div>
       </div>
+
+      <style>{`
+        @media (min-width: 1024px) {
+          .lg-panel { display: flex !important; }
+        }
+      `}</style>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

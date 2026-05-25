@@ -154,6 +154,14 @@ body {
   to   { opacity: 1; transform: translateX(0); }
 }
 
+/* Button loading spinner */
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+.animate-btn-spin {
+  animation: btn-spin 0.65s linear infinite;
+}
+
 /* ── Hero watermark ────────────────────────────────────────────────── */
 .hero-watermark::before {
   content: '';
