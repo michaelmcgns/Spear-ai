@@ -120,7 +120,7 @@ export function FeatureGate({ feature, children, fallback }: FeatureGateProps) {
             style={{
               width: "100%", padding: "12px",
               background: checkoutLoading ? "rgba(201,168,76,0.4)" : GOLD,
-              color: BG, border: "none", borderRadius: "8px",
+              color: "#0a1628", border: "none", borderRadius: "8px",
               fontWeight: 800, fontSize: "13px", letterSpacing: "0.06em",
               cursor: checkoutLoading ? "not-allowed" : "pointer",
               fontFamily: "var(--font-space), system-ui, sans-serif",
@@ -130,7 +130,7 @@ export function FeatureGate({ feature, children, fallback }: FeatureGateProps) {
           >
             {checkoutLoading ? (
               <>
-                <span style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid rgba(0,0,0,0.2)", borderTopColor: BG, animation: "btn-spin 0.65s linear infinite", display: "inline-block" }} />
+                <span style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid rgba(10,22,40,0.2)", borderTopColor: "#0a1628", animation: "btn-spin 0.65s linear infinite", display: "inline-block" }} />
                 Loading…
               </>
             ) : `Upgrade to ${planMeta.label} — ${planMeta.price}`}
