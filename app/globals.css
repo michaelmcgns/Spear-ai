@@ -67,6 +67,12 @@ body {
   color: #B8A878 !important;
 }
 
+/* Upgrade button needs dark text on gold background */
+.upgrade-btn,
+.upgrade-btn * {
+  color: #0a1628 !important;
+}
+
 /* ── Scrollbar ─────────────────────────────────────────────────────── */
 ::-webkit-scrollbar          { width: 3px; }
 ::-webkit-scrollbar-track    { background: var(--bg); }

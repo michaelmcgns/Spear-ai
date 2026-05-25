@@ -117,10 +117,11 @@ export function FeatureGate({ feature, children, fallback }: FeatureGateProps) {
           <button
             onClick={handleUpgrade}
             disabled={checkoutLoading}
+            className="upgrade-btn"
             style={{
               width: "100%", padding: "12px",
               background: checkoutLoading ? "rgba(201,168,76,0.4)" : GOLD,
-              color: "#0a1628", border: "none", borderRadius: "8px",
+              border: "none", borderRadius: "8px",
               fontWeight: 800, fontSize: "13px", letterSpacing: "0.06em",
               cursor: checkoutLoading ? "not-allowed" : "pointer",
               fontFamily: "var(--font-space), system-ui, sans-serif",
