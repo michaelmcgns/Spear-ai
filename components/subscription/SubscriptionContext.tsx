@@ -20,24 +20,46 @@ const DEFAULT: SubscriptionState = {
 
 const Ctx = createContext<SubscriptionState>(DEFAULT);
 
+async function fetchSub(): Promise<SubscriptionState> {
+  const data = await fetch("/api/subscription").then(r => r.json());
+  const plan = (data.plan ?? "free") as Plan;
+  return {
+    plan,
+    status:           data.status           ?? "inactive",
+    features:         data.features         ?? [],
+    currentPeriodEnd: data.currentPeriodEnd ?? null,
+    loading:          false,
+    hasFeature:       (f: Feature) => planHasFeature(plan, f),
+  };
+}
+
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<SubscriptionState>(DEFAULT);
 
   useEffect(() => {
-    fetch("/api/subscription")
-      .then(r => r.json())
-      .then(data => {
-        const plan = (data.plan ?? "free") as Plan;
-        setState({
-          plan,
-          status:           data.status           ?? "inactive",
-          features:         data.features         ?? [],
-          currentPeriodEnd: data.currentPeriodEnd ?? null,
-          loading:          false,
-          hasFeature:       (f: Feature) => planHasFeature(plan, f),
-        });
-      })
+    // Check if we just returned from a Stripe checkout
+    const justPurchased = typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("welcome") === "true";
+
+    fetchSub()
+      .then(s => setState(s))
       .catch(() => setState(s => ({ ...s, loading: false })));
+
+    // Webhook fires async after redirect — poll until plan upgrades (max 12s)
+    if (justPurchased) {
+      let attempts = 0;
+      const interval = setInterval(async () => {
+        attempts++;
+        try {
+          const s = await fetchSub();
+          setState(s);
+          if (s.plan !== "free" || attempts >= 6) clearInterval(interval);
+        } catch {
+          if (attempts >= 6) clearInterval(interval);
+        }
+      }, 2000);
+      return () => clearInterval(interval);
+    }
   }, []);
 
   return <Ctx.Provider value={state}>{children}</Ctx.Provider>;
