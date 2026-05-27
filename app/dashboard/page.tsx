@@ -1,8 +1,9 @@
 "use client";
 
-import React, { Suspense, useRef, useState, useCallback, useEffect } from "react";
+import React, { Suspense, useRef, useState, useCallback, useEffect, createContext, useContext } from "react";
 import { useSearchParams } from "next/navigation";
 import { logout } from "@/app/auth/actions";
+import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard, Phone, BarChart3, BookOpen, Users,
   Settings, LogOut, Upload, TrendingUp, CheckCircle2, AlertTriangle,
@@ -289,6 +290,66 @@ const DASHBOARD_STATS = [
   { label: "Revenue Influenced", value: "$238,400", change: "+9.7% this month" },
 ];
 
+// ─── Dashboard data context ───────────────────────────────────────────────────
+
+interface RawCallSession {
+  id: string; created_at: string; duration_seconds: number;
+  outcome: string; overall_score: number | null;
+  disc_profile_detected: string | null;
+  objections_raised: unknown[];
+  nepq_phases_completed: Record<string, { score?: number }>;
+  talk_ratio_agent: number | null; notes: string | null;
+}
+
+interface DashboardData {
+  userId:    string | null;
+  calls:     CallRecord[];
+  hasReal:   boolean;   // true once we have at least 1 real call
+  loading:   boolean;
+  totalCalls: number; closeRate: number; avgScore: string; objectionsCaught: number;
+}
+
+const DashboardDataCtx = createContext<DashboardData>({
+  userId: null, calls: MOCK_CALLS, hasReal: false, loading: true,
+  totalCalls: 0, closeRate: 0, avgScore: "—", objectionsCaught: 0,
+});
+
+function useDashboardData() { return useContext(DashboardDataCtx); }
+
+function fmtSec(sec: number): string {
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function sessionToRecord(s: RawCallSession, i: number): CallRecord {
+  const dt = new Date(s.created_at);
+  const phaseMap: Record<string, string> = {
+    connection: "Connection", situation: "Situation",
+    problemAwareness: "Problem Awareness", consequence: "Consequence",
+    solutionAwareness: "Solution Awareness", qualifying: "Qualifying", close: "Close",
+  };
+  const phases = s.nepq_phases_completed ?? {};
+  let lastPhase = "Connection";
+  for (const key of Object.keys(phaseMap)) {
+    if ((phases[key] as { score?: number } | undefined)?.score != null) lastPhase = phaseMap[key];
+  }
+  const outcome = s.outcome === "closed" ? "closed" : s.outcome === "not_closed" ? "lost" : "pending";
+  return {
+    id: i + 1,
+    date: dt.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    time: dt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+    prospect: `Call ${i + 1}`,
+    duration: fmtSec(s.duration_seconds ?? 0),
+    durationSec: s.duration_seconds ?? 0,
+    score: s.overall_score ?? 0,
+    disc: (s.disc_profile_detected as "D" | "I" | "S" | "C") ?? "S",
+    objectionCount: (s.objections_raised as unknown[])?.length ?? 0,
+    phase: lastPhase, outcome, revenue: null, product: "Call Recording",
+    topIssue: s.notes ?? null,
+    talkRatio: Math.round(s.talk_ratio_agent ?? 50),
+  };
+}
+
 // ─── Shared micro-components ──────────────────────────────────────────────────
 
 function ScoreBadge({ score }: { score: number }) {
@@ -317,12 +378,31 @@ function DiscPill({ disc }: { disc: "D" | "I" | "S" | "C" }) {
 // ─── Calls Tab ────────────────────────────────────────────────────────────────
 
 function CallsTab() {
+  const { calls, hasReal, loading } = useDashboardData();
   const [search, setSearch]             = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState<"all" | "closed" | "lost">("all");
   const [sortKey, setSortKey]           = useState<"date" | "score" | "duration">("date");
   const [expandedId, setExpandedId]     = useState<number | null>(null);
 
-  const filtered = MOCK_CALLS
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="h-6 w-6 rounded-full border-2 border-zinc-700 border-t-blue-500 animate-spin" />
+    </div>
+  );
+
+  if (!hasReal) return (
+    <div className="flex flex-col items-center justify-center h-64 text-center gap-4">
+      <div className="h-12 w-12 rounded-full bg-zinc-800 flex items-center justify-center">
+        <Phone className="h-5 w-5 text-zinc-600" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-zinc-300">No calls yet</p>
+        <p className="text-xs text-zinc-600 mt-1">Upload a recording or start a Live Call — your history will appear here.</p>
+      </div>
+    </div>
+  );
+
+  const filtered = calls
     .filter(c => outcomeFilter === "all" || c.outcome === outcomeFilter)
     .filter(c =>
       c.prospect.toLowerCase().includes(search.toLowerCase()) ||
@@ -915,15 +995,29 @@ function DashboardHome({
     ? (Object.values(result.nepqPhases).reduce((a, p) => a + p.score, 0) / 7).toFixed(1)
     : null;
 
+  const { calls, hasReal, totalCalls, closeRate, avgScore, objectionsCaught } = useDashboardData();
+  const recentCalls = hasReal ? calls.slice(0, 4) : MOCK_CALLS.slice(0, 4);
+
+  const liveStats = hasReal
+    ? [
+        { label: "Total Calls",          value: totalCalls.toString(),      change: "all time" },
+        { label: "Avg Close Rate",        value: `${closeRate}%`,            change: "all calls" },
+        { label: "Avg Call Score",        value: avgScore,                   change: "/ 10" },
+        { label: "Objections Caught",     value: objectionsCaught.toString(), change: "all calls" },
+      ]
+    : DASHBOARD_STATS;
+
   return (
     <div className="space-y-5">
       {/* Stats */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        {DASHBOARD_STATS.map(s => (
+        {liveStats.map(s => (
           <div key={s.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
             <p className="text-[11px] text-zinc-500 uppercase tracking-wider">{s.label}</p>
             <p className="mt-2 text-2xl font-semibold text-white tracking-tight">{s.value}</p>
-            <p className="mt-1 text-xs text-emerald-400 flex items-center gap-1"><TrendingUp className="h-3 w-3" />{s.change}</p>
+            <p className="mt-1 text-xs text-zinc-500 flex items-center gap-1">
+              {hasReal ? s.change : <><TrendingUp className="h-3 w-3 text-emerald-400" /><span className="text-emerald-400">{s.change}</span></>}
+            </p>
           </div>
         ))}
       </div>
@@ -971,9 +1065,14 @@ function DashboardHome({
         </div>
 
         <div className="lg:col-span-2 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-          <h2 className="text-sm font-semibold text-white mb-5">Recent Calls</h2>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-sm font-semibold text-white">Recent Calls</h2>
+            {!hasReal && <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Demo</span>}
+          </div>
           <div className="space-y-2">
-            {MOCK_CALLS.slice(0, 4).map(call => (
+            {recentCalls.length === 0 ? (
+              <p className="text-xs text-zinc-600 text-center py-8">No calls yet — upload a recording to get started.</p>
+            ) : recentCalls.map(call => (
               <div key={call.id} className="flex items-center justify-between py-2 border-b border-zinc-800/60 last:border-0">
                 <div>
                   <p className="text-xs font-medium text-zinc-200">{call.prospect}</p>
@@ -984,7 +1083,8 @@ function DashboardHome({
                   <OutcomeBadge outcome={call.outcome} />
                 </div>
               </div>
-            ))}
+            ))
+            }
           </div>
         </div>
       </div>
@@ -1190,7 +1290,43 @@ function DashboardPage() {
     }
   }, [searchParams]);
 
-  // Analysis state (used in DashboardHome)
+  // ── Real data ──────────────────────────────────────────────────────────────
+  const [userId, setUserId]         = useState<string | null>(null);
+  const [realCalls, setRealCalls]   = useState<CallRecord[]>([]);
+  const [dashStats, setDashStats]   = useState({ totalCalls: 0, closeRate: 0, avgScore: "—", objectionsCaught: 0 });
+  const [dataLoading, setDataLoading] = useState(true);
+
+  useEffect(() => {
+    // Get real user ID (used when uploading calls)
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserId(user.id);
+    });
+
+    // Fetch real calls + stats
+    Promise.all([
+      fetch("/api/calls/list").then(r => r.json()),
+      fetch("/api/dashboard/stats").then(r => r.json()),
+    ]).then(([callsData, statsData]) => {
+      if (Array.isArray(callsData.calls) && callsData.calls.length > 0) {
+        setRealCalls((callsData.calls as RawCallSession[]).map(sessionToRecord));
+      }
+      setDashStats(statsData);
+    }).catch(console.error).finally(() => setDataLoading(false));
+  }, []);
+
+  const dashboardCtxValue: DashboardData = {
+    userId,
+    calls:     realCalls.length > 0 ? realCalls : MOCK_CALLS,
+    hasReal:   realCalls.length > 0,
+    loading:   dataLoading,
+    totalCalls:       dashStats.totalCalls,
+    closeRate:        dashStats.closeRate,
+    avgScore:         dashStats.avgScore,
+    objectionsCaught: dashStats.objectionsCaught,
+  };
+
+  // ── Analysis state ─────────────────────────────────────────────────────────
   const [isAnalyzing, setIsAnalyzing]         = useState(false);
   const [analyzeStep, setAnalyzeStep]         = useState("");
   const [result, setResult]                   = useState<SpearAnalysis | null>(null);
@@ -1215,6 +1351,7 @@ function DashboardPage() {
       const formData = new FormData();
       formData.append("audio", file);
       formData.append("sessionId", sessionIdRef.current);
+      if (userId) formData.append("agentId", userId);
       setTimeout(() => setAnalyzeStep("Transcribing call..."), 2000);
       setTimeout(() => setAnalyzeStep("Generating Spear report..."), 8000);
       const res = await fetch("/api/analyze-call", { method: "POST", body: formData });
@@ -1271,6 +1408,7 @@ function DashboardPage() {
   };
 
   return (
+    <DashboardDataCtx.Provider value={dashboardCtxValue}>
     <div className="flex flex-col h-screen bg-zinc-950 overflow-hidden">
       <RegulatoryBanner />
 
@@ -1392,6 +1530,7 @@ function DashboardPage() {
         </main>
       </div>
     </div>
+    </DashboardDataCtx.Provider>
   );
 }
 

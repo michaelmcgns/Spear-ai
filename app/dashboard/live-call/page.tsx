@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { createClient } from "@/lib/supabase/client";
 import {
   Phone, PhoneOff, Mic, MicOff, ArrowLeft,
   ThumbsUp, ThumbsDown, Brain,
@@ -177,6 +178,14 @@ export default function LiveCallPage() {
   const [talkRatio, setTalkRatio]     = useState({ agent: 50, prospect: 50 });
   const [duration, setDuration]       = useState(0);
   const [micError, setMicError]       = useState<string | null>(null);
+  const [userId, setUserId]           = useState<string>("demo-agent");
+
+  // Fetch real user ID on mount
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data: { user } }) => {
+      if (user?.id) setUserId(user.id);
+    });
+  }, []);
 
   const wsRef              = useRef<WebSocket | null>(null);
   const streamRef          = useRef<MediaStream | null>(null);
@@ -231,7 +240,7 @@ export default function LiveCallPage() {
           speaker,
           nepqPhase: NEPQ_PHASES[currentPhaseRef.current - 1].name,
           discProfile: discProfileRef.current,
-          agentId: "demo-agent",
+          agentId: userId,
         }),
       });
       console.log(`[Spear] /api/coaching/analyze → status=${res.status}`);
@@ -520,7 +529,7 @@ export default function LiveCallPage() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          agentId: "demo-agent",
+          agentId: userId,
           durationSeconds: duration,
           transcript,
           coachingCardsFired: cards,
