@@ -29,7 +29,9 @@ export async function getUserSubscription(): Promise<UserSubscription> {
       .from("subscriptions")
       .select("plan, status, stripe_customer_id, stripe_subscription_id, current_period_end")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (!data) return FREE;
 

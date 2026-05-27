@@ -75,6 +75,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cannot resolve user" }, { status: 422 });
   }
 
+  // Upsert by user_id so multiple test payments don't create duplicate rows
+  // (which would break .maybeSingle() reads). Update stripe IDs to latest sub.
   const { error } = await db.from("subscriptions").upsert({
     user_id:                userId,
     stripe_customer_id:     session.customer as string,
@@ -82,7 +84,7 @@ export async function POST(req: NextRequest) {
     plan,
     status:                 sub.status,
     current_period_end:     null,
-  }, { onConflict: "stripe_subscription_id" });
+  }, { onConflict: "user_id" });
 
   if (error) {
     console.error("[verify-session] Supabase upsert failed:", error);
