@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { createClient } from "@/lib/supabase/server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -35,14 +36,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Stamp the user's Supabase ID so the webhook can link the purchase without
+  // relying on email lookup (which requires service role key).
+  let userId: string | undefined;
+  let customerEmail: string | undefined;
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    userId = user?.id;
+    customerEmail = user?.email ?? undefined;
+  } catch {
+    // Best-effort — checkout still works; webhook falls back to email lookup
+  }
+
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${baseUrl}/dashboard?welcome=true`,
+    success_url: `${baseUrl}/dashboard?welcome=true&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url:  `${baseUrl}/#pricing`,
     allow_promotion_codes: true,
+    ...(customerEmail && { customer_email: customerEmail }),
+    ...(userId        && { client_reference_id: userId }),
     subscription_data: {
       metadata: { planName, annual: annual ? "true" : "false" },
     },

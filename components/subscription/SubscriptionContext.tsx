@@ -37,29 +37,44 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [state, setState] = useState<SubscriptionState>(DEFAULT);
 
   useEffect(() => {
-    // Check if we just returned from a Stripe checkout
-    const justPurchased = typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).get("welcome") === "true";
+    const params       = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    const justPurchased = params?.get("welcome") === "true";
+    const sessionId     = params?.get("session_id") ?? null;
 
+    // Always do an initial fetch
     fetchSub()
       .then(s => setState(s))
       .catch(() => setState(s => ({ ...s, loading: false })));
 
-    // Webhook fires async after redirect — poll until plan upgrades (max 12s)
-    if (justPurchased) {
-      let attempts = 0;
-      const interval = setInterval(async () => {
-        attempts++;
-        try {
-          const s = await fetchSub();
-          setState(s);
-          if (s.plan !== "free" || attempts >= 6) clearInterval(interval);
-        } catch {
-          if (attempts >= 6) clearInterval(interval);
-        }
-      }, 2000);
-      return () => clearInterval(interval);
+    if (!justPurchased) return;
+
+    // Primary path: verify the checkout session directly with Stripe.
+    // This works immediately and doesn't depend on the webhook arriving first.
+    if (sessionId) {
+      fetch("/api/stripe/verify-session", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ sessionId }),
+      })
+        .then(r => r.ok ? fetchSub() : Promise.reject(r.status))
+        .then(s => setState(s))
+        .catch(err => console.warn("[SubscriptionContext] verify-session failed:", err));
     }
+
+    // Fallback path: poll until the webhook write lands (max 30s / 10 attempts).
+    // Catches edge cases where verify-session also fails (e.g. missing service role key).
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      try {
+        const s = await fetchSub();
+        setState(s);
+        if (s.plan !== "free" || attempts >= 10) clearInterval(interval);
+      } catch {
+        if (attempts >= 10) clearInterval(interval);
+      }
+    }, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   return <Ctx.Provider value={state}>{children}</Ctx.Provider>;
