@@ -536,8 +536,28 @@ function CallsTab() {
 // ─── Analytics Tab ────────────────────────────────────────────────────────────
 
 function AnalyticsTab() {
+  const { calls, hasReal, loading } = useDashboardData();
   const [range, setRange] = useState<"4w" | "8w">("8w");
-  const data       = range === "4w" ? WEEKLY_DATA.slice(-4) : WEEKLY_DATA;
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="h-6 w-6 rounded-full border-2 border-zinc-700 border-t-blue-500 animate-spin" />
+    </div>
+  );
+
+  if (!hasReal) return (
+    <div className="flex flex-col items-center justify-center h-64 text-center gap-4">
+      <div className="h-12 w-12 rounded-full bg-zinc-800 flex items-center justify-center">
+        <BarChart3 className="h-5 w-5 text-zinc-600" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-zinc-300">No analytics yet</p>
+        <p className="text-xs text-zinc-600 mt-1">Upload a call recording or complete a Live Call — charts will populate automatically.</p>
+      </div>
+    </div>
+  );
+
+  const data = range === "4w" ? WEEKLY_DATA.slice(-4) : WEEKLY_DATA;
   const maxCalls   = Math.max(...data.map(w => w.calls));
   const maxRev     = Math.max(...data.map(w => w.revenue));
   const totalRev   = data.reduce((s, w) => s + w.revenue, 0);
@@ -679,8 +699,27 @@ function AnalyticsTab() {
 // ─── Coaching Tab ─────────────────────────────────────────────────────────────
 
 function CoachingTab() {
+  const { hasReal, loading } = useDashboardData();
   const [activeDrill, setActiveDrill] = useState<number | null>(1);
   const [sessions, setSessions] = useState<Record<number, number>>({ 1: 0, 2: 0, 3: 2 });
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="h-6 w-6 rounded-full border-2 border-zinc-700 border-t-blue-500 animate-spin" />
+    </div>
+  );
+
+  if (!hasReal) return (
+    <div className="flex flex-col items-center justify-center h-64 text-center gap-4">
+      <div className="h-12 w-12 rounded-full bg-zinc-800 flex items-center justify-center">
+        <BookOpen className="h-5 w-5 text-zinc-600" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-zinc-300">No coaching data yet</p>
+        <p className="text-xs text-zinc-600 mt-1">AI drills generate automatically after your first few calls — each one targets your specific weak points.</p>
+      </div>
+    </div>
+  );
 
   const logSession = (id: number, max: number) =>
     setSessions(p => ({ ...p, [id]: Math.min((p[id] ?? 0) + 1, max) }));
@@ -819,9 +858,28 @@ function CoachingTab() {
 // ─── Agents Tab ───────────────────────────────────────────────────────────────
 
 function AgentsTab() {
+  const { hasReal, loading } = useDashboardData();
   const [sortKey, setSortKey] = useState<"score" | "closeRate" | "revenue" | "calls">("score");
   const [search, setSearch]   = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="h-6 w-6 rounded-full border-2 border-zinc-700 border-t-blue-500 animate-spin" />
+    </div>
+  );
+
+  if (!hasReal) return (
+    <div className="flex flex-col items-center justify-center h-64 text-center gap-4">
+      <div className="h-12 w-12 rounded-full bg-zinc-800 flex items-center justify-center">
+        <Users className="h-5 w-5 text-zinc-600" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-zinc-300">No agent data yet</p>
+        <p className="text-xs text-zinc-600 mt-1">Agent leaderboard appears once your team starts logging calls.</p>
+      </div>
+    </div>
+  );
 
   const sorted = [...MOCK_AGENTS]
     .filter(a => a.name.toLowerCase().includes(search.toLowerCase()))
