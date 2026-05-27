@@ -80,7 +80,7 @@ async function upsertSubscription(params: {
     stripe_subscription_id: params.stripeSubId,
     plan:                   params.plan,
     status:                 params.status,
-    current_period_end:     params.periodEnd,
+    period_end:             params.periodEnd,
   }, { onConflict: "stripe_subscription_id" });
 
   if (error) {

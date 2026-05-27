@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     stripe_subscription_id: sub.id,
     plan,
     status:                 sub.status,
-    current_period_end:     null,
+    period_end:             null,
   }, { onConflict: "stripe_subscription_id" });
 
   if (error) {
