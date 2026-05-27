@@ -1054,17 +1054,15 @@ function DashboardHome({
     ? (Object.values(result.nepqPhases).reduce((a, p) => a + p.score, 0) / 7).toFixed(1)
     : null;
 
-  const { calls, hasReal, totalCalls, closeRate, avgScore, objectionsCaught } = useDashboardData();
-  const recentCalls = hasReal ? calls.slice(0, 4) : MOCK_CALLS.slice(0, 4);
+  const { calls, hasReal, loading, totalCalls, closeRate, avgScore, objectionsCaught } = useDashboardData();
+  const recentCalls = hasReal ? calls.slice(0, 4) : [];
 
-  const liveStats = hasReal
-    ? [
-        { label: "Total Calls",          value: totalCalls.toString(),      change: "all time" },
-        { label: "Avg Close Rate",        value: `${closeRate}%`,            change: "all calls" },
-        { label: "Avg Call Score",        value: avgScore,                   change: "/ 10" },
-        { label: "Objections Caught",     value: objectionsCaught.toString(), change: "all calls" },
-      ]
-    : DASHBOARD_STATS;
+  const liveStats = [
+    { label: "Total Calls",      value: hasReal ? totalCalls.toString()       : "—",  change: "all time"  },
+    { label: "Avg Close Rate",   value: hasReal ? `${closeRate}%`             : "—",  change: "all calls" },
+    { label: "Avg Call Score",   value: hasReal ? avgScore                    : "—",  change: "/ 10"      },
+    { label: "Objections Caught",value: hasReal ? objectionsCaught.toString() : "—",  change: "all calls" },
+  ];
 
   return (
     <div className="space-y-5">
@@ -1073,10 +1071,11 @@ function DashboardHome({
         {liveStats.map(s => (
           <div key={s.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
             <p className="text-[11px] text-zinc-500 uppercase tracking-wider">{s.label}</p>
-            <p className="mt-2 text-2xl font-semibold text-white tracking-tight">{s.value}</p>
-            <p className="mt-1 text-xs text-zinc-500 flex items-center gap-1">
-              {hasReal ? s.change : <><TrendingUp className="h-3 w-3 text-emerald-400" /><span className="text-emerald-400">{s.change}</span></>}
-            </p>
+            {loading
+              ? <div className="mt-2 h-7 w-16 rounded bg-zinc-800 animate-pulse" />
+              : <p className="mt-2 text-2xl font-semibold text-white tracking-tight">{s.value}</p>
+            }
+            <p className="mt-1 text-xs text-zinc-600">{s.change}</p>
           </div>
         ))}
       </div>
@@ -1126,11 +1125,29 @@ function DashboardHome({
         <div className="lg:col-span-2 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-sm font-semibold text-white">Recent Calls</h2>
-            {!hasReal && <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Demo</span>}
           </div>
           <div className="space-y-2">
-            {recentCalls.length === 0 ? (
-              <p className="text-xs text-zinc-600 text-center py-8">No calls yet — upload a recording to get started.</p>
+            {loading ? (
+              <div className="space-y-3 py-2">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="flex items-center justify-between py-2">
+                    <div className="space-y-1.5">
+                      <div className="h-3 w-24 rounded bg-zinc-800 animate-pulse" />
+                      <div className="h-2.5 w-16 rounded bg-zinc-800/60 animate-pulse" />
+                    </div>
+                    <div className="h-6 w-14 rounded bg-zinc-800 animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            ) : recentCalls.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-3">
+                <div className="h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center">
+                  <Phone className="h-4 w-4 text-zinc-600" />
+                </div>
+                <p className="text-xs text-zinc-600 text-center leading-relaxed">
+                  No calls yet.<br />Upload a recording or start a live call.
+                </p>
+              </div>
             ) : recentCalls.map(call => (
               <div key={call.id} className="flex items-center justify-between py-2 border-b border-zinc-800/60 last:border-0">
                 <div>
