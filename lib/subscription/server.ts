@@ -25,14 +25,18 @@ export async function getUserSubscription(): Promise<UserSubscription> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return FREE;
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("subscriptions")
-      .select("plan, status, stripe_customer_id, stripe_subscription_id, current_period_end")
+      .select("plan, status, stripe_customer_id, stripe_subscription_id")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
+    if (error) {
+      console.error("[getUserSubscription] DB error:", error.message);
+      return FREE;
+    }
     if (!data) return FREE;
 
     return {
@@ -40,9 +44,10 @@ export async function getUserSubscription(): Promise<UserSubscription> {
       status:           data.status ?? "inactive",
       stripeCustomerId: data.stripe_customer_id  ?? null,
       stripeSubId:      data.stripe_subscription_id ?? null,
-      currentPeriodEnd: (data as Record<string, unknown>).current_period_end as string ?? null,
+      currentPeriodEnd: null,
     };
-  } catch {
+  } catch (err) {
+    console.error("[getUserSubscription] Unexpected error:", err);
     return FREE;
   }
 }
