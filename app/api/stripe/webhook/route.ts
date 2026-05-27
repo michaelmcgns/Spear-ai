@@ -74,7 +74,6 @@ async function upsertSubscription(params: {
     return;
   }
 
-  // Upsert by user_id so multiple test payments don't create duplicate rows
   const { error } = await db.from("subscriptions").upsert({
     user_id:                userId,
     stripe_customer_id:     params.stripeCustomerId,
@@ -82,7 +81,7 @@ async function upsertSubscription(params: {
     plan:                   params.plan,
     status:                 params.status,
     current_period_end:     params.periodEnd,
-  }, { onConflict: "user_id" });
+  }, { onConflict: "stripe_subscription_id" });
 
   if (error) {
     console.error("[Stripe webhook] Supabase upsert failed:", error);
