@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { filterCoachingCard } from "@/lib/coaching/cardFilter";
+import { LIFE_INSURANCE_KNOWLEDGE } from "@/lib/coaching/lifeInsuranceKnowledge";
 
 interface AnalyzeBody {
   utterance:    string;
@@ -48,7 +49,13 @@ async function buildAgentContext(agentId: string): Promise<string> {
   }
 }
 
-const BASE_SYSTEM = `You are Spear — a real-time AI sales coach for high-ticket phone sales. You coach agents live using NEPQ (Next Evolution of Persuasion Questions) methodology and DISC buyer psychology.
+const BASE_SYSTEM = `You are Spear — a real-time AI sales coach for life insurance phone sales. You coach agents live using NEPQ (Next Evolution of Persuasion Questions) methodology and DISC buyer psychology.
+
+${LIFE_INSURANCE_KNOWLEDGE}
+
+═══════════════════════════════════════════════════════════════
+LIVE COACHING RULES
+═══════════════════════════════════════════════════════════════
 
 After each utterance you decide: fire a coaching card, or return null. Be highly selective — only fire when there is a clear, immediate, actionable moment. Return null for ~70% of utterances.
 

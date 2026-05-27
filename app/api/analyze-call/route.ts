@@ -1,8 +1,9 @@
-import Groq from "groq-sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { filterCoachingCard, filterCoachingItems } from "@/lib/coaching/cardFilter";
 import { createClient } from "@/lib/supabase/server";
 import { requireFeature } from "@/lib/subscription/server";
+import { LIFE_INSURANCE_KNOWLEDGE } from "@/lib/coaching/lifeInsuranceKnowledge";
 
 export const maxDuration = 300;
 
@@ -101,7 +102,7 @@ async function transcribeAudio(file: File): Promise<string> {
   }
 }
 
-// Analyze transcript with Groq and return full Spear coaching report
+// Analyze transcript with Claude Sonnet and return full Spear coaching report
 const FALLBACK_ANALYSIS: SpearAnalysis = {
   overallScore: 5,
   nepqPhases: {
@@ -123,14 +124,13 @@ const FALLBACK_ANALYSIS: SpearAnalysis = {
 };
 
 async function analyzeTranscript(transcript: string): Promise<SpearAnalysis> {
-  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const completion = await groq.chat.completions.create({
-    model: "llama-3.1-8b-instant",
-    messages: [
-      {
-        role: "system",
-        content: `You are Spear, an elite AI sales coach trained in NEPQ methodology. Analyze this sales call transcript and return ONLY a JSON object wrapped in \`\`\`json and \`\`\` tags. Be brutally honest and specific — reference exact moments from the transcript.
+  const systemPrompt = `You are Spear, an elite AI sales coach specializing in life insurance phone sales. You are trained in NEPQ (Next Evolution of Persuasion Questions) methodology and DISC buyer psychology.
+
+${LIFE_INSURANCE_KNOWLEDGE}
+
+Using the life insurance knowledge above, analyze this sales call transcript and return ONLY a JSON object wrapped in \`\`\`json and \`\`\` tags. Be brutally honest and specific — reference exact moments from the transcript. Use your knowledge of life insurance objections, products, and NEPQ phases to give coaching that is specific to this industry.
 
 \`\`\`json
 {
@@ -171,17 +171,67 @@ async function analyzeTranscript(transcript: string): Promise<SpearAnalysis> {
   "mindsetNote": "<one observation about the agent's belief, energy, or attitude — not technique. Not padded.>",
   "nextCallFocus": "<one specific skill to drill before the next call. One sentence. Not a list.>"
 }
-\`\`\``,
-      },
-      { role: "user", content: transcript },
-    ],
+\`\`\``;
+
+  const jsonSchema = `\`\`\`json
+{
+  "overallScore": <integer 1-10>,
+  "nepqPhases": {
+    "connection": {"score": <integer 1-10>, "note": "<specific coaching note tied to a moment in the call>"},
+    "situation": {"score": <integer 1-10>, "note": "<specific coaching note>"},
+    "problemAwareness": {"score": <integer 1-10>, "note": "<specific coaching note>"},
+    "consequence": {"score": <integer 1-10>, "note": "<specific coaching note>"},
+    "solutionAwareness": {"score": <integer 1-10>, "note": "<specific coaching note>"},
+    "qualifying": {"score": <integer 1-10>, "note": "<specific coaching note>"},
+    "close": {"score": <integer 1-10>, "note": "<specific coaching note>"}
+  },
+  "discProfile": {
+    "type": "<D|I|S|C>",
+    "description": "<one sentence on this buyer type and what drives them>",
+    "adjustments": ["<life-insurance-specific adjustment 1>", "<adjustment 2>", "<adjustment 3>"]
+  },
+  "talkRatio": {
+    "agentPct": <estimated integer 0-100>,
+    "prospectPct": <100 minus agentPct>,
+    "status": "<green if agentPct < 40, yellow if 40-50, red if > 50>"
+  },
+  "objections": [
+    {
+      "text": "<exact objection raised>",
+      "type": "<price|spouse|timing|think_about_it|trust|existing_coverage|other>",
+      "handling": "<resolved|acknowledged|deflected|ignored>",
+      "suggestedResponse": "<ideal NEPQ response from the objection playbook>"
+    }
+  ],
+  "strengths": ["<specific strength with transcript reference>", "<strength 2>", "<strength 3>"],
+  "improvements": [
+    {"what": "<exactly what the agent said or did>", "why": "<why it hurt the sale>", "instead": "<exact NEPQ language to use next time>"},
+    {"what": "...", "why": "...", "instead": "..."},
+    {"what": "...", "why": "...", "instead": "..."}
+  ],
+  "mindsetNote": "<one observation about the agent's energy, belief, or confidence — not technique>",
+  "nextCallFocus": "<one specific NEPQ skill or life insurance technique to drill before the next call>"
+}
+\`\`\``;
+
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 2000,
+    system: systemPrompt,
+    messages: [{ role: "user", content: `Analyze this call transcript and return the JSON in the format below:\n\n${jsonSchema}\n\nTranscript:\n${transcript}` }],
   });
 
-  const raw = completion.choices[0].message.content ?? "";
+  const raw = message.content[0].type === "text" ? message.content[0].text : "";
   try {
-    const match = raw.match(/```json\n?([\s\S]*?)\n?```/);
-    return JSON.parse(match ? match[1] : raw) as SpearAnalysis;
+    const blockMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const jsonStr = blockMatch ? blockMatch[1].trim() : raw.trim();
+    return JSON.parse(jsonStr) as SpearAnalysis;
   } catch {
+    // Try extracting raw JSON object
+    const objMatch = raw.match(/\{[\s\S]*\}/);
+    if (objMatch) {
+      try { return JSON.parse(objMatch[0]) as SpearAnalysis; } catch { /* fall through */ }
+    }
     return { ...FALLBACK_ANALYSIS };
   }
 }
