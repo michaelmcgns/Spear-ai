@@ -18,6 +18,7 @@ type Speaker = "agent" | "prospect";
 interface TranscriptLine {
   id: string;
   speaker: Speaker;
+  speakerNum: number; // Raw Deepgram speaker index (0 or 1)
   text: string;
   isFinal: boolean;
   timestamp: number;
@@ -180,6 +181,9 @@ export default function LiveCallPage() {
   const [micError, setMicError]       = useState<string | null>(null);
   const [userId, setUserId]           = useState<string>("demo-agent");
   const [prospectName, setProspectName] = useState<string>("");
+  // Which Deepgram speaker index (0 or 1) is the agent. Flip if DG gets it wrong.
+  const [agentSpeakerNum, setAgentSpeakerNum] = useState(0);
+  const agentSpeakerNumRef = useRef(0);
 
   // Fetch real user ID on mount
   useEffect(() => {
@@ -206,6 +210,7 @@ export default function LiveCallPage() {
 
   useEffect(() => { currentPhaseRef.current = currentPhase; }, [currentPhase]);
   useEffect(() => { discProfileRef.current = discProfile; }, [discProfile]);
+  useEffect(() => { agentSpeakerNumRef.current = agentSpeakerNum; }, [agentSpeakerNum]);
 
   // Auto-scroll transcript to bottom
   useEffect(() => {
@@ -290,7 +295,8 @@ export default function LiveCallPage() {
     words.forEach(w => { if (w.speaker != null) counts[w.speaker] = (counts[w.speaker] ?? 0) + 1; });
     const topEntry = Object.entries(counts).sort((a, b) => +b[1] - +a[1])[0];
     const speakerNum: number = topEntry ? +topEntry[0] : 0;
-    const speaker: Speaker   = speakerNum === 0 ? "agent" : "prospect";
+    // Use agentSpeakerNumRef so flipping mid-call takes effect immediately
+    const speaker: Speaker = speakerNum === agentSpeakerNumRef.current ? "agent" : "prospect";
 
     if (!isFinal && !speechFinal) {
       // Pure interim — show live typing (don't commit anything)
@@ -335,6 +341,7 @@ export default function LiveCallPage() {
     setTranscript(prev => [...prev, {
       id: `${speaker}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       speaker,
+      speakerNum,
       text: fullText,
       isFinal: true,
       timestamp: Date.now(),
@@ -375,7 +382,8 @@ export default function LiveCallPage() {
       return;
     }
 
-    const qs = "model=nova-2&language=en&punctuate=true&interim_results=true&diarize=true&utterance_end_ms=1000";
+    // nova-3 has better diarization; utterance_end_ms=2000 prevents mid-utterance speaker flips
+    const qs = "model=nova-3&language=en&punctuate=true&smart_format=true&interim_results=true&diarize=true&utterance_end_ms=2000&filler_words=false";
     const ws = new WebSocket(`wss://api.deepgram.com/v1/listen?${qs}`, ["token", apiKey]);
     wsRef.current = ws;
 
@@ -422,7 +430,8 @@ export default function LiveCallPage() {
     setTalkRatio({ agent: 50, prospect: 50 });
     setDuration(0);
     setDiscProfile(null);
-    // Keep prospectName so it's visible in the saved record; clear after end
+    setAgentSpeakerNum(0);
+    agentSpeakerNumRef.current = 0;
 
     timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
 
@@ -441,6 +450,7 @@ export default function LiveCallPage() {
       setTranscript(prev => [...prev, {
         id: `demo-${idx}`,
         speaker: line.speaker,
+        speakerNum: line.speaker === "agent" ? 0 : 1,
         text: line.text,
         isFinal: true,
         timestamp: Date.now(),
@@ -508,6 +518,8 @@ export default function LiveCallPage() {
       setTalkRatio({ agent: 50, prospect: 50 });
       setDuration(0);
       setDiscProfile(null);
+      setAgentSpeakerNum(0);
+      agentSpeakerNumRef.current = 0;
 
       timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
       connectDeepgram(stream);
@@ -632,9 +644,24 @@ export default function LiveCallPage() {
           <div className="px-4 pt-3 pb-2.5 border-b border-zinc-800 bg-zinc-900/40 shrink-0">
             <div className="flex items-center justify-between mb-2">
               <p className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium">NEPQ Phase</p>
-              <p className="text-xs text-zinc-300 font-medium">
-                {currentPhase}. {phase.name}
-              </p>
+              <div className="flex items-center gap-2">
+                {isActive && (
+                  <button
+                    onClick={() => {
+                      const next = agentSpeakerNum === 0 ? 1 : 0;
+                      setAgentSpeakerNum(next);
+                      agentSpeakerNumRef.current = next;
+                    }}
+                    title="Swap which voice is Agent vs Prospect"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700 transition-colors"
+                  >
+                    ⇄ Flip Speakers
+                  </button>
+                )}
+                <p className="text-xs text-zinc-300 font-medium">
+                  {currentPhase}. {phase.name}
+                </p>
+              </div>
             </div>
             <div className="flex gap-1 mb-1.5">
               {NEPQ_PHASES.map(p => (
@@ -686,35 +713,49 @@ export default function LiveCallPage() {
               </motion.p>
             )}
 
-            {transcript.map(line => (
-              <motion.div
-                key={line.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.18 }}
-                className={`flex gap-2.5 ${line.speaker === "prospect" ? "flex-row-reverse" : ""}`}
-              >
-                <div className={`h-6 w-6 rounded-full shrink-0 flex items-center justify-center text-[9px] font-bold mt-0.5 ${
-                  line.speaker === "agent"
-                    ? "bg-blue-600/30 text-blue-300"
-                    : "bg-zinc-700 text-zinc-300"
-                }`}>
-                  {line.speaker === "agent" ? "A" : "P"}
-                </div>
-                <div className={`flex-1 max-w-[80%] ${line.speaker === "prospect" ? "text-right items-end flex flex-col" : ""}`}>
-                  <p className={`text-[10px] font-medium mb-0.5 ${
-                    line.speaker === "agent" ? "text-blue-500" : "text-zinc-500"
-                  }`}>
-                    {line.speaker === "agent" ? "Agent" : "Prospect"}
-                  </p>
-                  <p className={`text-sm leading-relaxed ${
-                    line.speaker === "agent" ? "text-blue-200" : "text-zinc-100"
-                  }`}>
-                    {line.text}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
+            {transcript.map(line => {
+              // Derive speaker live from agentSpeakerNum — so flipping updates all lines instantly
+              const derivedSpeaker: Speaker = line.speakerNum === agentSpeakerNum ? "agent" : "prospect";
+              return (
+                <motion.div
+                  key={line.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.18 }}
+                  className={`flex gap-2.5 ${derivedSpeaker === "prospect" ? "flex-row-reverse" : ""}`}
+                >
+                  {/* Speaker badge — click to flip this speaker's assignment */}
+                  <button
+                    title={`Switch to ${derivedSpeaker === "agent" ? "Prospect" : "Agent"}`}
+                    onClick={() => {
+                      // Reassign: make this line's speakerNum the agent speaker
+                      const newAgentNum = line.speakerNum;
+                      setAgentSpeakerNum(newAgentNum);
+                      agentSpeakerNumRef.current = newAgentNum;
+                    }}
+                    className={`h-6 w-6 rounded-full shrink-0 flex items-center justify-center text-[9px] font-bold mt-0.5 cursor-pointer transition-opacity hover:opacity-70 ${
+                      derivedSpeaker === "agent"
+                        ? "bg-blue-600/30 text-blue-300"
+                        : "bg-zinc-700 text-zinc-300"
+                    }`}
+                  >
+                    {derivedSpeaker === "agent" ? "A" : "P"}
+                  </button>
+                  <div className={`flex-1 max-w-[80%] ${derivedSpeaker === "prospect" ? "text-right items-end flex flex-col" : ""}`}>
+                    <p className={`text-[10px] font-medium mb-0.5 ${
+                      derivedSpeaker === "agent" ? "text-blue-500" : "text-zinc-500"
+                    }`}>
+                      {derivedSpeaker === "agent" ? "Agent" : "Prospect"}
+                    </p>
+                    <p className={`text-sm leading-relaxed ${
+                      derivedSpeaker === "agent" ? "text-blue-200" : "text-zinc-100"
+                    }`}>
+                      {line.text}
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            })}
 
             {/* Interim (live typing) */}
             {(["agent", "prospect"] as Speaker[]).map(spk => {
