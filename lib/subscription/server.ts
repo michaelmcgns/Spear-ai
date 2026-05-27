@@ -27,7 +27,7 @@ export async function getUserSubscription(): Promise<UserSubscription> {
 
     const { data } = await supabase
       .from("subscriptions")
-      .select("plan, status, stripe_customer_id, stripe_subscription_id, period_end")
+      .select("plan, status, stripe_customer_id, stripe_subscription_id, current_period_end")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -40,7 +40,7 @@ export async function getUserSubscription(): Promise<UserSubscription> {
       status:           data.status ?? "inactive",
       stripeCustomerId: data.stripe_customer_id  ?? null,
       stripeSubId:      data.stripe_subscription_id ?? null,
-      currentPeriodEnd: (data as Record<string, unknown>).period_end as string ?? null,
+      currentPeriodEnd: (data as Record<string, unknown>).current_period_end as string ?? null,
     };
   } catch {
     return FREE;

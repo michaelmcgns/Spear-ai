@@ -75,13 +75,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cannot resolve user" }, { status: 422 });
   }
 
+  // Compute period end the same way as the webhook
+  let currentPeriodEnd: string | null = null;
+  const rawSub = sub as unknown as Record<string, unknown>;
+  if (typeof rawSub.current_period_end === "number") {
+    currentPeriodEnd = new Date((rawSub.current_period_end as number) * 1000).toISOString();
+  } else if (typeof sub.billing_cycle_anchor === "number") {
+    currentPeriodEnd = new Date(sub.billing_cycle_anchor * 1000).toISOString();
+  }
+
   const { error } = await db.from("subscriptions").upsert({
     user_id:                userId,
     stripe_customer_id:     session.customer as string,
     stripe_subscription_id: sub.id,
     plan,
     status:                 sub.status,
-    period_end:             null,
+    current_period_end:     currentPeriodEnd,
   }, { onConflict: "stripe_subscription_id" });
 
   if (error) {

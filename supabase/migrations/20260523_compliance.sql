@@ -37,22 +37,10 @@ CREATE POLICY "insert_only_flagged_events" ON flagged_coaching_events
 CREATE POLICY "select_flagged_events_admin" ON flagged_coaching_events
   FOR SELECT TO authenticated USING (agent_id = auth.uid());
 
--- 3. Extend user profiles with compliance fields
--- (Assumes a `profiles` table keyed on user id — adjust table name if different)
-ALTER TABLE profiles
-  ADD COLUMN IF NOT EXISTS gdpr_consent      TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS gdpr_country_code TEXT,
-  ADD COLUMN IF NOT EXISTS ccpa_opted_out    BOOLEAN DEFAULT FALSE,
-  ADD COLUMN IF NOT EXISTS data_delete_requested_at TIMESTAMPTZ;
+-- 3. Profiles and leads compliance fields are skipped here —
+--    those tables are not yet created in this project. Add when ready.
 
--- 4. Lead consent fields (TCPA)
--- (Assumes a `leads` table — adjust if different)
-ALTER TABLE leads
-  ADD COLUMN IF NOT EXISTS tcpa_confirmed     BOOLEAN     DEFAULT FALSE,
-  ADD COLUMN IF NOT EXISTS tcpa_consent_at    TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS tcpa_confirmed_by  UUID;       -- agent who confirmed
-
--- 5. Call session compliance fields
+-- 4. Call session compliance fields
 -- (Assumes a `call_sessions` table — adjust if different)
 ALTER TABLE call_sessions
   ADD COLUMN IF NOT EXISTS consent_log_id   UUID REFERENCES consent_log(id),
