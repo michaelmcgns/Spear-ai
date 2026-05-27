@@ -699,28 +699,45 @@ function AnalyticsTab() {
 
 // ─── Coaching Tab ─────────────────────────────────────────────────────────────
 
+interface CoachingReportData {
+  totalCalls: number;
+  nepqPhaseScores: { phase: string; key: string; score: number; color: string }[];
+  weakestPhase: string | null;
+  avgTalkRatio: number | null;
+  avgScore: number | null;
+  closeRate: number | null;
+  drills: {
+    id: number; phase: string; priority: "critical" | "high" | "medium";
+    title: string; description: string; questions: string[];
+    currentScore: number | null; targetScore: number | null;
+    currentTalkRatio: number | null; targetTalkRatio: number | null;
+    sessionsTarget: number;
+  }[];
+  recentMoments: { date: string; prospect: string; score: number; issue: string }[];
+  coachingFocus: string | null;
+}
+
 function CoachingTab() {
-  const { hasReal, loading } = useDashboardData();
-  const [activeDrill, setActiveDrill] = useState<number | null>(1);
-  const [sessions, setSessions] = useState<Record<number, number>>({ 1: 0, 2: 0, 3: 2 });
+  const { hasReal, loading: ctxLoading } = useDashboardData();
+  const [report, setReport]   = useState<CoachingReportData | null>(null);
+  const [fetching, setFetching] = useState(false);
+  const [activeDrill, setActiveDrill] = useState<number | null>(null);
+  const [sessions, setSessions] = useState<Record<number, number>>({});
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="h-6 w-6 rounded-full border-2 border-zinc-700 border-t-blue-500 animate-spin" />
-    </div>
-  );
-
-  if (!hasReal) return (
-    <div className="flex flex-col items-center justify-center h-64 text-center gap-4">
-      <div className="h-12 w-12 rounded-full bg-zinc-800 flex items-center justify-center">
-        <BookOpen className="h-5 w-5 text-zinc-600" />
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-zinc-300">No coaching data yet</p>
-        <p className="text-xs text-zinc-600 mt-1">AI drills generate automatically after your first few calls — each one targets your specific weak points.</p>
-      </div>
-    </div>
-  );
+  useEffect(() => {
+    if (!hasReal) return;
+    setFetching(true);
+    fetch("/api/coaching/report")
+      .then(r => r.ok ? r.json() : null)
+      .then((data: CoachingReportData | null) => {
+        if (data) {
+          setReport(data);
+          if (data.drills.length > 0) setActiveDrill(data.drills[0].id);
+        }
+      })
+      .catch(() => {/* non-fatal */})
+      .finally(() => setFetching(false));
+  }, [hasReal]);
 
   const logSession = (id: number, max: number) =>
     setSessions(p => ({ ...p, [id]: Math.min((p[id] ?? 0) + 1, max) }));
@@ -731,127 +748,195 @@ function CoachingTab() {
     medium:   "text-blue-400 border-blue-500/30 bg-blue-500/10",
   };
 
+  if (ctxLoading || fetching) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="h-6 w-6 rounded-full border-2 border-zinc-700 border-t-blue-500 animate-spin" />
+    </div>
+  );
+
+  if (!hasReal || !report || report.totalCalls === 0) return (
+    <div className="flex flex-col items-center justify-center h-64 text-center gap-4">
+      <div className="h-12 w-12 rounded-full bg-zinc-800 flex items-center justify-center">
+        <BookOpen className="h-5 w-5 text-zinc-600" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-zinc-300">No coaching data yet</p>
+        <p className="text-xs text-zinc-600 mt-1 max-w-xs">Upload a call recording or complete a live call — your personalized AI coaching drills will generate automatically.</p>
+      </div>
+    </div>
+  );
+
+  const phasesWithRealData = report.nepqPhaseScores.filter(p => p.score !== 5.0);
+  const weakest = report.weakestPhase;
+
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-base font-semibold text-white">Coaching Hub</h2>
-        <p className="text-xs text-zinc-500 mt-0.5">AI-generated drills built from your actual call data</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-base font-semibold text-white">Coaching Hub</h2>
+          <p className="text-xs text-zinc-500 mt-0.5">Drills generated from your {report.totalCalls} call{report.totalCalls !== 1 ? "s" : ""}</p>
+        </div>
+        <AIBadge />
       </div>
 
-      {/* Skill profile */}
+      {/* AI coaching focus */}
+      {report.coachingFocus && (
+        <div className="rounded-xl border border-blue-500/20 bg-blue-500/6 px-4 py-3 flex items-start gap-3">
+          <Zap className="h-4 w-4 text-blue-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-[10px] text-blue-400 uppercase tracking-wider font-semibold mb-0.5">Current Focus</p>
+            <p className="text-xs text-zinc-200 leading-relaxed">{report.coachingFocus}</p>
+          </div>
+        </div>
+      )}
+
+      {/* NEPQ skill profile */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
         <div className="flex items-center justify-between mb-4">
           <p className="text-xs font-semibold text-white">Your NEPQ Skill Profile</p>
-          <AIBadge />
+          {phasesWithRealData.length === 0 && (
+            <span className="text-[10px] text-zinc-600">Upload analyzed calls to see real scores</span>
+          )}
         </div>
         <div className="flex items-end gap-2" style={{ height: 80 }}>
-          {NEPQ_PHASE_DATA.map(({ phase, score, color }) => (
+          {report.nepqPhaseScores.map(({ phase, score, color }) => (
             <div key={phase} className="flex-1 flex flex-col items-center gap-1.5">
               <div className="w-full bg-zinc-800 rounded-sm relative" style={{ height: 64 }}>
-                <div className="absolute bottom-0 w-full rounded-sm"
+                <div className="absolute bottom-0 w-full rounded-sm transition-all duration-700"
                   style={{ height: `${(score / 10) * 64}px`, backgroundColor: color + "bb" }} />
               </div>
-              <span className="text-[8px] text-zinc-600 text-center leading-tight hidden sm:block">{phase.split(" ")[0]}</span>
-              <span className="text-[10px] font-bold" style={{ color }}>{score}</span>
+              <span className="text-[8px] text-zinc-600 text-center leading-tight hidden sm:block">
+                {phase.split(" ")[0]}
+              </span>
+              <span className="text-[10px] font-bold" style={{ color }}>{score.toFixed(1)}</span>
             </div>
           ))}
         </div>
-        <p className="text-[10px] text-red-400 mt-3">
-          ⚠ Weakest phase: <span className="font-semibold">Consequence (5.9)</span> — this is costing you deals
-        </p>
+        {weakest && (
+          <p className="text-[10px] text-red-400 mt-3">
+            ⚠ Weakest phase: <span className="font-semibold">{weakest}</span> — focus your drills here first
+          </p>
+        )}
+        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-zinc-800/60">
+          {report.avgTalkRatio != null && (
+            <span className="text-[11px] text-zinc-500">
+              Avg talk ratio: <span className={`font-semibold ${report.avgTalkRatio > 50 ? "text-red-400" : report.avgTalkRatio > 40 ? "text-amber-400" : "text-emerald-400"}`}>{report.avgTalkRatio}%</span>
+              <span className="text-zinc-600 ml-1">(target ≤40%)</span>
+            </span>
+          )}
+          {report.closeRate != null && (
+            <span className="text-[11px] text-zinc-500">
+              Close rate: <span className="font-semibold text-white">{Math.round(report.closeRate * 100)}%</span>
+            </span>
+          )}
+          {report.avgScore != null && (
+            <span className="text-[11px] text-zinc-500">
+              Avg score: <span className="font-semibold text-white">{Number(report.avgScore).toFixed(1)}</span>
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Drill queue */}
-      <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Active Drills</p>
-      <div className="space-y-3">
-        {COACHING_DRILLS.map(drill => {
-          const done    = sessions[drill.id] ?? drill.sessionsCompleted;
-          const isOpen  = activeDrill === drill.id;
-          const pct     = done / drill.sessionsTarget;
-          const complete = done >= drill.sessionsTarget;
+      {report.drills.length > 0 && (
+        <>
+          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Active Drills</p>
+          <div className="space-y-3">
+            {report.drills.map(drill => {
+              const done     = sessions[drill.id] ?? 0;
+              const isOpen   = activeDrill === drill.id;
+              const pct      = done / drill.sessionsTarget;
+              const complete = done >= drill.sessionsTarget;
 
-          return (
-            <div key={drill.id}
-              className={`rounded-xl border transition-colors ${isOpen ? "border-blue-500/30 bg-zinc-900" : "border-zinc-800 bg-zinc-900"}`}>
-              <div className="p-5 cursor-pointer" onClick={() => setActiveDrill(isOpen ? null : drill.id)}>
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border capitalize ${priorityStyle[drill.priority]}`}>{drill.priority}</span>
-                      <span className="text-[10px] text-zinc-500">{drill.phase}</span>
-                    </div>
-                    <p className="text-sm font-semibold text-white">{drill.title}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-xs text-zinc-500 mb-1.5">{done}/{drill.sessionsTarget} sessions</p>
-                    <div className="w-20 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct * 100}%` }} />
-                    </div>
-                    {complete && <p className="text-[10px] text-emerald-400 font-semibold mt-1">✓ Complete</p>}
-                  </div>
-                </div>
-                <p className="text-xs text-zinc-400 leading-relaxed">{drill.description}</p>
-
-                {/* Score / ratio targets */}
-                <div className="flex items-center gap-4 mt-3">
-                  {drill.currentScore !== null && (
-                    <span className="text-[11px] text-zinc-500">
-                      Score: <span className="text-red-400 font-semibold">{drill.currentScore}</span>
-                      <span className="text-zinc-700 mx-1">→</span>
-                      <span className="text-blue-400 font-semibold">{drill.targetScore}</span>
-                    </span>
-                  )}
-                  {drill.currentTalkRatio !== null && (
-                    <span className="text-[11px] text-zinc-500">
-                      Talk ratio: <span className="text-amber-400 font-semibold">{drill.currentTalkRatio}%</span>
-                      <span className="text-zinc-700 mx-1">→</span>
-                      <span className="text-blue-400 font-semibold">≤{drill.targetTalkRatio}%</span>
-                    </span>
-                  )}
-                  <ChevronDown className={`h-4 w-4 text-zinc-600 ml-auto transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                </div>
-              </div>
-
-              {isOpen && (
-                <div className="px-5 pb-5 pt-4 border-t border-zinc-800/60">
-                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-3">Practice Techniques</p>
-                  <div className="space-y-2.5 mb-4">
-                    {drill.questions.map((q, i) => (
-                      <div key={i} className="flex items-start gap-3 rounded-lg bg-zinc-800/60 px-4 py-3">
-                        <span className="text-[10px] font-bold text-blue-400 mt-0.5 shrink-0">{i + 1}.</span>
-                        <p className="text-xs text-zinc-200 leading-relaxed">{q}</p>
+              return (
+                <div key={drill.id}
+                  className={`rounded-xl border transition-colors ${isOpen ? "border-blue-500/30 bg-zinc-900" : "border-zinc-800 bg-zinc-900"}`}>
+                  <div className="p-5 cursor-pointer" onClick={() => setActiveDrill(isOpen ? null : drill.id)}>
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border capitalize ${priorityStyle[drill.priority]}`}>
+                            {drill.priority}
+                          </span>
+                          <span className="text-[10px] text-zinc-500">{drill.phase}</span>
+                        </div>
+                        <p className="text-sm font-semibold text-white">{drill.title}</p>
                       </div>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => logSession(drill.id, drill.sessionsTarget)}
-                    disabled={complete}
-                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white text-xs font-semibold transition-colors"
-                  >
-                    {complete ? "✓ All sessions logged" : "Log Practice Session"}
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs text-zinc-500 mb-1.5">{done}/{drill.sessionsTarget} sessions</p>
+                        <div className="w-20 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct * 100}%` }} />
+                        </div>
+                        {complete && <p className="text-[10px] text-emerald-400 font-semibold mt-1">✓ Complete</p>}
+                      </div>
+                    </div>
+                    <p className="text-xs text-zinc-400 leading-relaxed">{drill.description}</p>
 
-      {/* Recent coaching moments */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-        <p className="text-xs font-semibold text-white mb-4">Recent Coaching Moments</p>
-        <div className="space-y-3">
-          {MOCK_CALLS.filter(c => c.topIssue).slice(0, 4).map(call => (
-            <div key={call.id} className="flex items-start gap-3 rounded-lg bg-zinc-800/40 px-4 py-3">
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-[10px] text-zinc-500 mb-0.5">{call.date} · {call.prospect} · Score {call.score}</p>
-                <p className="text-xs text-zinc-300 leading-relaxed">{call.topIssue}</p>
+                    <div className="flex items-center gap-4 mt-3">
+                      {drill.currentScore !== null && (
+                        <span className="text-[11px] text-zinc-500">
+                          Score: <span className="text-red-400 font-semibold">{drill.currentScore.toFixed(1)}</span>
+                          <span className="text-zinc-700 mx-1">→</span>
+                          <span className="text-blue-400 font-semibold">{drill.targetScore}</span>
+                        </span>
+                      )}
+                      {drill.currentTalkRatio !== null && (
+                        <span className="text-[11px] text-zinc-500">
+                          Talk ratio: <span className="text-amber-400 font-semibold">{drill.currentTalkRatio}%</span>
+                          <span className="text-zinc-700 mx-1">→</span>
+                          <span className="text-blue-400 font-semibold">≤{drill.targetTalkRatio}%</span>
+                        </span>
+                      )}
+                      <ChevronDown className={`h-4 w-4 text-zinc-600 ml-auto transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                    </div>
+                  </div>
+
+                  {isOpen && (
+                    <div className="px-5 pb-5 pt-4 border-t border-zinc-800/60">
+                      <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-3">Practice Techniques</p>
+                      <div className="space-y-2.5 mb-4">
+                        {drill.questions.map((q, i) => (
+                          <div key={i} className="flex items-start gap-3 rounded-lg bg-zinc-800/60 px-4 py-3">
+                            <span className="text-[10px] font-bold text-blue-400 mt-0.5 shrink-0">{i + 1}.</span>
+                            <p className="text-xs text-zinc-200 leading-relaxed">{q}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => logSession(drill.id, drill.sessionsTarget)}
+                        disabled={complete}
+                        className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white text-xs font-semibold transition-colors"
+                      >
+                        {complete ? "✓ All sessions logged" : "Log Practice Session"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Recent coaching moments from real calls */}
+      {report.recentMoments.length > 0 && (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+          <p className="text-xs font-semibold text-white mb-4">Recent Coaching Moments</p>
+          <div className="space-y-3">
+            {report.recentMoments.map((moment, i) => (
+              <div key={i} className="flex items-start gap-3 rounded-lg bg-zinc-800/40 px-4 py-3">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[10px] text-zinc-500 mb-0.5">
+                    {moment.date} · {moment.prospect}{moment.score > 0 ? ` · Score ${moment.score.toFixed(1)}` : ""}
+                  </p>
+                  <p className="text-xs text-zinc-300 leading-relaxed">{moment.issue}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

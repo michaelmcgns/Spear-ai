@@ -206,11 +206,18 @@ export default function LiveCallPage() {
   const utteranceAccRef    = useRef<Record<number, string>>({ 0: "", 1: "" });
   // Capture current state in refs so WebSocket callbacks always see fresh values
   const currentPhaseRef    = useRef(1);
+  // Transcript ref so coaching callbacks always see latest lines
+  const transcriptRef      = useRef<TranscriptLine[]>([]);
+  // Deduplication: track the last 2 card types fired and their timestamps
+  const recentCardTypesRef = useRef<{ type: string; ts: number }[]>([]);
+  // Track if DISC card has been fired this call (only fire once)
+  const discCardFiredRef   = useRef(false);
   const discProfileRef     = useRef<string | null>(null);
 
   useEffect(() => { currentPhaseRef.current = currentPhase; }, [currentPhase]);
   useEffect(() => { discProfileRef.current = discProfile; }, [discProfile]);
   useEffect(() => { agentSpeakerNumRef.current = agentSpeakerNum; }, [agentSpeakerNum]);
+  useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
 
   // Auto-scroll transcript to bottom
   useEffect(() => {
@@ -236,7 +243,25 @@ export default function LiveCallPage() {
   // ── Coaching analysis (non-blocking, best-effort) ──────────────────────────
 
   const analyzeUtterance = useCallback(async (text: string, speaker: Speaker) => {
-    console.log(`[Spear] analyzeUtterance → speaker=${speaker} phase=${NEPQ_PHASES[currentPhaseRef.current - 1].name} text="${text.slice(0, 80)}"`);
+    const phase = NEPQ_PHASES[currentPhaseRef.current - 1].name;
+    console.log(`[Spear] analyzeUtterance → speaker=${speaker} phase=${phase} text="${text.slice(0, 80)}"`);
+
+    // Build recent conversation context (last 6 committed lines)
+    const recentLines = transcriptRef.current.slice(-6).map(l => ({
+      speaker: l.speakerNum === agentSpeakerNumRef.current ? "agent" : "prospect",
+      text: l.text,
+    }));
+
+    // Deduplication: get card types fired in the last 45 seconds
+    const now = Date.now();
+    recentCardTypesRef.current = recentCardTypesRef.current.filter(e => now - e.ts < 45_000);
+    const recentCardTypes = recentCardTypesRef.current.map(e => e.type);
+
+    // Skip DISC if already fired this call
+    if (discCardFiredRef.current) {
+      recentCardTypes.push("DISC_INSIGHT");
+    }
+
     try {
       const res = await fetch("/api/coaching/analyze", {
         method: "POST",
@@ -244,19 +269,27 @@ export default function LiveCallPage() {
         body: JSON.stringify({
           utterance: text,
           speaker,
-          nepqPhase: NEPQ_PHASES[currentPhaseRef.current - 1].name,
+          nepqPhase: phase,
           discProfile: discProfileRef.current,
           agentId: userId,
+          recentLines,
+          recentCardTypes,
         }),
       });
-      console.log(`[Spear] /api/coaching/analyze → status=${res.status}`);
+
       if (!res.ok) {
         console.error(`[Spear] coaching API error: ${res.status} ${res.statusText}`);
         return;
       }
+
       const { card } = await res.json() as { card: Omit<CoachingCard, "id" | "timestamp" | "accepted" | "dismissed"> | null };
       console.log("[Spear] card received:", card);
+
       if (card) {
+        // Track fired card for deduplication
+        recentCardTypesRef.current.push({ type: card.type, ts: Date.now() });
+        if (card.type === "DISC_INSIGHT") discCardFiredRef.current = true;
+
         setCards(prev => [{
           id: `card-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           ...card,
@@ -268,7 +301,7 @@ export default function LiveCallPage() {
     } catch (err) {
       console.error("[Spear] analyzeUtterance threw:", err);
     }
-  }, []);
+  }, [userId]);
 
   // ── Deepgram message handler ───────────────────────────────────────────────
 
@@ -369,8 +402,10 @@ export default function LiveCallPage() {
       }
     }
 
-    // Fire coaching analysis on complete prospect utterances only
-    if (speaker === "prospect") analyzeUtterance(fullText, speaker);
+    // Fire coaching on ALL utterances:
+    // Prospect → OBJECTION, DISC_INSIGHT, CLOSE_SIGNAL detection
+    // Agent → NEPQ_MOVE detection (did they pitch instead of ask? miss a phase?)
+    analyzeUtterance(fullText, speaker);
   }, [analyzeUtterance]);
 
   // ── Deepgram WebSocket connection ──────────────────────────────────────────
@@ -432,6 +467,9 @@ export default function LiveCallPage() {
     setDiscProfile(null);
     setAgentSpeakerNum(0);
     agentSpeakerNumRef.current = 0;
+    recentCardTypesRef.current = [];
+    discCardFiredRef.current = false;
+    transcriptRef.current = [];
 
     timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
 
@@ -520,6 +558,9 @@ export default function LiveCallPage() {
       setDiscProfile(null);
       setAgentSpeakerNum(0);
       agentSpeakerNumRef.current = 0;
+      recentCardTypesRef.current = [];
+      discCardFiredRef.current = false;
+      transcriptRef.current = [];
 
       timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
       connectDeepgram(stream);

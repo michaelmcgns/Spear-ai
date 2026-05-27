@@ -36,17 +36,21 @@ const COVERAGE_AMOUNT_PATTERNS: RegExp[] = [
 const IUL_INVESTMENT_LANGUAGE_PATTERNS: RegExp[] = [
   /\binvestment\s+returns?\b/i,
   /\bmarket\s+performance\b/i,
-  /\bguaranteed\s+growth\b/i,
-  /\bportfolio\b/i,
-  /\basset(?:s)?\b/i,
+  /\bguaranteed\s+(?:growth|returns?)\b/i,
+  /\bportfolio\s+(?:growth|returns?|performance)\b/i,
   /\bROI\b/,
   /\breturn\s+on\s+investment\b/i,
   /\bmarket[- ]linked\b/i,
   /\bindexed\s+returns?\b/i,
   /\binvestment[- ]grade\b/i,
-  /\bsecurit(?:y|ies)\b/i,
   /\bequity\s+(?:growth|returns?|linked)\b/i,
   /\bmarket\s+(?:gains?|growth|upside)\b/i,
+  // Tightened: only flag "securities" in investment context, not general "security"
+  /\bsecurities\b/i,
+  /\bfinancial\s+securities?\b/i,
+  // Tightened: only flag "assets" in investment portfolio context
+  /\binvestment\s+assets?\b/i,
+  /\bmanage(?:d)?\s+assets?\b/i,
 ];
 
 // ─── Replacement messages ─────────────────────────────────────────────────────
