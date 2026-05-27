@@ -299,6 +299,7 @@ interface RawCallSession {
   objections_raised: unknown[];
   nepq_phases_completed: Record<string, { score?: number }>;
   talk_ratio_agent: number | null; notes: string | null;
+  prospect_name: string | null;
 }
 
 interface DashboardData {
@@ -338,7 +339,7 @@ function sessionToRecord(s: RawCallSession, i: number): CallRecord {
     id: i + 1,
     date: dt.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     time: dt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-    prospect: `Call ${i + 1}`,
+    prospect: s.prospect_name ?? `Call ${i + 1}`,
     duration: fmtSec(s.duration_seconds ?? 0),
     durationSec: s.duration_seconds ?? 0,
     score: s.overall_score ?? 0,

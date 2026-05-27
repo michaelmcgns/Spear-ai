@@ -173,6 +173,7 @@ export async function POST(req: NextRequest) {
       objections_raised: body.objectionsRaised ?? [],
       overall_score: body.overallScore ?? null,
       notes: body.notes ?? null,
+      prospect_name: body.prospectName ?? null,
     })
     .select()
     .single();

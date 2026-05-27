@@ -179,6 +179,7 @@ export default function LiveCallPage() {
   const [duration, setDuration]       = useState(0);
   const [micError, setMicError]       = useState<string | null>(null);
   const [userId, setUserId]           = useState<string>("demo-agent");
+  const [prospectName, setProspectName] = useState<string>("");
 
   // Fetch real user ID on mount
   useEffect(() => {
@@ -421,6 +422,7 @@ export default function LiveCallPage() {
     setTalkRatio({ agent: 50, prospect: 50 });
     setDuration(0);
     setDiscProfile(null);
+    // Keep prospectName so it's visible in the saved record; clear after end
 
     timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
 
@@ -540,14 +542,16 @@ export default function LiveCallPage() {
           discProfile,
           nepqPhases: { highest_phase_reached: currentPhase },
           outcome: "unknown",
+          prospectName: prospectName.trim() || null,
         }),
       });
     } catch {
       // Save is best-effort; don't block
     } finally {
       setCallState("idle");
+      setProspectName(""); // Clear for the next call
     }
-  }, [stopMedia, duration, transcript, cards, talkRatio, discProfile, currentPhase]);
+  }, [stopMedia, duration, transcript, cards, talkRatio, discProfile, currentPhase, prospectName]);
 
   // ── Card thumbs ────────────────────────────────────────────────────────────
 
@@ -649,11 +653,24 @@ export default function LiveCallPage() {
           {/* Transcript scroll area */}
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
             {transcript.length === 0 && callState === "idle" && (
-              <div className="h-full flex flex-col items-center justify-center gap-4 opacity-60">
-                <div className="h-16 w-16 rounded-full border-2 border-dashed border-zinc-700 flex items-center justify-center">
+              <div className="h-full flex flex-col items-center justify-center gap-5">
+                <div className="h-16 w-16 rounded-full border-2 border-dashed border-zinc-700 flex items-center justify-center opacity-60">
                   <Mic className="h-7 w-7 text-zinc-600" />
                 </div>
-                <p className="text-sm text-zinc-500 text-center max-w-xs leading-relaxed">
+                {/* Prospect name field */}
+                <div className="w-full max-w-xs">
+                  <label className="block text-[11px] text-zinc-500 uppercase tracking-wider mb-1.5">
+                    Prospect name <span className="normal-case text-zinc-600">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={prospectName}
+                    onChange={e => setProspectName(e.target.value)}
+                    placeholder="e.g. John Smith"
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
+                  />
+                </div>
+                <p className="text-sm text-zinc-500 text-center max-w-xs leading-relaxed opacity-60">
                   Click <span className="text-emerald-400 font-medium">Start Call</span> and the transcript
                   will appear here as you speak.
                 </p>
