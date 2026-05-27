@@ -1,9 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { filterCoachingCard } from "@/lib/coaching/cardFilter";
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 interface AnalyzeBody {
   utterance: string;
@@ -73,13 +71,18 @@ Respond with ONLY a JSON object wrapped in \`\`\`json and \`\`\` tags, or the si
 \`\`\``;
 
 export async function POST(req: NextRequest) {
+  if (!process.env.GROQ_API_KEY) {
+    console.error("[Spear] GROQ_API_KEY is not set — coaching disabled");
+    return NextResponse.json({ card: null });
+  }
+
   const body = (await req.json()) as AnalyzeBody;
   const { utterance, speaker, nepqPhase, discProfile, agentId } = body;
+  console.log(`[Spear] coaching/analyze → speaker=${speaker} phase=${nepqPhase} text="${utterance?.slice(0, 60)}"`);
 
   if (!utterance?.trim()) return NextResponse.json({ card: null });
 
   const agentContext = agentId ? await buildAgentContext(agentId) : "";
-
   const systemPrompt = agentContext ? `${BASE_SYSTEM}${agentContext}` : BASE_SYSTEM;
 
   const userPrompt = [
@@ -90,14 +93,18 @@ export async function POST(req: NextRequest) {
   ].join("\n");
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
       max_tokens: 320,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user",   content: userPrompt },
+      ],
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text.trim() : "";
+    const text = completion.choices[0]?.message?.content?.trim() ?? "";
+    console.log("[Spear] Groq raw response:", text.slice(0, 200));
     if (!text || text === "null") return NextResponse.json({ card: null });
 
     const match = text.match(/```json\n?([\s\S]*?)\n?```/);
@@ -109,7 +116,8 @@ export async function POST(req: NextRequest) {
       parsed.suggestedResponse = filterCoachingCard(parsed.suggestedResponse).content;
 
     return NextResponse.json({ card: parsed });
-  } catch {
+  } catch (err) {
+    console.error("[Spear] coaching/analyze threw:", err);
     return NextResponse.json({ card: null });
   }
 }

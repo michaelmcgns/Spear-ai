@@ -188,7 +188,8 @@ export default function LiveCallPage() {
   const prospectLinesRef   = useRef<string[]>([]);
   const reconnectRef       = useRef(0);
   const callActiveRef      = useRef(false);
-  const analysisLockRef    = useRef(false);
+  // Accumulate is_final segments per speaker until speech_final marks end of turn
+  const utteranceAccRef    = useRef<Record<number, string>>({ 0: "", 1: "" });
   // Capture current state in refs so WebSocket callbacks always see fresh values
   const currentPhaseRef    = useRef(1);
   const discProfileRef     = useRef<string | null>(null);
@@ -220,8 +221,7 @@ export default function LiveCallPage() {
   // ── Coaching analysis (non-blocking, best-effort) ──────────────────────────
 
   const analyzeUtterance = useCallback(async (text: string, speaker: Speaker) => {
-    if (analysisLockRef.current) return;
-    analysisLockRef.current = true;
+    console.log(`[Spear] analyzeUtterance → speaker=${speaker} phase=${NEPQ_PHASES[currentPhaseRef.current - 1].name} text="${text.slice(0, 80)}"`);
     try {
       const res = await fetch("/api/coaching/analyze", {
         method: "POST",
@@ -234,8 +234,13 @@ export default function LiveCallPage() {
           agentId: "demo-agent",
         }),
       });
-      if (!res.ok) return;
+      console.log(`[Spear] /api/coaching/analyze → status=${res.status}`);
+      if (!res.ok) {
+        console.error(`[Spear] coaching API error: ${res.status} ${res.statusText}`);
+        return;
+      }
       const { card } = await res.json() as { card: Omit<CoachingCard, "id" | "timestamp" | "accepted" | "dismissed"> | null };
+      console.log("[Spear] card received:", card);
       if (card) {
         setCards(prev => [{
           id: `card-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -245,10 +250,8 @@ export default function LiveCallPage() {
           dismissed: false,
         }, ...prev]);
       }
-    } catch {
-      // coaching cards are best-effort; never block the call
-    } finally {
-      analysisLockRef.current = false;
+    } catch (err) {
+      console.error("[Spear] analyzeUtterance threw:", err);
     }
   }, []);
 
@@ -266,73 +269,91 @@ export default function LiveCallPage() {
     try { msg = JSON.parse(raw) as DgResult; } catch { return; }
     if (msg.type !== "Results") return;
 
-    const alt = msg.channel?.alternatives?.[0];
-    if (!alt?.transcript?.trim()) return;
-
-    const words = alt.words ?? [];
-    const isFinal = msg.is_final ?? false;
+    const alt      = msg.channel?.alternatives?.[0];
+    const text     = alt?.transcript?.trim() ?? "";
+    const words    = alt?.words ?? [];
+    const isFinal  = msg.is_final    ?? false;
     const speechFinal = msg.speech_final ?? false;
 
-    // Determine dominant speaker from Deepgram diarization
+    // Determine dominant speaker from word-level diarization tags
     const counts: Record<number, number> = {};
     words.forEach(w => { if (w.speaker != null) counts[w.speaker] = (counts[w.speaker] ?? 0) + 1; });
-    const speakerNum = Object.entries(counts).sort((a, b) => +b[1] - +a[1])[0]
-      ? +Object.entries(counts).sort((a, b) => +b[1] - +a[1])[0][0]
-      : 0;
-    const speaker: Speaker = speakerNum === 0 ? "agent" : "prospect";
+    const topEntry = Object.entries(counts).sort((a, b) => +b[1] - +a[1])[0];
+    const speakerNum: number = topEntry ? +topEntry[0] : 0;
+    const speaker: Speaker   = speakerNum === 0 ? "agent" : "prospect";
 
-    if (isFinal || speechFinal) {
-      // Accumulate talk durations from word timings
-      words.forEach(w => {
-        const spk = w.speaker ?? speakerNum;
-        talkDurRef.current[spk] = (talkDurRef.current[spk] ?? 0) + (w.end - w.start);
+    if (!isFinal && !speechFinal) {
+      // Pure interim — show live typing (don't commit anything)
+      if (text) setInterim(prev => ({ ...prev, [speaker]: text }));
+      return;
+    }
+
+    // Accumulate talk durations from word timings
+    words.forEach(w => {
+      const spk = w.speaker ?? speakerNum;
+      talkDurRef.current[spk] = (talkDurRef.current[spk] ?? 0) + (w.end - w.start);
+    });
+    const totalSec = (talkDurRef.current[0] ?? 0) + (talkDurRef.current[1] ?? 0);
+    if (totalSec > 0) {
+      const agentPct = Math.round(((talkDurRef.current[0] ?? 0) / totalSec) * 100);
+      setTalkRatio({ agent: agentPct, prospect: 100 - agentPct });
+    }
+
+    if (isFinal && !speechFinal) {
+      // Mid-turn final segment: accumulate text, show in interim so the agent
+      // can read along, but don't commit to transcript yet
+      if (text) {
+        utteranceAccRef.current[speakerNum] =
+          ((utteranceAccRef.current[speakerNum] ?? "") + " " + text).trim();
+        setInterim(prev => ({ ...prev, [speaker]: utteranceAccRef.current[speakerNum] }));
+      }
+      return;
+    }
+
+    // speech_final: true — utterance is complete. Flush the buffer.
+    const accumulated = (utteranceAccRef.current[speakerNum] ?? "").trim();
+    const fullText = text
+      ? accumulated ? `${accumulated} ${text}` : text
+      : accumulated;
+    utteranceAccRef.current[speakerNum] = "";
+
+    if (!fullText) return;
+
+    console.log(`[Spear] DG utterance complete → speaker=${speaker}(${speakerNum}) text="${fullText.slice(0, 80)}"`);
+
+    // Commit full utterance to transcript
+    setTranscript(prev => [...prev, {
+      id: `${speaker}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      speaker,
+      text: fullText,
+      isFinal: true,
+      timestamp: Date.now(),
+    }]);
+    setInterim(prev => ({ ...prev, [speaker]: "" }));
+
+    // NEPQ phase advance (agent only)
+    if (speaker === "agent") {
+      setCurrentPhase(prev => {
+        const next = detectNextPhase(fullText, prev);
+        currentPhaseRef.current = next;
+        return next;
       });
-      const totalSec = (talkDurRef.current[0] ?? 0) + (talkDurRef.current[1] ?? 0);
-      if (totalSec > 0) {
-        const agentPct = Math.round(((talkDurRef.current[0] ?? 0) / totalSec) * 100);
-        setTalkRatio({ agent: agentPct, prospect: 100 - agentPct });
-      }
+    }
 
-      // Finalize transcript line
-      setTranscript(prev => [
-        ...prev,
-        {
-          id: `${speaker}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          speaker,
-          text: alt.transcript!,
-          isFinal: true,
-          timestamp: Date.now(),
-        },
-      ]);
-      setInterim(prev => ({ ...prev, [speaker]: "" }));
-
-      // NEPQ phase advance (agent only)
-      if (speaker === "agent") {
-        setCurrentPhase(prev => {
-          const next = detectNextPhase(alt.transcript!, prev);
-          currentPhaseRef.current = next;
-          return next;
-        });
-      }
-
-      // DISC detection (every 3 prospect utterances)
-      if (speaker === "prospect") {
-        prospectLinesRef.current = [...prospectLinesRef.current, alt.transcript!];
-        if (prospectLinesRef.current.length % 3 === 0) {
-          const detected = detectDisc(prospectLinesRef.current);
-          if (detected) {
-            setDiscProfile(detected);
-            discProfileRef.current = detected;
-          }
+    // DISC detection on every 3rd prospect utterance
+    if (speaker === "prospect") {
+      prospectLinesRef.current = [...prospectLinesRef.current, fullText];
+      if (prospectLinesRef.current.length % 3 === 0) {
+        const detected = detectDisc(prospectLinesRef.current);
+        if (detected) {
+          setDiscProfile(detected);
+          discProfileRef.current = detected;
         }
       }
-
-      // Fire coaching analysis
-      analyzeUtterance(alt.transcript!, speaker);
-    } else {
-      // Interim: update live typing display
-      setInterim(prev => ({ ...prev, [speaker]: alt.transcript! }));
     }
+
+    // Fire coaching analysis on complete prospect utterances only
+    if (speaker === "prospect") analyzeUtterance(fullText, speaker);
   }, [analyzeUtterance]);
 
   // ── Deepgram WebSocket connection ──────────────────────────────────────────
@@ -464,6 +485,7 @@ export default function LiveCallPage() {
       streamRef.current = stream;
       callActiveRef.current = true;
       talkDurRef.current = { 0: 0, 1: 0 };
+      utteranceAccRef.current = { 0: "", 1: "" };
       prospectLinesRef.current = [];
       reconnectRef.current = 0;
 
