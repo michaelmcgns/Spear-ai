@@ -343,7 +343,7 @@ export async function POST(req: NextRequest) {
       if (user) {
         const db = createServiceClient(); // bypasses RLS
         const { error: saveError } = await db.from("call_sessions").insert({
-          agent_id:              user.id,
+          user_id:               user.id,
           duration_seconds:      0, // audio duration not available at this point
           transcript:            [{ text: transcript }],
           outcome:               "unknown",
@@ -367,7 +367,7 @@ export async function POST(req: NextRequest) {
           console.error("[analyze-call] save error:", saveError.message);
           // Try minimal insert as fallback
           await db.from("call_sessions").insert({
-            agent_id:         user.id,
+            user_id:          user.id,
             duration_seconds: 0,
             notes:            JSON.stringify({ nextCallFocus: analysis.nextCallFocus }),
           }).then(({ error }) => {

@@ -36,7 +36,7 @@ async function updateAgentProfile(agentId: string): Promise<void> {
   const { data: calls } = await supabase
     .from("call_sessions")
     .select("*")
-    .eq("agent_id", agentId)
+    .eq("user_id", agentId)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await db
     .from("call_sessions")
     .insert({
-      agent_id:              userId,
+      user_id:               userId,
       duration_seconds:      body.durationSeconds ?? 0,
       transcript:            body.transcript ?? [],
       coaching_cards_fired:  body.coachingCardsFired ?? [],
@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
       const { data: minData, error: minError } = await db
         .from("call_sessions")
         .insert({
-          agent_id:         userId,
+          user_id:          userId,
           duration_seconds: body.durationSeconds ?? 0,
           notes:            body.notes ?? null,
         })
