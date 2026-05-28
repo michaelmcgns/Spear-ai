@@ -1523,33 +1523,33 @@ function DashboardPage() {
       setResult(data);
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
 
-      // Save call to DB so it appears in history, analytics, and coaching
-      if (userId) {
-        fetch("/api/calls/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            agentId:           userId,
-            outcome:           "unknown",
-            talkRatioAgent:    data.talkRatio?.agentPct ?? null,
-            talkRatioProspect: data.talkRatio?.prospectPct ?? null,
-            discProfile:       data.discProfile?.type ?? null,
-            nepqPhases:        Object.fromEntries(
-              Object.entries(data.nepqPhases).map(([k, v]) => [k, { score: v.score, note: v.note }])
-            ),
-            objectionsRaised:  data.objections ?? [],
-            overallScore:      data.overallScore ?? null,
-            notes:             JSON.stringify({ nextCallFocus: data.nextCallFocus, mindsetNote: data.mindsetNote }),
-          }),
-        }).then(() => refreshCalls()).catch(() => { /* non-blocking */ });
-      }
+      // Save call to DB — server validates auth independently, no userId guard needed
+      fetch("/api/calls/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agentId:           userId ?? undefined,
+          outcome:           "unknown",
+          talkRatioAgent:    data.talkRatio?.agentPct ?? null,
+          talkRatioProspect: data.talkRatio?.prospectPct ?? null,
+          discProfile:       data.discProfile?.type ?? null,
+          nepqPhases:        data.nepqPhases
+            ? Object.fromEntries(
+                Object.entries(data.nepqPhases).map(([k, v]) => [k, { score: v.score, note: v.note }])
+              )
+            : {},
+          objectionsRaised:  data.objections ?? [],
+          overallScore:      data.overallScore ?? null,
+          notes:             JSON.stringify({ nextCallFocus: data.nextCallFocus, mindsetNote: data.mindsetNote }),
+        }),
+      }).then(() => refreshCalls()).catch(err => console.error("[calls/save]", err));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setIsAnalyzing(false);
       setAnalyzeStep("");
     }
-  }, [userId, refreshCalls]);
+  }, [userId, refreshCalls]); // userId kept for agentId passthrough to GHL sync
 
   const handleFile = useCallback((file: File) => {
     sessionIdRef.current = `session-${Date.now()}`;
