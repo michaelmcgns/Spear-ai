@@ -280,32 +280,22 @@ export async function GET() {
     : null;
 
   // ── Compute aggregates ─────────────────────────────────────────────────────
-  const avgTalkRatio = profile?.avg_talk_ratio != null
-    ? Math.round(profile.avg_talk_ratio)
-    : (() => {
-        const samples = calls.filter(c => c.talk_ratio_agent != null);
-        return samples.length > 0
-          ? Math.round(samples.reduce((s, c) => s + (c.talk_ratio_agent as number), 0) / samples.length)
-          : null;
-      })();
+  // profile is always null (agent_profiles is a user-profile table, not performance data)
+  // Compute all aggregates directly from call_sessions
+  const talkSamples = calls.filter(c => c.talk_ratio_agent != null);
+  const avgTalkRatio = talkSamples.length > 0
+    ? Math.round(talkSamples.reduce((s, c) => s + (c.talk_ratio_agent as number), 0) / talkSamples.length)
+    : null;
 
-  const avgScore = profile?.avg_overall_score != null
-    ? profile.avg_overall_score
-    : (() => {
-        const scored = calls.filter(c => c.overall_score != null);
-        return scored.length > 0
-          ? scored.reduce((s, c) => s + (c.overall_score as number), 0) / scored.length
-          : null;
-      })();
+  const scoredCalls = calls.filter(c => c.overall_score != null);
+  const avgScore = scoredCalls.length > 0
+    ? scoredCalls.reduce((s, c) => s + (c.overall_score as number), 0) / scoredCalls.length
+    : null;
 
-  const closeRate = profile?.close_rate != null
-    ? profile.close_rate
-    : calls.filter(c => c.outcome === "closed").length / totalCalls;
+  const closeRate = calls.filter(c => c.outcome === "closed").length / totalCalls;
 
   // ── Determine weak phases ─────────────────────────────────────────────────
-  const weakPhases: string[] = (profile?.weak_nepq_phases as string[] ?? []).length > 0
-    ? (profile!.weak_nepq_phases as string[])
-    : phasesWithData.filter(c => phaseScores[c.key] < 6.5).map(c => c.key);
+  const weakPhases: string[] = phasesWithData.filter(c => phaseScores[c.key] < 6.5).map(c => c.key);
 
   // ── Generate drills ────────────────────────────────────────────────────────
   const drills = buildDrills(weakPhases, avgTalkRatio, closeRate, phaseScores);

@@ -23,9 +23,25 @@ interface CardPayload {
 
 // Build agent-specific context from their profile (only if >= 3 calls)
 async function buildAgentContext(_agentId: string): Promise<string> {
-  // agent_profiles table is user profile data (name/agency/license), not performance data
-  // Skip profile context until a dedicated performance table exists
-  return "";
+  try {
+    // agent_profiles table is user profile data (name/agency/license), not performance data
+    // Skip profile context until a dedicated performance table exists
+    return "";
+
+    const lines: string[] = ["\n\nAgent Profile (personalise coaching to this agent):"];
+    if (profile.avg_talk_ratio != null)
+      lines.push(`- Avg talk ratio: ${Math.round(profile.avg_talk_ratio)}% (target <40%)`);
+    if (profile.avg_overall_score != null)
+      lines.push(`- Avg call score: ${profile.avg_overall_score.toFixed(1)}/10`);
+    if ((profile.weak_nepq_phases ?? []).length > 0)
+      lines.push(`- Weak NEPQ phases: ${(profile.weak_nepq_phases as string[]).join(", ")}`);
+    if (profile.coaching_focus)
+      lines.push(`- Current coaching focus: ${profile.coaching_focus}`);
+
+    return lines.join("\n");
+  } catch {
+    return "";
+  }
 }
 
 const BASE_SYSTEM = `You are Spear — a real-time AI sales coach for life insurance phone sales. You coach agents live using NEPQ (Next Evolution of Persuasion Questions) methodology and DISC buyer psychology.
