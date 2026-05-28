@@ -1,0 +1,200 @@
+@import "tailwindcss";
+
+/* ── CSS Variables ─────────────────────────────────────────────────── */
+:root {
+  /* Brand palette from logo */
+  --color-navy:          #0B1221;
+  --color-navy-deep:     #070D18;
+  --color-gray-secondary:#B8A878;
+  --color-gold:          #C9A84C;
+  --color-blue:          #2563EB;
+
+  /* Legacy tokens (kept for backward compat) */
+  --bg:           #0B1221;
+  --bg-card:      #0D1527;
+  --cream:        #B8A878;
+  --cream-dim:    #C8D8E8;
+  --gold:         #C9A84C;
+  --gold-light:   #DDB96B;
+  --gold-dark:    #8A6B1E;
+  --navy:         #0B1221;
+  --navy-light:   #132040;
+  --navy-muted:   #070D18;
+  --warm-gray:    #B8A878;
+  --divider:      rgba(37,99,235,0.15);
+  --accent:       #2563EB;
+  --font-space:   "Space Grotesk", system-ui, sans-serif;
+}
+
+/* ── Tailwind color overrides ──────────────────────────────────────── */
+@theme {
+  /* Backgrounds → brand navy */
+  --color-black:         #070D18;
+  --color-zinc-950:      #070D18;
+  --color-zinc-900:      #0B1221;
+  --color-gray-900:      #0B1221;
+  --color-slate-900:     #0B1221;
+  /* Gold */
+  --color-amber-300:     #DDB96B;
+  --color-amber-400:     #C9A84C;
+  --color-amber-500:     #B8923E;
+  /* All zinc text shades → cream */
+  --color-zinc-50:       #B8A878;
+  --color-zinc-100:      #B8A878;
+  --color-zinc-200:      #B8A878;
+  --color-zinc-300:      #B8A878;
+  --color-zinc-400:      #B8A878;
+  --color-zinc-500:      #B8A878;
+  --color-zinc-600:      #B8A878;
+  --color-zinc-700:      #B8A878;
+  --color-gray-400:      #B8A878;
+  --color-gray-500:      #B8A878;
+}
+
+/* ── Base ──────────────────────────────────────────────────────────── */
+:root { color-scheme: dark; }
+
+body {
+  background-color: var(--bg);
+  color: #B8A878;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: var(--font-space);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Upgrade button needs dark text on gold background */
+.upgrade-btn,
+.upgrade-btn * {
+  color: #0a1628 !important;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar          { width: 3px; }
+::-webkit-scrollbar-track    { background: var(--bg); }
+::-webkit-scrollbar-thumb    { background: var(--gold-dark); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+/* ── Animations ────────────────────────────────────────────────────── */
+
+/* Elegant fade up — slow, graceful */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up {
+  animation: fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Fade in only */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 1s ease-out forwards;
+}
+
+/* Subtle float for ambient elements */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Slow drift for background elements */
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(1%, -2%) scale(1.02); }
+  66%       { transform: translate(-1%, 1%) scale(0.99); }
+}
+.animate-drift {
+  animation: drift 18s ease-in-out infinite;
+}
+
+/* Elegant ticker */
+@keyframes ticker-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-ticker {
+  animation: ticker-scroll 50s linear infinite;
+}
+
+/* Ripple for button press */
+@keyframes ripple {
+  0%   { transform: scale(0); opacity: 0.4; }
+  100% { transform: scale(8); opacity: 0; }
+}
+.animate-ripple {
+  animation: ripple 0.7s ease-out forwards;
+}
+
+/* Reveal on scroll */
+@keyframes reveal-up {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-reveal {
+  animation: reveal-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Blink cursor */
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+.animate-cursor {
+  animation: blink-cursor 1s step-end infinite;
+}
+
+/* Slide in from right */
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Button loading spinner */
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+.animate-btn-spin {
+  animation: btn-spin 0.65s linear infinite;
+}
+
+/* ── Hero watermark ────────────────────────────────────────────────── */
+.hero-watermark::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/spear-logo.PNG');
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: 600px auto;
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── Utilities ─────────────────────────────────────────────────────── */
+
+
+.text-cream      { color: var(--cream); }
+.text-cream-dim  { color: var(--cream-dim); }
+.text-gold       { color: var(--gold); }
+.text-gold-light { color: var(--gold-light); }
+.text-gold-dark  { color: var(--gold-dark); }
+.text-warm-gray  { color: var(--warm-gray); }
+
+.gold-glow { text-shadow: 0 0 40px rgba(201,168,76,0.30); }
+
+/* Thin ruled line */
+.ruled {
+  border: none;
+  border-top: 1px solid var(--divider);
+}
