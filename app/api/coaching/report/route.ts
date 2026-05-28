@@ -240,7 +240,7 @@ export async function GET() {
   const { data: calls } = await supabase
     .from("call_sessions")
     .select("id, created_at, overall_score, nepq_phases_completed, talk_ratio_agent, notes, outcome, prospect_name, objections_raised")
-    .eq("user_id", user.id)
+    .eq("agent_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50);
 

@@ -23,7 +23,7 @@ export async function GET() {
   const { data: fullData, error: fullError } = await supabase
     .from("call_sessions")
     .select("outcome, overall_score, objections_raised")
-    .eq("user_id", user.id);
+    .eq("agent_id", user.id);
 
   if (!fullError) {
     calls = fullData;
@@ -33,7 +33,7 @@ export async function GET() {
     const { data: minData } = await supabase
       .from("call_sessions")
       .select("id")
-      .eq("user_id", user.id);
+      .eq("agent_id", user.id);
     calls = (minData ?? []).map(() => ({}));
   }
 
