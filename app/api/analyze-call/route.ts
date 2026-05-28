@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { filterCoachingCard, filterCoachingItems } from "@/lib/coaching/cardFilter";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { requireFeature } from "@/lib/subscription/server";
 import { LIFE_INSURANCE_KNOWLEDGE } from "@/lib/coaching/lifeInsuranceKnowledge";
 
@@ -333,6 +334,57 @@ export async function POST(req: NextRequest) {
     const transcript = await transcribeAudio(file);
     let analysis = await analyzeTranscript(transcript);
     analysis = await applyFiltersAndLog(analysis, sessionId, agentId);
+
+    // ── Save call session to DB (server-side, always runs) ──────────────────
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        const db = createServiceClient(); // bypasses RLS
+        const { error: saveError } = await db.from("call_sessions").insert({
+          user_id:               user.id,
+          duration_seconds:      0, // audio duration not available at this point
+          transcript:            [{ text: transcript }],
+          outcome:               "unknown",
+          talk_ratio_agent:      analysis.talkRatio?.agentPct ?? null,
+          talk_ratio_prospect:   analysis.talkRatio?.prospectPct ?? null,
+          disc_profile_detected: analysis.discProfile?.type ?? null,
+          nepq_phases_completed: analysis.nepqPhases
+            ? Object.fromEntries(
+                Object.entries(analysis.nepqPhases).map(([k, v]) => [k, { score: v.score, note: v.note }])
+              )
+            : {},
+          objections_raised:     analysis.objections ?? [],
+          overall_score:         analysis.overallScore ?? null,
+          notes:                 JSON.stringify({
+            nextCallFocus: analysis.nextCallFocus,
+            mindsetNote:   analysis.mindsetNote,
+          }),
+        });
+
+        if (saveError) {
+          console.error("[analyze-call] save error:", saveError.message);
+          // Try minimal insert as fallback
+          await db.from("call_sessions").insert({
+            user_id:          user.id,
+            duration_seconds: 0,
+            notes:            JSON.stringify({ nextCallFocus: analysis.nextCallFocus }),
+          }).then(({ error }) => {
+            if (error) console.error("[analyze-call] minimal save also failed:", error.message);
+            else console.log("[analyze-call] minimal save succeeded for user", user.id);
+          });
+        } else {
+          console.log("[analyze-call] call saved successfully for user", user.id);
+        }
+      } else {
+        console.warn("[analyze-call] no authenticated user — skipping save");
+      }
+    } catch (saveErr) {
+      // Non-fatal — still return the analysis even if save fails
+      console.error("[analyze-call] save threw:", saveErr instanceof Error ? saveErr.message : saveErr);
+    }
+    // ── End save ────────────────────────────────────────────────────────────
 
     return NextResponse.json(analysis);
   } catch (err) {
