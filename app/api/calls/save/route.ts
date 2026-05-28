@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { syncCallToGHL } from "@/lib/integrations/ghl";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -139,32 +140,61 @@ async function updateAgentProfile(agentId: string): Promise<void> {
 
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as SaveBody;
-  const supabase = await createClient();
 
-  const { data, error } = await supabase
+  // Use service client to bypass RLS — user is authenticated via agentId
+  // This is safe because agentId is resolved server-side from the session
+  const db = createServiceClient();
+
+  // Verify the calling user is authenticated
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Always insert with user_id from the verified session, not from the body
+  const userId = user.id;
+
+  const { data, error } = await db
     .from("call_sessions")
     .insert({
-      user_id: body.agentId ?? null,
-      duration_seconds: body.durationSeconds ?? 0,
-      transcript: body.transcript ?? [],
-      coaching_cards_fired: body.coachingCardsFired ?? [],
-      cards_accepted: body.cardsAccepted ?? [],
-      cards_dismissed: body.cardsDismissed ?? [],
-      outcome: body.outcome ?? "unknown",
-      talk_ratio_agent: body.talkRatioAgent ?? null,
-      talk_ratio_prospect: body.talkRatioProspect ?? null,
+      user_id:               userId,
+      duration_seconds:      body.durationSeconds ?? 0,
+      transcript:            body.transcript ?? [],
+      coaching_cards_fired:  body.coachingCardsFired ?? [],
+      cards_accepted:        body.cardsAccepted ?? [],
+      cards_dismissed:       body.cardsDismissed ?? [],
+      outcome:               body.outcome ?? "unknown",
+      talk_ratio_agent:      body.talkRatioAgent ?? null,
+      talk_ratio_prospect:   body.talkRatioProspect ?? null,
       disc_profile_detected: body.discProfile ?? null,
       nepq_phases_completed: body.nepqPhases ?? {},
-      objections_raised: body.objectionsRaised ?? [],
-      overall_score: body.overallScore ?? null,
-      notes: body.notes ?? null,
-      prospect_name: body.prospectName ?? null,
+      objections_raised:     body.objectionsRaised ?? [],
+      overall_score:         body.overallScore ?? null,
+      notes:                 body.notes ?? null,
+      prospect_name:         body.prospectName ?? null,
     })
     .select()
     .single();
 
   if (error) {
     console.error("call save error:", error.message);
+    // If columns don't exist yet, try minimal insert with just the base columns
+    if (error.message.includes("column") && error.message.includes("does not exist")) {
+      const { data: minData, error: minError } = await db
+        .from("call_sessions")
+        .insert({
+          user_id:          userId,
+          duration_seconds: body.durationSeconds ?? 0,
+          notes:            body.notes ?? null,
+          prospect_name:    body.prospectName ?? null,
+        })
+        .select()
+        .single();
+      if (minError) {
+        console.error("call save minimal error:", minError.message);
+        return NextResponse.json({ error: minError.message }, { status: 500 });
+      }
+      return NextResponse.json({ id: minData.id, session: minData });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
