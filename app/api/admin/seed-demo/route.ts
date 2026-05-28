@@ -28,7 +28,7 @@ function buildDemoCalls(agentId: string) {
   return [
     // ── Week 1 (recent) ──────────────────────────────────────────────
     {
-      agent_id: agentId,
+      user_id: agentId,
       created_at: daysAgo(1),
       prospect_name: "Robert Chen",
       duration_seconds: 1724,
@@ -58,7 +58,7 @@ function buildDemoCalls(agentId: string) {
       notes: JSON.stringify({ nextCallFocus: "This was a strong close. Replicate the two-option framing on every call going forward." }),
     },
     {
-      agent_id: agentId,
+      user_id: agentId,
       created_at: daysAgo(2),
       prospect_name: "Maria Vasquez",
       duration_seconds: 2482,
@@ -92,7 +92,7 @@ function buildDemoCalls(agentId: string) {
       notes: JSON.stringify({ nextCallFocus: "Never accept 'think about it' — always isolate: \"What specifically do you want to think through?\" Practice this response until it's automatic." }),
     },
     {
-      agent_id: agentId,
+      user_id: agentId,
       created_at: daysAgo(3),
       prospect_name: "James Whitfield",
       duration_seconds: 1998,
@@ -124,7 +124,7 @@ function buildDemoCalls(agentId: string) {
       notes: JSON.stringify({ nextCallFocus: "This call is the benchmark. Study the consequence phase — you used three escalating timeline questions before presenting. That's the pattern." }),
     },
     {
-      agent_id: agentId,
+      user_id: agentId,
       created_at: daysAgo(4),
       prospect_name: "Diane Park",
       duration_seconds: 1377,
@@ -157,7 +157,7 @@ function buildDemoCalls(agentId: string) {
 
     // ── Week 2 ───────────────────────────────────────────────────────
     {
-      agent_id: agentId,
+      user_id: agentId,
       created_at: daysAgo(7),
       prospect_name: "Tony Okafor",
       duration_seconds: 2831,
@@ -193,7 +193,7 @@ function buildDemoCalls(agentId: string) {
       notes: JSON.stringify({ nextCallFocus: "Talk ratio was 61% — you ran a presentation, not a sales call. On your next call, set a timer: if you've talked for 30 seconds without asking a question, stop and ask one." }),
     },
     {
-      agent_id: agentId,
+      user_id: agentId,
       created_at: daysAgo(8),
       prospect_name: "Natalie Ford",
       duration_seconds: 2200,
@@ -227,7 +227,7 @@ function buildDemoCalls(agentId: string) {
 
     // ── Week 3 ───────────────────────────────────────────────────────
     {
-      agent_id: agentId,
+      user_id: agentId,
       created_at: daysAgo(14),
       prospect_name: "Carl Bennett",
       duration_seconds: 3258,
@@ -259,7 +259,7 @@ function buildDemoCalls(agentId: string) {
       notes: JSON.stringify({ nextCallFocus: "For C-types who want to compare: offer to do the comparison WITH them. \"I can pull up two other options right now — let's look at them together.\" Takes away the reason to leave." }),
     },
     {
-      agent_id: agentId,
+      user_id: agentId,
       created_at: daysAgo(15),
       prospect_name: "Sharon Miles",
       duration_seconds: 1773,
@@ -291,7 +291,7 @@ function buildDemoCalls(agentId: string) {
 
     // ── Week 4 ───────────────────────────────────────────────────────
     {
-      agent_id: agentId,
+      user_id: agentId,
       created_at: daysAgo(20),
       prospect_name: "Kevin Yuen",
       duration_seconds: 2339,
@@ -324,7 +324,7 @@ function buildDemoCalls(agentId: string) {
       notes: JSON.stringify({ nextCallFocus: "I-types buy on story and legacy. Practice: \"Imagine your kids looking back years from now knowing you had this handled for them.\" This is the close for I-types." }),
     },
     {
-      agent_id: agentId,
+      user_id: agentId,
       created_at: daysAgo(21),
       prospect_name: "Patricia Lowry",
       duration_seconds: 1502,
@@ -357,7 +357,7 @@ function buildDemoCalls(agentId: string) {
 
     // ── Month 2 (older) ───────────────────────────────────────────────
     {
-      agent_id: agentId,
+      user_id: agentId,
       created_at: daysAgo(28),
       prospect_name: "Marcus Webb",
       duration_seconds: 2100,
@@ -384,7 +384,7 @@ function buildDemoCalls(agentId: string) {
       notes: JSON.stringify({ nextCallFocus: "Solid all-around call. Focus on deepening consequence phase — you're leaving emotional urgency on the table." }),
     },
     {
-      agent_id: agentId,
+      user_id: agentId,
       created_at: daysAgo(30),
       prospect_name: "Linda Castillo",
       duration_seconds: 1850,
@@ -465,8 +465,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Clear any existing demo data for this user
-  await db.from("call_sessions").delete().eq("agent_id", userId);
-  await db.from("agent_profiles").delete().eq("agent_id", userId);
+  await db.from("call_sessions").delete().eq("user_id", userId);
 
   // Insert demo call sessions
   const calls = buildDemoCalls(userId);
@@ -474,15 +473,6 @@ export async function POST(req: NextRequest) {
   if (callsErr) {
     console.error("[seed-demo] call_sessions insert error:", callsErr);
     return NextResponse.json({ error: callsErr.message }, { status: 500 });
-  }
-
-  // Upsert agent profile
-  const { error: profileErr } = await db
-    .from("agent_profiles")
-    .upsert(buildAgentProfile(userId), { onConflict: "agent_id" });
-  if (profileErr) {
-    console.error("[seed-demo] agent_profiles upsert error:", profileErr);
-    return NextResponse.json({ error: profileErr.message }, { status: 500 });
   }
 
   console.log(`[seed-demo] Seeded ${calls.length} calls for user ${userId}`);

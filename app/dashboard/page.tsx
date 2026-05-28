@@ -1457,14 +1457,7 @@ function DashboardPage() {
   const [dashStats, setDashStats]   = useState({ totalCalls: 0, closeRate: 0, avgScore: "—", objectionsCaught: 0 });
   const [dataLoading, setDataLoading] = useState(true);
 
-  useEffect(() => {
-    // Get real user ID (used when uploading calls)
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserId(user.id);
-    });
-
-    // Fetch real calls + stats
+  const refreshCalls = useCallback(() => {
     Promise.all([
       fetch("/api/calls/list").then(r => r.json()),
       fetch("/api/dashboard/stats").then(r => r.json()),
@@ -1475,6 +1468,15 @@ function DashboardPage() {
       setDashStats(statsData);
     }).catch(console.error).finally(() => setDataLoading(false));
   }, []);
+
+  useEffect(() => {
+    // Get real user ID (used when uploading calls)
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserId(user.id);
+    });
+    refreshCalls();
+  }, [refreshCalls]);
 
   const dashboardCtxValue: DashboardData = {
     userId,
@@ -1520,13 +1522,34 @@ function DashboardPage() {
       const data = (await res.json()) as SpearAnalysis;
       setResult(data);
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+
+      // Save call to DB so it appears in history, analytics, and coaching
+      if (userId) {
+        fetch("/api/calls/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            agentId:           userId,
+            outcome:           "unknown",
+            talkRatioAgent:    data.talkRatio?.agentPct ?? null,
+            talkRatioProspect: data.talkRatio?.prospectPct ?? null,
+            discProfile:       data.discProfile?.type ?? null,
+            nepqPhases:        Object.fromEntries(
+              Object.entries(data.nepqPhases).map(([k, v]) => [k, { score: v.score, note: v.note }])
+            ),
+            objectionsRaised:  data.objections ?? [],
+            overallScore:      data.overallScore ?? null,
+            notes:             JSON.stringify({ nextCallFocus: data.nextCallFocus, mindsetNote: data.mindsetNote }),
+          }),
+        }).then(() => refreshCalls()).catch(() => { /* non-blocking */ });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setIsAnalyzing(false);
       setAnalyzeStep("");
     }
-  }, []);
+  }, [userId, refreshCalls]);
 
   const handleFile = useCallback((file: File) => {
     sessionIdRef.current = `session-${Date.now()}`;

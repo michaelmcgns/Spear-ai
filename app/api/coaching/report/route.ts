@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -230,18 +233,14 @@ export async function GET() {
 
   if (!user) return NextResponse.json(empty);
 
-  // Fetch agent profile (aggregated stats)
-  const { data: profile } = await supabase
-    .from("agent_profiles")
-    .select("*")
-    .eq("agent_id", user.id)
-    .maybeSingle();
+  // agent_profiles table is a user-profile table (name/agency/license), not performance data — skip it
+  const profile = null;
 
   // Fetch recent call sessions for detailed NEPQ data
   const { data: calls } = await supabase
     .from("call_sessions")
     .select("id, created_at, overall_score, nepq_phases_completed, talk_ratio_agent, notes, outcome, prospect_name, objections_raised")
-    .eq("agent_id", user.id)
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -355,6 +354,27 @@ export async function GET() {
     if (recentMoments.length >= 5) break;
   }
 
+  // Generate AI coaching focus from actual call data
+  let coachingFocus: string | null = null;
+  if (totalCalls >= 1) {
+    try {
+      const weakLabel = weakestCfg?.label ?? "connection";
+      const prompt = `You are a sales coach for high-ticket phone sales using NEPQ methodology.
+Agent stats: ${totalCalls} calls, avg score ${avgScore != null ? Number(avgScore).toFixed(1) : "N/A"}/10, close rate ${closeRate != null ? Math.round(closeRate * 100) : "N/A"}%, avg talk ratio ${avgTalkRatio ?? "N/A"}%.
+Weakest NEPQ phase: ${weakLabel}.
+Write ONE punchy coaching focus sentence (under 25 words) telling this agent exactly what to work on next call. No fluff.`;
+      const res = await anthropic.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 60,
+        messages: [{ role: "user", content: prompt }],
+      });
+      const text = res.content[0].type === "text" ? res.content[0].text.trim() : null;
+      if (text) coachingFocus = text.replace(/^["']|["']$/g, "");
+    } catch {
+      // Non-fatal
+    }
+  }
+
   return NextResponse.json({
     totalCalls,
     nepqPhaseScores,
@@ -364,6 +384,6 @@ export async function GET() {
     closeRate,
     drills,
     recentMoments,
-    coachingFocus: (profile?.coaching_focus as string | null) ?? null,
+    coachingFocus,
   } satisfies CoachingReport);
 }

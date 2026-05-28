@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   const payload = {
     spear_call_id:       session.id,
-    agent_id:            session.agent_id,
+    agent_id:            session.user_id,
     call_date:           session.created_at,
     duration_seconds:    session.duration_seconds,
     overall_score:       session.overall_score,

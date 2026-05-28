@@ -20,7 +20,7 @@ export async function GET() {
   const { data: calls } = await supabase
     .from("call_sessions")
     .select("outcome, overall_score, objections_raised")
-    .eq("agent_id", user.id);
+    .eq("user_id", user.id);
 
   if (!calls || calls.length === 0) return NextResponse.json(empty);
 

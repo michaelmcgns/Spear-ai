@@ -35,7 +35,7 @@ async function updateAgentProfile(agentId: string): Promise<void> {
   const { data: calls } = await supabase
     .from("call_sessions")
     .select("*")
-    .eq("agent_id", agentId)
+    .eq("user_id", agentId)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -130,24 +130,9 @@ async function updateAgentProfile(agentId: string): Promise<void> {
     }
   }
 
-  await supabase.from("agent_profiles").upsert(
-    {
-      agent_id: agentId,
-      updated_at: new Date().toISOString(),
-      avg_talk_ratio: avgTalkRatio,
-      avg_overall_score: avgScore,
-      total_calls: totalCalls,
-      close_rate: closeRate,
-      most_common_disc_type: mostCommonDisc,
-      weak_nepq_phases: weakPhases,
-      strong_nepq_phases: strongPhases,
-      most_missed_objections: [],
-      most_accepted_card_types: mostAcceptedCardTypes,
-      last_5_outcomes: last5Outcomes,
-      ...(coachingFocus ? { coaching_focus: coachingFocus } : {}),
-    },
-    { onConflict: "agent_id" }
-  );
+  // agent_profiles in the DB is a user-profile table (name/agency/license) — not a performance table.
+  // Performance profile writes are skipped until a dedicated table is created.
+  void agentId; void coachingFocus;
 }
 
 // ─── Route handler ────────────────────────────────────────────────────────────
@@ -159,7 +144,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from("call_sessions")
     .insert({
-      agent_id: body.agentId ?? null,
+      user_id: body.agentId ?? null,
       duration_seconds: body.durationSeconds ?? 0,
       transcript: body.transcript ?? [],
       coaching_cards_fired: body.coachingCardsFired ?? [],

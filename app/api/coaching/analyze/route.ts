@@ -22,16 +22,11 @@ interface CardPayload {
 }
 
 // Build agent-specific context from their profile (only if >= 3 calls)
-async function buildAgentContext(agentId: string): Promise<string> {
+async function buildAgentContext(_agentId: string): Promise<string> {
   try {
-    const supabase = await createClient();
-    const { data: profile } = await supabase
-      .from("agent_profiles")
-      .select("*")
-      .eq("agent_id", agentId)
-      .single();
-
-    if (!profile || profile.total_calls < 3) return "";
+    // agent_profiles table is user profile data (name/agency/license), not performance data
+    // Skip profile context until a dedicated performance table exists
+    return "";
 
     const lines: string[] = ["\n\nAgent Profile (personalise coaching to this agent):"];
     if (profile.avg_talk_ratio != null)

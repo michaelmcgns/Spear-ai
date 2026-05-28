@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ ok: true, note: "No matching session" });
 
   await syncCallToGHL({
-    agentId:           session.agent_id,
+    agentId:           session.user_id,
     callSessionId:     session.id,
     prospectName:      name || "Unknown",
     prospectPhone:     phone,
