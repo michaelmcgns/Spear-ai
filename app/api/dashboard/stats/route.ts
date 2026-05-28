@@ -17,10 +17,25 @@ export async function GET() {
   const empty: DashboardStats = { totalCalls: 0, closeRate: 0, avgScore: "—", objectionsCaught: 0 };
   if (!user) return NextResponse.json(empty);
 
-  const { data: calls } = await supabase
+  // Try full select; fall back to minimal if schema columns are missing
+  let calls: { outcome?: string; overall_score?: number; objections_raised?: unknown[] }[] | null = null;
+
+  const { data: fullData, error: fullError } = await supabase
     .from("call_sessions")
     .select("outcome, overall_score, objections_raised")
     .eq("user_id", user.id);
+
+  if (!fullError) {
+    calls = fullData;
+  } else {
+    console.warn("[dashboard/stats] Full select failed, falling back:", fullError.message);
+    // Just count rows to confirm data exists
+    const { data: minData } = await supabase
+      .from("call_sessions")
+      .select("id")
+      .eq("user_id", user.id);
+    calls = (minData ?? []).map(() => ({}));
+  }
 
   if (!calls || calls.length === 0) return NextResponse.json(empty);
 
