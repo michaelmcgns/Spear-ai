@@ -22,6 +22,9 @@ function makeS3(): S3Client {
   return new S3Client({
     region: "auto",
     endpoint: process.env.R2_ENDPOINT,
+    // R2 uses path-style URLs: https://ACCOUNT_ID.r2.cloudflarestorage.com/BUCKET/KEY
+    // Virtual-hosted style (BUCKET.ACCOUNT_ID.r2...) has no TLS cert → "Failed to fetch"
+    forcePathStyle: true,
     credentials: {
       accessKeyId:     process.env.R2_ACCESS_KEY_ID ?? "",
       secretAccessKey: process.env.R2_SECRET_KEY     ?? "",
