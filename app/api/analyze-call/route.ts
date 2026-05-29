@@ -124,6 +124,7 @@ async function transcribeUrl(audioUrl: string): Promise<string> {
     body: JSON.stringify({
       audio_url:     audioUrl,
       speaker_labels: true,
+      speech_model:  "universal-2",
     }),
   });
   if (!transcriptRes.ok) {
