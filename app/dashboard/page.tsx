@@ -1509,16 +1509,59 @@ function DashboardPage() {
     setResult(null);
     setError(null);
     setIsAnalyzing(true);
-    setAnalyzeStep("Uploading recording...");
     try {
-      const formData = new FormData();
-      formData.append("audio", file);
-      formData.append("sessionId", sessionIdRef.current);
-      if (userId) formData.append("agentId", userId);
+      // ── Step 1: get a signed upload URL (bypasses Vercel 4.5 MB limit) ───
+      setAnalyzeStep("Uploading recording...");
+      const presignRes = await fetch("/api/upload-audio/presign", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ fileName: file.name, contentType: file.type || "audio/mpeg" }),
+      });
+
+      let storagePath: string | null = null;
+
+      if (presignRes.ok) {
+        const { signedUrl, path } = await presignRes.json() as { signedUrl: string; path: string };
+        storagePath = path;
+        // Upload directly to Supabase Storage — no Vercel body size limit
+        const uploadRes = await fetch(signedUrl, {
+          method:  "PUT",
+          headers: { "Content-Type": file.type || "audio/mpeg" },
+          body:    file,
+        });
+        if (!uploadRes.ok) {
+          storagePath = null;
+          console.warn("[upload] direct storage upload failed, falling back to FormData");
+        }
+      } else {
+        console.warn("[upload] presign failed, falling back to FormData");
+      }
+
       setTimeout(() => setAnalyzeStep("Transcribing call..."), 2000);
       setTimeout(() => setAnalyzeStep("Generating Spear report..."), 8000);
-      const res = await fetch("/api/analyze-call", { method: "POST", body: formData });
-      if (!res.ok) { const b = await res.json(); throw new Error(b.error ?? "Analysis failed"); }
+
+      // ── Step 2: trigger analysis ─────────────────────────────────────────
+      let res: Response;
+      if (storagePath) {
+        res = await fetch("/api/analyze-call", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ storagePath, sessionId: sessionIdRef.current, agentId: userId ?? undefined }),
+        });
+      } else {
+        // Fallback: send file directly (works for small files <4.5 MB)
+        const formData = new FormData();
+        formData.append("audio", file);
+        formData.append("sessionId", sessionIdRef.current);
+        if (userId) formData.append("agentId", userId);
+        res = await fetch("/api/analyze-call", { method: "POST", body: formData });
+      }
+
+      if (!res.ok) {
+        let errMsg = "Analysis failed";
+        try { const b = await res.json(); errMsg = b.error ?? errMsg; } catch { /* ignore */ }
+        throw new Error(errMsg);
+      }
       const data = (await res.json()) as SpearAnalysis;
       setResult(data);
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);

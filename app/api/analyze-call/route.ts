@@ -6,6 +6,9 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireFeature } from "@/lib/subscription/server";
 import { LIFE_INSURANCE_KNOWLEDGE } from "@/lib/coaching/lifeInsuranceKnowledge";
 
+// Maximum file size for direct uploads (100 MB)
+const MAX_FILE_SIZE = 100 * 1024 * 1024;
+
 export const maxDuration = 300;
 
 // Full Spear analysis format
@@ -47,7 +50,57 @@ interface SpearAnalysis {
   _ftcDisclosure?: string;
 }
 
-// Upload audio to AssemblyAI and poll until transcription completes
+// Get a signed download URL from Supabase Storage for a given path
+async function getStorageDownloadUrl(storagePath: string): Promise<string> {
+  const db = createServiceClient();
+  const { data, error } = await db.storage
+    .from("audio-uploads")
+    .createSignedUrl(storagePath, 3600); // 1-hour expiry — enough for transcription
+  if (error) throw new Error(`Storage signed URL failed: ${error.message}`);
+  return data.signedUrl;
+}
+
+// Delete a file from Supabase Storage after transcription completes
+async function deleteStorageFile(storagePath: string): Promise<void> {
+  try {
+    const db = createServiceClient();
+    await db.storage.from("audio-uploads").remove([storagePath]);
+  } catch {
+    // Non-fatal — orphaned files will be cleaned up by a storage lifecycle rule
+  }
+}
+
+// Submit an audio URL to AssemblyAI and poll until transcription completes
+async function transcribeUrl(audioUrl: string): Promise<string> {
+  const apiKey = process.env.ASSEMBLYAI_API_KEY;
+  if (!apiKey) throw new Error("ASSEMBLYAI_API_KEY is not set");
+
+  const transcriptRes = await fetch("https://api.assemblyai.com/v2/transcript", {
+    method: "POST",
+    headers: { authorization: apiKey, "content-type": "application/json" },
+    body: JSON.stringify({
+      audio_url:     audioUrl,
+      speech_model:  "universal",
+      speaker_labels: true,
+    }),
+  });
+  if (!transcriptRes.ok) {
+    const body = await transcriptRes.text();
+    throw new Error(`AssemblyAI transcript request failed (${transcriptRes.status}): ${body}`);
+  }
+  const { id } = (await transcriptRes.json()) as { id: string };
+
+  const pollingUrl = `https://api.assemblyai.com/v2/transcript/${id}`;
+  for (;;) {
+    await new Promise((r) => setTimeout(r, 3000));
+    const pollRes = await fetch(pollingUrl, { headers: { authorization: apiKey } });
+    const data = (await pollRes.json()) as { status: string; text?: string; error?: string };
+    if (data.status === "completed") return data.text ?? "";
+    if (data.status === "error") throw new Error(`Transcription failed: ${data.error}`);
+  }
+}
+
+// Upload audio file directly to AssemblyAI (legacy path — only used if <4 MB)
 async function transcribeAudio(file: File): Promise<string> {
   const apiKey = process.env.ASSEMBLYAI_API_KEY;
   if (!apiKey) throw new Error("ASSEMBLYAI_API_KEY is not set");
@@ -62,45 +115,7 @@ async function transcribeAudio(file: File): Promise<string> {
     throw new Error(`AssemblyAI upload failed (${uploadRes.status}): ${body}`);
   }
   const { upload_url } = (await uploadRes.json()) as { upload_url: string };
-
-  const transcriptRes = await fetch(
-    "https://api.assemblyai.com/v2/transcript",
-    {
-      method: "POST",
-      headers: {
-        authorization: apiKey,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        audio_url: upload_url,
-        speech_models: ["universal"], // fixed: was deprecated `speech_model` (singular)
-        speaker_labels: true,
-      }),
-    }
-  );
-  if (!transcriptRes.ok) {
-    const body = await transcriptRes.text();
-    throw new Error(
-      `AssemblyAI transcript request failed (${transcriptRes.status}): ${body}`
-    );
-  }
-  const { id } = (await transcriptRes.json()) as { id: string };
-
-  const pollingUrl = `https://api.assemblyai.com/v2/transcript/${id}`;
-  for (;;) {
-    await new Promise((r) => setTimeout(r, 3000));
-    const pollRes = await fetch(pollingUrl, {
-      headers: { authorization: apiKey },
-    });
-    const data = (await pollRes.json()) as {
-      status: string;
-      text?: string;
-      error?: string;
-    };
-    if (data.status === "completed") return data.text ?? "";
-    if (data.status === "error")
-      throw new Error(`Transcription failed: ${data.error}`);
-  }
+  return transcribeUrl(upload_url);
 }
 
 // Analyze transcript with Claude Sonnet and return full Spear coaching report
@@ -319,19 +334,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Your plan does not include call analysis. Upgrade to Agent or higher." }, { status: 403 });
     }
 
-    const formData = await req.formData();
-    const file = formData.get("audio") as File | null;
-    const sessionId = (formData.get("sessionId") as string | null) ?? `session-${Date.now()}`;
-    const agentId = formData.get("agentId") as string | null ?? undefined;
+    let transcript: string;
+    let sessionId: string;
+    let agentId: string | undefined;
+    let storagePath: string | undefined;
 
-    if (!file) {
-      return NextResponse.json(
-        { error: "No audio file provided" },
-        { status: 400 }
-      );
+    const contentType = req.headers.get("content-type") ?? "";
+
+    if (contentType.includes("application/json")) {
+      // ── New path: browser uploaded directly to Supabase Storage ──────────
+      // Body: { storagePath, sessionId, agentId }
+      const body = await req.json() as { storagePath: string; sessionId?: string; agentId?: string };
+      if (!body.storagePath) {
+        return NextResponse.json({ error: "storagePath required" }, { status: 400 });
+      }
+      storagePath = body.storagePath;
+      sessionId   = body.sessionId ?? `session-${Date.now()}`;
+      agentId     = body.agentId ?? undefined;
+
+      console.log(`[analyze-call] storage path flow: ${storagePath}`);
+      const signedUrl = await getStorageDownloadUrl(storagePath);
+      transcript = await transcribeUrl(signedUrl);
+
+      // Clean up storage file after transcription
+      void deleteStorageFile(storagePath);
+    } else {
+      // ── Legacy path: small file sent directly in FormData (<4.5 MB) ──────
+      const formData = await req.formData();
+      const file = formData.get("audio") as File | null;
+      sessionId   = (formData.get("sessionId") as string | null) ?? `session-${Date.now()}`;
+      agentId     = formData.get("agentId") as string | null ?? undefined;
+
+      if (!file) {
+        return NextResponse.json({ error: "No audio file provided" }, { status: 400 });
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        return NextResponse.json(
+          { error: `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum size is 100 MB. Please use the standard upload flow.` },
+          { status: 413 }
+        );
+      }
+      transcript = await transcribeAudio(file);
     }
-
-    const transcript = await transcribeAudio(file);
     let analysis = await analyzeTranscript(transcript);
     analysis = await applyFiltersAndLog(analysis, sessionId, agentId);
 
