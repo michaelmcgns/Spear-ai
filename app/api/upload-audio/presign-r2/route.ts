@@ -3,8 +3,9 @@
  *  - putUrl:  browser PUTs the file directly to R2 (bypasses Vercel, no size limit)
  *  - getUrl:  passed to AssemblyAI so it can download the file for transcription
  *
- * Uses the official AWS SDK v3 (S3-compatible) to generate signatures — R2 is
- * fully S3-compatible with endpoint = https://{ACCOUNT_ID}.r2.cloudflarestorage.com
+ * Also ensures the R2 bucket has permissive CORS set so browsers can PUT directly.
+ * Without CORS, the browser's preflight OPTIONS request is rejected and the PUT
+ * never happens ("Failed to fetch").
  *
  * Required Vercel env vars:
  *   R2_ENDPOINT        https://{ACCOUNT_ID}.r2.cloudflarestorage.com
@@ -13,7 +14,12 @@
  *   R2_SECRET_KEY      R2 API token Secret Access Key
  */
 
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  PutBucketCorsCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -30,6 +36,32 @@ function makeS3(): S3Client {
       secretAccessKey: process.env.R2_SECRET_KEY     ?? "",
     },
   });
+}
+
+/**
+ * Idempotent: sets a permissive CORS policy on the R2 bucket every presign call.
+ * This is the only way to guarantee CORS is correct without manual Cloudflare
+ * dashboard steps. Cost: one extra API call per upload — negligible.
+ */
+async function ensureCors(s3: S3Client, bucket: string): Promise<void> {
+  try {
+    await s3.send(new PutBucketCorsCommand({
+      Bucket: bucket,
+      CORSConfiguration: {
+        CORSRules: [{
+          AllowedOrigins: ["*"],
+          AllowedMethods: ["GET", "PUT", "HEAD"],
+          AllowedHeaders: ["*"],
+          ExposeHeaders: ["ETag"],
+          MaxAgeSeconds: 86400,
+        }],
+      },
+    }));
+    console.log("[presign-r2] CORS policy applied to bucket:", bucket);
+  } catch (err) {
+    // Non-fatal — CORS may already be set correctly. Log and proceed.
+    console.warn("[presign-r2] ensureCors non-fatal error:", err);
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -55,6 +87,10 @@ export async function POST(req: NextRequest) {
   const mime         = contentType || "application/octet-stream";
 
   const s3 = makeS3();
+
+  // Set CORS on the bucket before generating URLs — ensures the browser PUT
+  // won't be blocked by a missing/wrong CORS policy.
+  await ensureCors(s3, bucket);
 
   // Presigned PUT — browser uploads directly here (valid for 1 hour)
   const putUrl = await getSignedUrl(
