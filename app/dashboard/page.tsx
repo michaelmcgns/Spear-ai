@@ -1640,7 +1640,12 @@ function DashboardPage() {
       if (!putUrl || !getUrl) throw new Error("Presign returned no URLs — check R2 env vars.");
 
       // Step 1b — browser PUTs directly to R2 (Vercel not involved)
+      // "Failed to fetch" here almost always means R2 CORS isn't allowing this origin.
+      // Debug info: log the putUrl domain so it's visible in the console.
       try {
+        const putDomain = (() => { try { return new URL(putUrl).hostname; } catch { return "?"; } })();
+        console.log(`[upload] PUT to R2 domain: ${putDomain}`);
+
         const putRes = await fetch(putUrl, {
           method: "PUT",
           headers: { "Content-Type": file.type || "application/octet-stream" },
@@ -1651,7 +1656,10 @@ function DashboardPage() {
           throw new Error(`R2 PUT ${putRes.status}: ${body.slice(0, 200)}`);
         }
       } catch (e) {
-        throw new Error(`Step 2 (R2 upload): ${e instanceof Error ? e.message : String(e)}`);
+        const msg = e instanceof Error ? e.message : String(e);
+        // "Failed to fetch" = network/CORS error — give a clear hint
+        const hint = msg.includes("fetch") ? " (CORS or network — check R2 CORS config at spearai.live/api/upload-audio/fix-r2-cors)" : "";
+        throw new Error(`Step 2 (R2 upload): ${msg}${hint}`);
       }
 
       setTimeout(() => setAnalyzeStep("Transcribing call..."), 500);
