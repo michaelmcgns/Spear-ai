@@ -286,19 +286,28 @@ Using the life insurance knowledge above, analyze this sales call transcript and
 }
 \`\`\``;
 
+  // Truncate very long transcripts to avoid hitting context limits.
+  // 60k chars ≈ ~15k tokens — well within Claude's 200k context window.
+  const truncatedTranscript = transcript.length > 60000
+    ? transcript.slice(0, 60000) + "\n\n[Transcript truncated for analysis]"
+    : transcript;
+
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 2000,
+    max_tokens: 4000,
     system: systemPrompt,
-    messages: [{ role: "user", content: `Analyze this call transcript and return the JSON in the format below:\n\n${jsonSchema}\n\nTranscript:\n${transcript}` }],
+    messages: [{ role: "user", content: `Analyze this call transcript and return the JSON in the format below:\n\n${jsonSchema}\n\nTranscript:\n${truncatedTranscript}` }],
   });
 
   const raw = message.content[0].type === "text" ? message.content[0].text : "";
+  console.log("[analyze-call] Claude stop_reason:", message.stop_reason, "| raw length:", raw.length);
+
   try {
     const blockMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
     const jsonStr = blockMatch ? blockMatch[1].trim() : raw.trim();
     return JSON.parse(jsonStr) as SpearAnalysis;
-  } catch {
+  } catch (parseErr) {
+    console.error("[analyze-call] JSON parse failed:", parseErr, "| raw preview:", raw.slice(0, 300));
     // Try extracting raw JSON object
     const objMatch = raw.match(/\{[\s\S]*\}/);
     if (objMatch) {
