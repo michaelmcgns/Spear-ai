@@ -1616,33 +1616,42 @@ function DashboardPage() {
       // never in the upload path, so its 4.5 MB body limit doesn't apply.
       setAnalyzeStep("Uploading recording...");
 
-      const presignRes = await fetch("/api/upload-audio/presign-r2", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contentType: file.type || "application/octet-stream",
-          fileName: file.name,
-        }),
-      });
-      if (!presignRes.ok) {
-        let errMsg = "Upload failed";
-        try { const b = await presignRes.json(); errMsg = b.error ?? errMsg; } catch { /* ignore */ }
-        throw new Error(errMsg);
+      // Step 1a — get presigned R2 URLs from our server
+      let presignData: { putUrl?: string; getUrl?: string } = {};
+      try {
+        const presignRes = await fetch("/api/upload-audio/presign-r2", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contentType: file.type || "application/octet-stream",
+            fileName: file.name,
+          }),
+        });
+        if (!presignRes.ok) {
+          const body = await presignRes.text();
+          throw new Error(`Presign ${presignRes.status}: ${body.slice(0, 120)}`);
+        }
+        presignData = await presignRes.json();
+      } catch (e) {
+        throw new Error(`Step 1 (presign): ${e instanceof Error ? e.message : String(e)}`);
       }
-      const { putUrl, getUrl } = (await presignRes.json()) as {
-        putUrl?: string;
-        getUrl?: string;
-      };
-      if (!putUrl || !getUrl) throw new Error("Upload failed: could not get upload URL.");
 
-      // ── Step 2: PUT file directly to R2 (no Vercel proxy) ─────────────
-      const putRes = await fetch(putUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-        body: file,
-      });
-      if (!putRes.ok) {
-        throw new Error(`Upload failed (${putRes.status}). Please try again.`);
+      const { putUrl, getUrl } = presignData;
+      if (!putUrl || !getUrl) throw new Error("Presign returned no URLs — check R2 env vars.");
+
+      // Step 1b — browser PUTs directly to R2 (Vercel not involved)
+      try {
+        const putRes = await fetch(putUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+          body: file,
+        });
+        if (!putRes.ok) {
+          const body = await putRes.text();
+          throw new Error(`R2 PUT ${putRes.status}: ${body.slice(0, 200)}`);
+        }
+      } catch (e) {
+        throw new Error(`Step 2 (R2 upload): ${e instanceof Error ? e.message : String(e)}`);
       }
 
       setTimeout(() => setAnalyzeStep("Transcribing call..."), 500);
