@@ -123,7 +123,6 @@ async function transcribeUrl(audioUrl: string): Promise<string> {
     headers: { authorization: apiKey, "content-type": "application/json" },
     body: JSON.stringify({
       audio_url:     audioUrl,
-      speech_models: { model: "universal" },
       speaker_labels: true,
     }),
   });
