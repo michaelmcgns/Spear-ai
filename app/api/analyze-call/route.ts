@@ -6,7 +6,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { requireFeature } from "@/lib/subscription/server";
 import { LIFE_INSURANCE_KNOWLEDGE } from "@/lib/coaching/lifeInsuranceKnowledge";
 
-// Maximum file size for direct uploads (100 MB)
+// Maximum file size for legacy FormData uploads (100 MB).
+// Larger recordings should use /api/upload-audio/stream first, then pass uploadUrl here.
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
 export const maxDuration = 300;
@@ -81,7 +82,7 @@ async function uploadBufferToAssemblyAI(buffer: Buffer): Promise<string> {
       authorization: apiKey,
       "content-type": "application/octet-stream",
     },
-    body: buffer,
+    body: new Uint8Array(buffer),
   });
   if (!uploadRes.ok) {
     const body = await uploadRes.text();
@@ -139,6 +140,19 @@ async function transcribeUrl(audioUrl: string): Promise<string> {
     const data = (await pollRes.json()) as { status: string; text?: string; error?: string };
     if (data.status === "completed") return data.text ?? "";
     if (data.status === "error") throw new Error(`Transcription failed: ${data.error}`);
+  }
+}
+
+function isAssemblyUploadUrl(uploadUrl: string): boolean {
+  try {
+    const url = new URL(uploadUrl);
+    return url.protocol === "https:" && (
+      url.hostname === "cdn.assemblyai.com" ||
+      url.hostname === "api.assemblyai.com" ||
+      url.hostname.endsWith(".assemblyai.com")
+    );
+  } catch {
+    return false;
   }
 }
 
@@ -386,6 +400,7 @@ export async function POST(req: NextRequest) {
     if (contentType.includes("application/json")) {
       // ── JSON path: file was uploaded to Supabase Storage (single or chunked) ──
       const body = await req.json() as {
+        uploadUrl?: string;     // AssemblyAI URL returned by /api/upload-audio/stream
         storagePath?: string;
         chunkPaths?: string[];   // multiple chunks if file was > 40 MB
         sessionId?: string;
@@ -395,7 +410,14 @@ export async function POST(req: NextRequest) {
       sessionId = body.sessionId ?? `session-${Date.now()}`;
       agentId   = body.agentId ?? undefined;
 
-      if (body.chunkPaths && body.chunkPaths.length > 0) {
+      if (body.uploadUrl) {
+        // ── Streamed path: browser already uploaded the recording to AssemblyAI ─
+        if (!isAssemblyUploadUrl(body.uploadUrl)) {
+          return NextResponse.json({ error: "Invalid AssemblyAI upload URL" }, { status: 400 });
+        }
+        console.log("[analyze-call] AssemblyAI streamed upload flow");
+        transcript = await transcribeUrl(body.uploadUrl);
+      } else if (body.chunkPaths && body.chunkPaths.length > 0) {
         // ── Chunked path: reassemble chunks server-side ─────────────────────
         console.log(`[analyze-call] chunked path: ${body.chunkPaths.length} chunk(s)`);
         transcript = await transcribeChunks(body.chunkPaths);
@@ -407,7 +429,7 @@ export async function POST(req: NextRequest) {
         transcript = await transcribeUrl(signedUrl);
         void deleteStorageFile(storagePath);
       } else {
-        return NextResponse.json({ error: "storagePath or chunkPaths required" }, { status: 400 });
+        return NextResponse.json({ error: "uploadUrl, storagePath, or chunkPaths required" }, { status: 400 });
       }
     } else {
       // ── Legacy path: small file sent directly in FormData (<4.5 MB) ──────

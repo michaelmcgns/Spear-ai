@@ -22,6 +22,9 @@ import { getConsentRequirement } from "@/lib/compliance/consentStates";
 
 // ─── Welcome Modal ─────────────────────────────────────────────────────────────
 
+const MAX_CALL_UPLOAD_BYTES = 500 * 1024 * 1024;
+const MAX_CALL_UPLOAD_MB = Math.round(MAX_CALL_UPLOAD_BYTES / 1024 / 1024);
+
 function WelcomeModal({ onClose }: { onClose: () => void }) {
   return (
     <div
@@ -139,6 +142,9 @@ type CallRecord = {
   phase: string; outcome: "closed" | "lost" | "pending";
   revenue: number | null; product: string; topIssue: string | null;
   talkRatio: number;
+  createdAtMs?: number;
+  nepqScores?: Record<string, number>;
+  objectionTypes?: string[];
 };
 
 type AgentRecord = {
@@ -210,35 +216,6 @@ const MOCK_AGENTS: AgentRecord[] = [
   { id: 4, name: "Sarah K.",  initials: "SK", role: "Agent",         callsMonth: 39, avgScore: 7.9, closeRate: 38, revenueMTD: 86400,  trend: "flat", trendPct: 0.2 },
   { id: 5, name: "James R.",  initials: "JR", role: "Agent",         callsMonth: 31, avgScore: 7.2, closeRate: 31, revenueMTD: 52100,  trend: "down", trendPct: 3.1 },
   { id: 6, name: "Derek M.",  initials: "DM", role: "Junior Agent",  callsMonth: 28, avgScore: 6.1, closeRate: 24, revenueMTD: 31800,  trend: "up",   trendPct: 6.4 },
-];
-
-const WEEKLY_DATA = [
-  { label: "W1", calls: 8,  closed: 3, revenue: 41200, avgScore: 7.1 },
-  { label: "W2", calls: 11, closed: 4, revenue: 56800, avgScore: 7.4 },
-  { label: "W3", calls: 9,  closed: 3, revenue: 38900, avgScore: 7.2 },
-  { label: "W4", calls: 13, closed: 5, revenue: 72400, avgScore: 7.9 },
-  { label: "W5", calls: 10, closed: 4, revenue: 58100, avgScore: 8.1 },
-  { label: "W6", calls: 14, closed: 6, revenue: 89300, avgScore: 8.3 },
-  { label: "W7", calls: 11, closed: 4, revenue: 61400, avgScore: 8.0 },
-  { label: "W8", calls: 12, closed: 5, revenue: 76200, avgScore: 8.2 },
-];
-
-const NEPQ_PHASE_DATA = [
-  { phase: "Connection",        score: 8.4, color: "#10B981" },
-  { phase: "Situation",         score: 7.1, color: "#3B82F6" },
-  { phase: "Problem Awareness", score: 7.8, color: "#8B5CF6" },
-  { phase: "Consequence",       score: 5.9, color: "#EF4444" },
-  { phase: "Solution",          score: 7.2, color: "#F59E0B" },
-  { phase: "Qualifying",        score: 7.6, color: "#06B6D4" },
-  { phase: "Close",             score: 8.1, color: "#10B981" },
-];
-
-const OBJECTION_DATA = [
-  { type: "Price",           count: 42, color: "#EF4444" },
-  { type: "Think About It",  count: 38, color: "#F59E0B" },
-  { type: "Spouse",          count: 29, color: "#8B5CF6" },
-  { type: "Timing",          count: 24, color: "#3B82F6" },
-  { type: "Already Covered", count: 18, color: "#6B7280" },
 ];
 
 const COACHING_DRILLS = [
@@ -322,6 +299,23 @@ function fmtSec(sec: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+function getObjectionTypes(objections: unknown[]): string[] {
+  return objections.map((objection) => {
+    if (typeof objection === "object" && objection !== null) {
+      const record = objection as Record<string, unknown>;
+      const raw = record.type ?? record.text ?? "Other";
+      return String(raw).trim() || "Other";
+    }
+    return String(objection || "Other").trim() || "Other";
+  });
+}
+
+function titleCaseLabel(value: string): string {
+  return value
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function sessionToRecord(s: RawCallSession, i: number): CallRecord {
   const dt = new Date(s.created_at);
   const phaseMap: Record<string, string> = {
@@ -330,6 +324,12 @@ function sessionToRecord(s: RawCallSession, i: number): CallRecord {
     solutionAwareness: "Solution Awareness", qualifying: "Qualifying", close: "Close",
   };
   const phases = s.nepq_phases_completed ?? {};
+  const nepqScores = Object.fromEntries(
+    Object.entries(phases)
+      .filter(([, value]) => value?.score != null)
+      .map(([key, value]) => [key, Number(value.score)])
+  );
+  const objections = Array.isArray(s.objections_raised) ? s.objections_raised : [];
   let lastPhase = "Connection";
   for (const key of Object.keys(phaseMap)) {
     if ((phases[key] as { score?: number } | undefined)?.score != null) lastPhase = phaseMap[key];
@@ -339,6 +339,7 @@ function sessionToRecord(s: RawCallSession, i: number): CallRecord {
     id: i + 1,
     date: dt.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     time: dt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+    createdAtMs: dt.getTime(),
     prospect: s.prospect_name ?? `Call ${i + 1}`,
     duration: fmtSec(s.duration_seconds ?? 0),
     durationSec: s.duration_seconds ?? 0,
@@ -348,6 +349,8 @@ function sessionToRecord(s: RawCallSession, i: number): CallRecord {
     phase: lastPhase, outcome, revenue: null, product: "Call Recording",
     topIssue: s.notes ?? null,
     talkRatio: Math.round(s.talk_ratio_agent ?? 50),
+    nepqScores,
+    objectionTypes: getObjectionTypes(objections),
   };
 }
 
@@ -536,6 +539,23 @@ function CallsTab() {
 
 // ─── Analytics Tab ────────────────────────────────────────────────────────────
 
+const ANALYTICS_PHASES = [
+  { key: "connection",        phase: "Connection",        color: "#10B981" },
+  { key: "situation",         phase: "Situation",         color: "#3B82F6" },
+  { key: "problemAwareness",  phase: "Problem Awareness", color: "#6366F1" },
+  { key: "consequence",       phase: "Consequence",       color: "#EF4444" },
+  { key: "solutionAwareness", phase: "Solution",          color: "#8B5CF6" },
+  { key: "qualifying",        phase: "Qualifying",        color: "#F59E0B" },
+  { key: "close",             phase: "Close",             color: "#10B981" },
+];
+
+const DISC_ANALYTICS = [
+  { type: "D" as const, label: "Dominant",     color: "#EF4444", desc: "Direct, decisive, wants results" },
+  { type: "I" as const, label: "Influential",  color: "#F59E0B", desc: "Social, optimistic, emotionally driven" },
+  { type: "S" as const, label: "Steady",       color: "#10B981", desc: "Patient, risk-averse, needs trust" },
+  { type: "C" as const, label: "Conscientious",color: "#3B82F6", desc: "Analytical, detail-focused, cautious" },
+];
+
 function AnalyticsTab() {
   const { calls, hasReal, loading } = useDashboardData();
   const [range, setRange] = useState<"4w" | "8w">("8w");
@@ -558,21 +578,100 @@ function AnalyticsTab() {
     </div>
   );
 
-  const data = range === "4w" ? WEEKLY_DATA.slice(-4) : WEEKLY_DATA;
-  const maxCalls   = Math.max(...data.map(w => w.calls));
-  const maxRev     = Math.max(...data.map(w => w.revenue));
-  const totalRev   = data.reduce((s, w) => s + w.revenue, 0);
-  const totalClose = data.reduce((s, w) => s + w.closed, 0);
-  const totalCalls = data.reduce((s, w) => s + w.calls, 0);
-  const avgScore   = (data.reduce((s, w) => s + w.avgScore, 0) / data.length).toFixed(1);
-  const maxObj     = Math.max(...OBJECTION_DATA.map(o => o.count));
+  const weekCount = range === "4w" ? 4 : 8;
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const periodStart = now - (weekCount * weekMs);
+  const periodCalls = calls.filter(call => (call.createdAtMs ?? 0) >= periodStart);
+  const data = Array.from({ length: weekCount }, (_, idx) => {
+    const start = now - ((weekCount - idx) * weekMs);
+    const end = start + weekMs;
+    const bucketCalls = calls.filter(call => {
+      const created = call.createdAtMs ?? 0;
+      return created >= start && created < end;
+    });
+    const scored = bucketCalls.filter(call => call.score > 0);
+    return {
+      label: `W${idx + 1}`,
+      calls: bucketCalls.length,
+      closed: bucketCalls.filter(call => call.outcome === "closed").length,
+      avgScore: scored.length > 0 ? scored.reduce((sum, call) => sum + call.score, 0) / scored.length : 0,
+    };
+  });
+
+  const totalCalls = periodCalls.length;
+  const totalClose = periodCalls.filter(call => call.outcome === "closed").length;
+  const scoredCalls = periodCalls.filter(call => call.score > 0);
+  const avgScore = scoredCalls.length > 0
+    ? (scoredCalls.reduce((sum, call) => sum + call.score, 0) / scoredCalls.length).toFixed(1)
+    : "—";
+  const totalObjections = periodCalls.reduce((sum, call) => sum + call.objectionCount, 0);
+  const closeRate = totalCalls > 0 ? Math.round((totalClose / totalCalls) * 100) : 0;
+  const maxCalls = Math.max(1, ...data.map(w => w.calls));
+  const maxWeeklyScore = Math.max(1, ...data.map(w => w.avgScore));
+
+  const phaseScores = ANALYTICS_PHASES.map(phase => {
+    const scores = periodCalls
+      .map(call => call.nepqScores?.[phase.key])
+      .filter((score): score is number => typeof score === "number" && Number.isFinite(score));
+    const avg = scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : null;
+    return { ...phase, score: avg, count: scores.length };
+  });
+  const weakestPhase = phaseScores
+    .filter(phase => phase.score != null)
+    .sort((a, b) => (a.score ?? 10) - (b.score ?? 10))[0];
+
+  const objectionCounts = new Map<string, number>();
+  for (const call of periodCalls) {
+    for (const type of call.objectionTypes ?? []) {
+      const label = titleCaseLabel(type || "Other");
+      objectionCounts.set(label, (objectionCounts.get(label) ?? 0) + 1);
+    }
+  }
+  const objectionData = Array.from(objectionCounts.entries())
+    .map(([type, count], idx) => ({ type, count, color: ["#EF4444", "#8B5CF6", "#F59E0B", "#3B82F6", "#10B981"][idx % 5] }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6);
+  const maxObj = Math.max(1, ...objectionData.map(o => o.count));
+
+  const discCounts = DISC_ANALYTICS.map(item => {
+    const count = periodCalls.filter(call => call.disc === item.type).length;
+    const pct = totalCalls > 0 ? Math.round((count / totalCalls) * 100) : 0;
+    return { ...item, count, pct };
+  });
+
+  if (totalCalls === 0) return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-white">Analytics</h2>
+          <p className="text-xs text-zinc-500 mt-0.5">Performance trends from saved calls only</p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {(["4w", "8w"] as const).map(r => (
+            <button key={r} onClick={() => setRange(r)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${range === r ? "bg-blue-600/20 text-blue-300 border border-blue-500/30" : "text-zinc-500 border border-zinc-800 hover:text-zinc-300"}`}>
+              {r === "4w" ? "4 Weeks" : "8 Weeks"}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-col items-center justify-center h-64 text-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900">
+        <BarChart3 className="h-5 w-5 text-zinc-600" />
+        <div>
+          <p className="text-sm font-semibold text-zinc-300">No calls in this range</p>
+          <p className="text-xs text-zinc-600 mt-1">Switch ranges or analyze a new call to start fresh analytics.</p>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-base font-semibold text-white">Analytics</h2>
-          <p className="text-xs text-zinc-500 mt-0.5">Performance trends and insights</p>
+          <p className="text-xs text-zinc-500 mt-0.5">Performance trends from saved calls only</p>
         </div>
         <div className="flex items-center gap-1.5">
           {(["4w", "8w"] as const).map(r => (
@@ -584,13 +683,12 @@ function AnalyticsTab() {
         </div>
       </div>
 
-      {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total Calls",    value: totalCalls.toString(),                    sub: `${range} period`,        Icon: Phone,      color: "text-blue-400"   },
-          { label: "Deals Closed",   value: totalClose.toString(),                    sub: `${Math.round((totalClose/totalCalls)*100)}% close rate`, Icon: CheckCircle2, color: "text-emerald-400" },
-          { label: "Revenue",        value: `$${(totalRev/1000).toFixed(0)}k`,        sub: "total influenced",       Icon: TrendingUp, color: "text-amber-400"  },
-          { label: "Avg Call Score", value: avgScore,                                 sub: "call quality",           Icon: Star,       color: "text-purple-400" },
+          { label: "Total Calls",    value: totalCalls.toString(),       sub: `${range} period`,           Icon: Phone,        color: "text-blue-400"   },
+          { label: "Deals Closed",   value: totalClose.toString(),       sub: `${closeRate}% close rate`,  Icon: CheckCircle2, color: "text-emerald-400" },
+          { label: "Objections",     value: totalObjections.toString(),  sub: "caught in calls",          Icon: Target,       color: "text-amber-400"  },
+          { label: "Avg Call Score", value: avgScore,                    sub: "call quality",             Icon: Star,         color: "text-purple-400" },
         ].map(({ label, value, sub, Icon, color }) => (
           <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
             <div className="flex items-center justify-between mb-2">
@@ -603,14 +701,13 @@ function AnalyticsTab() {
         ))}
       </div>
 
-      {/* Bar charts */}
       <div className="grid lg:grid-cols-2 gap-5">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
           <p className="text-xs font-semibold text-white mb-4">Weekly Call Volume</p>
           <div className="flex items-end gap-2" style={{ height: 96 }}>
             {data.map(w => (
               <div key={w.label} className="flex-1 flex flex-col items-center gap-1.5">
-                <div className="w-full rounded-t-sm bg-blue-600/75 transition-all" style={{ height: `${Math.max((w.calls / maxCalls) * 80, 4)}px` }} />
+                <div className="w-full rounded-t-sm bg-blue-600/75 transition-all" style={{ height: `${Math.max((w.calls / maxCalls) * 80, w.calls > 0 ? 4 : 0)}px` }} />
                 <span className="text-[9px] text-zinc-600">{w.label}</span>
               </div>
             ))}
@@ -618,65 +715,65 @@ function AnalyticsTab() {
         </div>
 
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-          <p className="text-xs font-semibold text-white mb-4">Weekly Revenue</p>
+          <p className="text-xs font-semibold text-white mb-4">Weekly Avg Score</p>
           <div className="flex items-end gap-2" style={{ height: 96 }}>
             {data.map(w => (
               <div key={w.label} className="flex-1 flex flex-col items-center gap-1.5">
-                <div className="w-full rounded-t-sm bg-emerald-600/75 transition-all" style={{ height: `${Math.max((w.revenue / maxRev) * 80, 4)}px` }} />
-                <span className="text-[9px] text-zinc-600">{w.label}</span>
+                <div className="w-full rounded-t-sm bg-emerald-600/75 transition-all" style={{ height: `${Math.max((w.avgScore / maxWeeklyScore) * 80, w.avgScore > 0 ? 4 : 0)}px` }} />
+                <span className="text-[9px] text-zinc-600">{w.avgScore > 0 ? w.avgScore.toFixed(1) : "—"}</span>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* NEPQ + Objections */}
       <div className="grid lg:grid-cols-2 gap-5">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
           <p className="text-xs font-semibold text-white mb-5">NEPQ Phase Averages</p>
           <div className="space-y-3.5">
-            {NEPQ_PHASE_DATA.map(({ phase, score, color }) => (
+            {phaseScores.map(({ phase, score, color, count }) => (
               <div key={phase}>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs text-zinc-400">{phase}</span>
-                  <span className="text-xs font-bold" style={{ color }}>{score}</span>
+                  <span className="text-xs font-bold" style={{ color }}>{score == null ? "—" : score.toFixed(1)}</span>
                 </div>
                 <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${score * 10}%`, backgroundColor: color }} />
+                  <div className="h-full rounded-full" style={{ width: `${score == null ? 0 : score * 10}%`, backgroundColor: color }} />
                 </div>
+                {count === 0 && <p className="text-[9px] text-zinc-700 mt-1">No data yet</p>}
               </div>
             ))}
           </div>
-          <p className="text-[10px] text-red-400 mt-4">⚠ Consequence Questions at 5.9 — your biggest growth lever</p>
+          {weakestPhase?.score != null && (
+            <p className="text-[10px] text-red-400 mt-4">Weakest phase: {weakestPhase.phase} at {weakestPhase.score.toFixed(1)}</p>
+          )}
         </div>
 
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
           <p className="text-xs font-semibold text-white mb-5">Objection Frequency</p>
-          <div className="space-y-3">
-            {OBJECTION_DATA.map(({ type, count, color }) => (
-              <div key={type} className="flex items-center gap-3">
-                <span className="text-xs text-zinc-400 w-28 shrink-0">{type}</span>
-                <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${(count / maxObj) * 100}%`, backgroundColor: color }} />
+          {objectionData.length === 0 ? (
+            <p className="text-xs text-zinc-600">No objections detected yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {objectionData.map(({ type, count, color }) => (
+                <div key={type} className="flex items-center gap-3">
+                  <span className="text-xs text-zinc-400 w-28 shrink-0">{type}</span>
+                  <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${(count / maxObj) * 100}%`, backgroundColor: color }} />
+                  </div>
+                  <span className="text-xs font-semibold text-zinc-300 w-6 text-right">{count}</span>
                 </div>
-                <span className="text-xs font-semibold text-zinc-300 w-6 text-right">{count}</span>
-              </div>
-            ))}
-          </div>
-          <p className="text-[10px] text-zinc-600 mt-4">{MOCK_CALLS.reduce((s, c) => s + c.objectionCount, 0)} total objections · last 30 days</p>
+              ))}
+            </div>
+          )}
+          <p className="text-[10px] text-zinc-600 mt-4">{totalObjections} total objections · {range} period</p>
         </div>
       </div>
 
-      {/* DISC distribution */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
         <p className="text-xs font-semibold text-white mb-5">Buyer DISC Distribution</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-          {[
-            { type: "D", label: "Dominant",        pct: 22, color: "#EF4444", desc: "Direct, decisive, wants results" },
-            { type: "I", label: "Influential",      pct: 31, color: "#F59E0B", desc: "Social, optimistic, emotionally driven" },
-            { type: "S", label: "Steady",           pct: 34, color: "#10B981", desc: "Patient, risk-averse, needs trust" },
-            { type: "C", label: "Conscientious",    pct: 13, color: "#3B82F6", desc: "Analytical, detail-focused, cautious" },
-          ].map(({ type, label, pct, color, desc }) => (
+          {discCounts.map(({ type, label, pct, count, color, desc }) => (
             <div key={type} className="text-center">
               <div className="relative w-14 h-14 mx-auto mb-3">
                 <svg viewBox="0 0 36 36" className="w-14 h-14 -rotate-90">
@@ -688,7 +785,7 @@ function AnalyticsTab() {
               </div>
               <p className="text-base font-bold text-zinc-100">{pct}%</p>
               <p className="text-[11px] text-zinc-400 font-medium">{label}</p>
-              <p className="text-[10px] text-zinc-600 mt-1 leading-snug">{desc}</p>
+              <p className="text-[10px] text-zinc-600 mt-1 leading-snug">{count} call{count === 1 ? "" : "s"} · {desc}</p>
             </div>
           ))}
         </div>
@@ -1170,7 +1267,7 @@ function DashboardHome({
         <div className="lg:col-span-3 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-sm font-semibold text-white">Analyze a Call</h2>
-            <span className="text-xs text-zinc-600">MP3 · MP4 · M4A · WAV</span>
+            <span className="text-xs text-zinc-600">MP3 · MP4 · M4A · WAV · up to {MAX_CALL_UPLOAD_MB} MB</span>
           </div>
           <input ref={fileInputRef} type="file" accept=".mp3,.mp4,.m4a,.wav" className="hidden" onChange={handleFileChange} />
           <div
@@ -1510,95 +1607,48 @@ function DashboardPage() {
     setError(null);
     setIsAnalyzing(true);
     try {
-      // ── Step 1: upload to Supabase Storage via authenticated browser client ─
-      // Files > 40 MB are split into 40 MB chunks (each safely under Supabase's
-      // 50 MB free-tier per-file limit) and uploaded separately.
-      // The server reassembles chunks before sending to AssemblyAI.
-      setAnalyzeStep("Uploading recording...");
-
-      const CHUNK_SIZE = 40 * 1024 * 1024; // 40 MB — safely under Supabase 50 MB limit
-      const FILE_LIMIT = 4 * 1024 * 1024;  // 4 MB — Vercel FormData hard ceiling
-
-      let storagePath: string | null = null;
-      let chunkPaths: string[] | null = null;
-
-      if (userId) {
-        const supabase = createClient();
-
-        if (file.size > CHUNK_SIZE) {
-          // ── Chunked path: split into 40 MB slices ────────────────────────
-          const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-          const paths: string[] = [];
-
-          for (let i = 0; i < totalChunks; i++) {
-            setAnalyzeStep(`Uploading part ${i + 1} of ${totalChunks}...`);
-            const start = i * CHUNK_SIZE;
-            const end   = Math.min(start + CHUNK_SIZE, file.size);
-            const chunk = file.slice(start, end);
-            const safeName  = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-            const chunkPath = `${userId}/${Date.now()}-part${i}-${safeName}`;
-
-            const { error } = await supabase.storage
-              .from("audio-uploads")
-              .upload(chunkPath, chunk, { contentType: file.type || "audio/mpeg" });
-
-            if (error) throw new Error(`Upload failed (part ${i + 1}/${totalChunks}): ${error.message}`);
-            paths.push(chunkPath);
-          }
-          chunkPaths = paths;
-        } else {
-          // ── Single upload (file ≤ 40 MB) ─────────────────────────────────
-          const safeName   = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-          const uploadPath = `${userId}/${Date.now()}-${safeName}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from("audio-uploads")
-            .upload(uploadPath, file, { contentType: file.type || "audio/mpeg" });
-
-          if (!uploadError) {
-            storagePath = uploadPath;
-          } else {
-            console.warn("[upload] Supabase storage upload failed:", uploadError.message);
-            if (file.size > FILE_LIMIT) {
-              throw new Error(`Upload failed: ${uploadError.message}`);
-            }
-            // Small file — fall through to FormData path below
-          }
-        }
-      } else if (file.size > FILE_LIMIT) {
-        throw new Error("You must be signed in to upload recordings larger than 4 MB.");
+      if (file.size > MAX_CALL_UPLOAD_BYTES) {
+        throw new Error(`Call recordings can be up to ${MAX_CALL_UPLOAD_MB} MB.`);
       }
 
-      setTimeout(() => setAnalyzeStep("Transcribing call..."), 2000);
-      setTimeout(() => setAnalyzeStep("Generating Spear report..."), 8000);
+      // ── Step 1: stream directly to AssemblyAI via the Edge upload endpoint ─
+      // This avoids Supabase Storage's free-tier file cap and Vercel's Node
+      // FormData body limit because the file is never stored in app memory.
+      setAnalyzeStep("Uploading recording...");
+
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("You must be signed in to upload call recordings.");
+      }
+
+      const uploadRes = await fetch("/api/upload-audio/stream", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+          "Content-Type": file.type || "application/octet-stream",
+        },
+        body: file,
+      });
+
+      if (!uploadRes.ok) {
+        let errMsg = "Upload failed";
+        try { const b = await uploadRes.json(); errMsg = b.error ?? errMsg; } catch { /* ignore */ }
+        throw new Error(errMsg);
+      }
+
+      const { uploadUrl } = (await uploadRes.json()) as { uploadUrl?: string };
+      if (!uploadUrl) throw new Error("Upload failed: missing AssemblyAI URL.");
 
       setTimeout(() => setAnalyzeStep("Transcribing call..."), 1000);
       setTimeout(() => setAnalyzeStep("Generating Spear report..."), 8000);
 
       // ── Step 2: trigger analysis ─────────────────────────────────────────
-      let res: Response;
-      if (chunkPaths) {
-        // Large file uploaded as chunks — server will reassemble
-        res = await fetch("/api/analyze-call", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ chunkPaths, sessionId: sessionIdRef.current, agentId: userId ?? undefined }),
-        });
-      } else if (storagePath) {
-        // Single file upload path
-        res = await fetch("/api/analyze-call", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ storagePath, sessionId: sessionIdRef.current, agentId: userId ?? undefined }),
-        });
-      } else {
-        // Fallback: send file directly (works for small files <4.5 MB)
-        const formData = new FormData();
-        formData.append("audio", file);
-        formData.append("sessionId", sessionIdRef.current);
-        if (userId) formData.append("agentId", userId);
-        res = await fetch("/api/analyze-call", { method: "POST", body: formData });
-      }
+      const res = await fetch("/api/analyze-call", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ uploadUrl, sessionId: sessionIdRef.current, agentId: userId ?? undefined }),
+      });
 
       if (!res.ok) {
         let errMsg = "Analysis failed";
@@ -1608,27 +1658,7 @@ function DashboardPage() {
       const data = (await res.json()) as SpearAnalysis;
       setResult(data);
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
-
-      // Save call to DB — server validates auth independently, no userId guard needed
-      fetch("/api/calls/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          agentId:           userId ?? undefined,
-          outcome:           "unknown",
-          talkRatioAgent:    data.talkRatio?.agentPct ?? null,
-          talkRatioProspect: data.talkRatio?.prospectPct ?? null,
-          discProfile:       data.discProfile?.type ?? null,
-          nepqPhases:        data.nepqPhases
-            ? Object.fromEntries(
-                Object.entries(data.nepqPhases).map(([k, v]) => [k, { score: v.score, note: v.note }])
-              )
-            : {},
-          objectionsRaised:  data.objections ?? [],
-          overallScore:      data.overallScore ?? null,
-          notes:             JSON.stringify({ nextCallFocus: data.nextCallFocus, mindsetNote: data.mindsetNote }),
-        }),
-      }).then(() => refreshCalls()).catch(err => console.error("[calls/save]", err));
+      refreshCalls();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -1639,6 +1669,12 @@ function DashboardPage() {
 
   const handleFile = useCallback((file: File) => {
     sessionIdRef.current = `session-${Date.now()}`;
+    if (file.size > MAX_CALL_UPLOAD_BYTES) {
+      setSelectedFileName(file.name);
+      setError(`Call recordings can be up to ${MAX_CALL_UPLOAD_MB} MB.`);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     setPendingFile(file);
     setShowConsentModal(true);
   }, []);

@@ -3,16 +3,20 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const { agentId, prospectState, sessionId, confirmedAt } = await req.json();
+    const { prospectState, sessionId, confirmedAt } = await req.json();
 
     if (!prospectState || !sessionId || !confirmedAt) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const { error } = await supabase.from("consent_log").insert({
-      agent_id: agentId,
+      agent_id: user.id,
       prospect_state: prospectState,
       session_id: sessionId,
       confirmed_at: confirmedAt,

@@ -7,12 +7,11 @@ import type { ConsentRequirement } from "@/lib/compliance/consentStates";
 interface Props {
   consentReq: ConsentRequirement;
   sessionId: string;
-  agentId?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export function ConsentModal({ consentReq, sessionId, agentId, onConfirm, onCancel }: Props) {
+export function ConsentModal({ consentReq, sessionId, onConfirm, onCancel }: Props) {
   const [tcpaChecked, setTcpaChecked] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
   const [logging, setLogging] = useState(false);
@@ -31,7 +30,6 @@ export function ConsentModal({ consentReq, sessionId, agentId, onConfirm, onCanc
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            agentId: agentId ?? "unknown",
             prospectState: consentReq.state,
             sessionId,
             confirmedAt: new Date().toISOString(),
