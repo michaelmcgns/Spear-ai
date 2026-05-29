@@ -400,9 +400,10 @@ export async function POST(req: NextRequest) {
     if (contentType.includes("application/json")) {
       // ── JSON path: file was uploaded to Supabase Storage (single or chunked) ──
       const body = await req.json() as {
-        uploadUrl?: string;     // AssemblyAI URL returned by /api/upload-audio/stream
+        audioUrl?: string;       // presigned R2 GET URL — AssemblyAI fetches from here directly
+        uploadUrl?: string;      // legacy: AssemblyAI URL returned by /api/upload-audio/stream
         storagePath?: string;
-        chunkPaths?: string[];   // multiple chunks if file was > 40 MB
+        chunkPaths?: string[];   // legacy: multiple chunks if file was > 40 MB
         sessionId?: string;
         agentId?: string;
       };
@@ -410,8 +411,12 @@ export async function POST(req: NextRequest) {
       sessionId = body.sessionId ?? `session-${Date.now()}`;
       agentId   = body.agentId ?? undefined;
 
-      if (body.uploadUrl) {
-        // ── Streamed path: browser already uploaded the recording to AssemblyAI ─
+      if (body.audioUrl) {
+        // ── R2 path: browser uploaded directly to Cloudflare R2, we got a presigned GET URL ─
+        console.log("[analyze-call] R2 direct upload flow");
+        transcript = await transcribeUrl(body.audioUrl);
+      } else if (body.uploadUrl) {
+        // ── Legacy streamed path: browser already uploaded the recording to AssemblyAI ─
         if (!isAssemblyUploadUrl(body.uploadUrl)) {
           return NextResponse.json({ error: "Invalid AssemblyAI upload URL" }, { status: 400 });
         }

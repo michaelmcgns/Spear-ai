@@ -1611,43 +1611,49 @@ function DashboardPage() {
         throw new Error(`Call recordings can be up to ${MAX_CALL_UPLOAD_MB} MB.`);
       }
 
-      // ── Step 1: stream directly to AssemblyAI via the Edge upload endpoint ─
-      // This avoids Supabase Storage's free-tier file cap and Vercel's Node
-      // FormData body limit because the file is never stored in app memory.
+      // ── Step 1: get R2 presigned URLs ────────────────────────────────────
+      // The browser will PUT the file DIRECTLY to Cloudflare R2 — Vercel is
+      // never in the upload path, so its 4.5 MB body limit doesn't apply.
       setAnalyzeStep("Uploading recording...");
 
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error("You must be signed in to upload call recordings.");
-      }
-
-      const uploadRes = await fetch("/api/upload-audio/stream", {
+      const presignRes = await fetch("/api/upload-audio/presign-r2", {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${session.access_token}`,
-          "Content-Type": file.type || "application/octet-stream",
-        },
-        body: file,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contentType: file.type || "application/octet-stream",
+          fileName: file.name,
+        }),
       });
-
-      if (!uploadRes.ok) {
+      if (!presignRes.ok) {
         let errMsg = "Upload failed";
-        try { const b = await uploadRes.json(); errMsg = b.error ?? errMsg; } catch { /* ignore */ }
+        try { const b = await presignRes.json(); errMsg = b.error ?? errMsg; } catch { /* ignore */ }
         throw new Error(errMsg);
       }
+      const { putUrl, getUrl } = (await presignRes.json()) as {
+        putUrl?: string;
+        getUrl?: string;
+      };
+      if (!putUrl || !getUrl) throw new Error("Upload failed: could not get upload URL.");
 
-      const { uploadUrl } = (await uploadRes.json()) as { uploadUrl?: string };
-      if (!uploadUrl) throw new Error("Upload failed: missing AssemblyAI URL.");
+      // ── Step 2: PUT file directly to R2 (no Vercel proxy) ─────────────
+      const putRes = await fetch(putUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      if (!putRes.ok) {
+        throw new Error(`Upload failed (${putRes.status}). Please try again.`);
+      }
 
-      setTimeout(() => setAnalyzeStep("Transcribing call..."), 1000);
+      setTimeout(() => setAnalyzeStep("Transcribing call..."), 500);
       setTimeout(() => setAnalyzeStep("Generating Spear report..."), 8000);
 
-      // ── Step 2: trigger analysis ─────────────────────────────────────────
+      // ── Step 3: trigger analysis ──────────────────────────────────────
+      // Pass the R2 presigned GET URL — AssemblyAI downloads directly from R2.
       const res = await fetch("/api/analyze-call", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ uploadUrl, sessionId: sessionIdRef.current, agentId: userId ?? undefined }),
+        body:    JSON.stringify({ audioUrl: getUrl, sessionId: sessionIdRef.current, agentId: userId ?? undefined }),
       });
 
       if (!res.ok) {
