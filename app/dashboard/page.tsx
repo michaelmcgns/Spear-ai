@@ -1510,30 +1510,60 @@ function DashboardPage() {
     setError(null);
     setIsAnalyzing(true);
     try {
-      // ── Step 1: upload directly via authenticated Supabase client ───────
-      // Using the browser Supabase client handles auth + CORS automatically.
-      // This bypasses Vercel's 4.5 MB serverless body-size limit entirely.
+      // ── Step 1: upload to Supabase Storage via authenticated browser client ─
+      // Files > 40 MB are split into 40 MB chunks (each safely under Supabase's
+      // 50 MB free-tier per-file limit) and uploaded separately.
+      // The server reassembles chunks before sending to AssemblyAI.
       setAnalyzeStep("Uploading recording...");
 
+      const CHUNK_SIZE = 40 * 1024 * 1024; // 40 MB — safely under Supabase 50 MB limit
+      const FILE_LIMIT = 4 * 1024 * 1024;  // 4 MB — Vercel FormData hard ceiling
+
       let storagePath: string | null = null;
-      const FILE_LIMIT = 4 * 1024 * 1024; // 4 MB — Vercel FormData hard ceiling
+      let chunkPaths: string[] | null = null;
 
       if (userId) {
         const supabase = createClient();
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const uploadPath = `${userId}/${Date.now()}-${safeName}`;
-        const { error: uploadError } = await supabase.storage
-          .from("audio-uploads")
-          .upload(uploadPath, file, { contentType: file.type || "audio/mpeg" });
 
-        if (!uploadError) {
-          storagePath = uploadPath;
-        } else {
-          console.warn("[upload] Supabase storage upload failed:", uploadError.message);
-          if (file.size > FILE_LIMIT) {
-            throw new Error(`Upload failed: ${uploadError.message}`);
+        if (file.size > CHUNK_SIZE) {
+          // ── Chunked path: split into 40 MB slices ────────────────────────
+          const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+          const paths: string[] = [];
+
+          for (let i = 0; i < totalChunks; i++) {
+            setAnalyzeStep(`Uploading part ${i + 1} of ${totalChunks}...`);
+            const start = i * CHUNK_SIZE;
+            const end   = Math.min(start + CHUNK_SIZE, file.size);
+            const chunk = file.slice(start, end);
+            const safeName  = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+            const chunkPath = `${userId}/${Date.now()}-part${i}-${safeName}`;
+
+            const { error } = await supabase.storage
+              .from("audio-uploads")
+              .upload(chunkPath, chunk, { contentType: file.type || "audio/mpeg" });
+
+            if (error) throw new Error(`Upload failed (part ${i + 1}/${totalChunks}): ${error.message}`);
+            paths.push(chunkPath);
           }
-          // Small file — fall through to FormData path below
+          chunkPaths = paths;
+        } else {
+          // ── Single upload (file ≤ 40 MB) ─────────────────────────────────
+          const safeName   = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+          const uploadPath = `${userId}/${Date.now()}-${safeName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from("audio-uploads")
+            .upload(uploadPath, file, { contentType: file.type || "audio/mpeg" });
+
+          if (!uploadError) {
+            storagePath = uploadPath;
+          } else {
+            console.warn("[upload] Supabase storage upload failed:", uploadError.message);
+            if (file.size > FILE_LIMIT) {
+              throw new Error(`Upload failed: ${uploadError.message}`);
+            }
+            // Small file — fall through to FormData path below
+          }
         }
       } else if (file.size > FILE_LIMIT) {
         throw new Error("You must be signed in to upload recordings larger than 4 MB.");
@@ -1542,9 +1572,20 @@ function DashboardPage() {
       setTimeout(() => setAnalyzeStep("Transcribing call..."), 2000);
       setTimeout(() => setAnalyzeStep("Generating Spear report..."), 8000);
 
+      setTimeout(() => setAnalyzeStep("Transcribing call..."), 1000);
+      setTimeout(() => setAnalyzeStep("Generating Spear report..."), 8000);
+
       // ── Step 2: trigger analysis ─────────────────────────────────────────
       let res: Response;
-      if (storagePath) {
+      if (chunkPaths) {
+        // Large file uploaded as chunks — server will reassemble
+        res = await fetch("/api/analyze-call", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ chunkPaths, sessionId: sessionIdRef.current, agentId: userId ?? undefined }),
+        });
+      } else if (storagePath) {
+        // Single file upload path
         res = await fetch("/api/analyze-call", {
           method:  "POST",
           headers: { "Content-Type": "application/json" },

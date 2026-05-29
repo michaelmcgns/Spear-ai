@@ -70,6 +70,48 @@ async function deleteStorageFile(storagePath: string): Promise<void> {
   }
 }
 
+// Upload a raw Buffer to AssemblyAI and return the audio URL
+async function uploadBufferToAssemblyAI(buffer: Buffer): Promise<string> {
+  const apiKey = process.env.ASSEMBLYAI_API_KEY;
+  if (!apiKey) throw new Error("ASSEMBLYAI_API_KEY is not set");
+
+  const uploadRes = await fetch("https://api.assemblyai.com/v2/upload", {
+    method: "POST",
+    headers: {
+      authorization: apiKey,
+      "content-type": "application/octet-stream",
+    },
+    body: buffer,
+  });
+  if (!uploadRes.ok) {
+    const body = await uploadRes.text();
+    throw new Error(`AssemblyAI buffer upload failed (${uploadRes.status}): ${body}`);
+  }
+  const { upload_url } = (await uploadRes.json()) as { upload_url: string };
+  return upload_url;
+}
+
+// Download all chunk files from Supabase, concatenate into one Buffer,
+// upload the full file to AssemblyAI, then transcribe.
+// Used when a file was split client-side to stay under Supabase's 50 MB per-file limit.
+async function transcribeChunks(chunkPaths: string[]): Promise<string> {
+  const db = createServiceClient();
+  const buffers: Buffer[] = [];
+
+  for (const chunkPath of chunkPaths) {
+    const { data, error } = await db.storage.from("audio-uploads").download(chunkPath);
+    if (error) throw new Error(`Failed to download chunk ${chunkPath}: ${error.message}`);
+    buffers.push(Buffer.from(await data.arrayBuffer()));
+    // Delete each chunk as we go — non-fatal if it fails
+    void db.storage.from("audio-uploads").remove([chunkPath]);
+  }
+
+  const fullBuffer = Buffer.concat(buffers);
+  console.log(`[analyze-call] reassembled ${chunkPaths.length} chunks → ${(fullBuffer.length / 1024 / 1024).toFixed(1)} MB`);
+  const uploadUrl = await uploadBufferToAssemblyAI(fullBuffer);
+  return transcribeUrl(uploadUrl);
+}
+
 // Submit an audio URL to AssemblyAI and poll until transcription completes
 async function transcribeUrl(audioUrl: string): Promise<string> {
   const apiKey = process.env.ASSEMBLYAI_API_KEY;
@@ -342,22 +384,31 @@ export async function POST(req: NextRequest) {
     const contentType = req.headers.get("content-type") ?? "";
 
     if (contentType.includes("application/json")) {
-      // ── New path: browser uploaded directly to Supabase Storage ──────────
-      // Body: { storagePath, sessionId, agentId }
-      const body = await req.json() as { storagePath: string; sessionId?: string; agentId?: string };
-      if (!body.storagePath) {
-        return NextResponse.json({ error: "storagePath required" }, { status: 400 });
+      // ── JSON path: file was uploaded to Supabase Storage (single or chunked) ──
+      const body = await req.json() as {
+        storagePath?: string;
+        chunkPaths?: string[];   // multiple chunks if file was > 40 MB
+        sessionId?: string;
+        agentId?: string;
+      };
+
+      sessionId = body.sessionId ?? `session-${Date.now()}`;
+      agentId   = body.agentId ?? undefined;
+
+      if (body.chunkPaths && body.chunkPaths.length > 0) {
+        // ── Chunked path: reassemble chunks server-side ─────────────────────
+        console.log(`[analyze-call] chunked path: ${body.chunkPaths.length} chunk(s)`);
+        transcript = await transcribeChunks(body.chunkPaths);
+      } else if (body.storagePath) {
+        // ── Single-file path ────────────────────────────────────────────────
+        storagePath = body.storagePath;
+        console.log(`[analyze-call] storage path flow: ${storagePath}`);
+        const signedUrl = await getStorageDownloadUrl(storagePath);
+        transcript = await transcribeUrl(signedUrl);
+        void deleteStorageFile(storagePath);
+      } else {
+        return NextResponse.json({ error: "storagePath or chunkPaths required" }, { status: 400 });
       }
-      storagePath = body.storagePath;
-      sessionId   = body.sessionId ?? `session-${Date.now()}`;
-      agentId     = body.agentId ?? undefined;
-
-      console.log(`[analyze-call] storage path flow: ${storagePath}`);
-      const signedUrl = await getStorageDownloadUrl(storagePath);
-      transcript = await transcribeUrl(signedUrl);
-
-      // Clean up storage file after transcription
-      void deleteStorageFile(storagePath);
     } else {
       // ── Legacy path: small file sent directly in FormData (<4.5 MB) ──────
       const formData = await req.formData();
