@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +16,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { error } = await supabase.from("consent_log").insert({
+    // Use service client to bypass RLS — consent_log is an append-only audit table
+    const db = createServiceClient();
+    const { error } = await db.from("consent_log").insert({
       agent_id: user.id,
       prospect_state: prospectState,
       session_id: sessionId,

@@ -79,10 +79,10 @@ export function presignS3Url({
     ? `content-type:${contentType}\nhost:${host}\n`
     : `host:${host}\n`;
 
-  // Canonical request
+  // Canonical request — R2 uses path-style: /bucket/key
   const canonicalRequest = [
     method,
-    `/${encodeKey(key)}`,           // canonical URI — no bucket in path for virtual-hosted style
+    `/${encodeKey(`${bucket}/${key}`)}`,
     canonicalQueryString,
     canonicalHeaders,
     signedHeadersStr,
