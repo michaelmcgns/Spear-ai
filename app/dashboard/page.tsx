@@ -1519,6 +1519,7 @@ function DashboardPage() {
       });
 
       let storagePath: string | null = null;
+      const FILE_LIMIT = 4 * 1024 * 1024; // 4 MB — Vercel FormData ceiling
 
       if (presignRes.ok) {
         const { signedUrl, path } = await presignRes.json() as { signedUrl: string; path: string };
@@ -1531,10 +1532,21 @@ function DashboardPage() {
         });
         if (!uploadRes.ok) {
           storagePath = null;
-          console.warn("[upload] direct storage upload failed, falling back to FormData");
+          console.warn("[upload] direct storage upload failed:", uploadRes.status);
+          // Only fall through to FormData if the file is small enough
+          if (file.size > FILE_LIMIT) {
+            throw new Error("Upload failed — the storage bucket may not be configured yet. Please contact support or try again after setup is complete.");
+          }
         }
       } else {
-        console.warn("[upload] presign failed, falling back to FormData");
+        // Presign failed — likely the storage bucket hasn't been created in Supabase yet
+        const errBody = await presignRes.json().catch(() => ({ error: `HTTP ${presignRes.status}` })) as { error?: string };
+        console.warn("[upload] presign failed:", errBody.error);
+        if (file.size > FILE_LIMIT) {
+          // Large file + no storage = can't fall back to FormData, give clear message
+          throw new Error("Upload storage is not configured. Please run the storage setup SQL in Supabase and add SUPABASE_SERVICE_ROLE_KEY to Vercel. Until then, only recordings under 4 MB can be analyzed.");
+        }
+        console.warn("[upload] presign failed, falling back to FormData (small file)");
       }
 
       setTimeout(() => setAnalyzeStep("Transcribing call..."), 2000);
