@@ -1416,6 +1416,255 @@ function CoachingTab() {
   );
 }
 
+// ─── Leads Tab ────────────────────────────────────────────────────────────────
+
+interface Lead {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  email: string | null;
+  state: string | null;
+  product_interest: string | null;
+  status: "new" | "contacted" | "closed" | "lost";
+  notes: string | null;
+  source: string | null;
+  created_at: string;
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  new:       "bg-blue-500/15 text-blue-300 border-blue-500/25",
+  contacted: "bg-amber-500/15 text-amber-300 border-amber-500/25",
+  closed:    "bg-emerald-500/15 text-emerald-300 border-emerald-500/25",
+  lost:      "bg-red-500/15 text-red-300 border-red-500/25",
+};
+
+function parseCSV(text: string): Record<string, string>[] {
+  const lines = text.trim().split("\n");
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_"));
+  return lines.slice(1).map(line => {
+    const values = line.split(",");
+    const row: Record<string, string> = {};
+    headers.forEach((h, i) => { row[h] = (values[i] ?? "").trim().replace(/^"|"$/g, ""); });
+    return row;
+  }).filter(r => Object.values(r).some(v => v));
+}
+
+function mapCSVRow(row: Record<string, string>) {
+  const get = (...keys: string[]) => keys.map(k => row[k]).find(v => v) ?? "";
+  return {
+    first_name:       get("first_name", "firstname", "first", "fname"),
+    last_name:        get("last_name", "lastname", "last", "lname"),
+    phone:            get("phone", "phone_number", "mobile", "cell"),
+    email:            get("email", "email_address"),
+    state:            get("state", "st"),
+    product_interest: get("product", "product_interest", "interest", "type"),
+    notes:            get("notes", "note", "comments"),
+    source:           "csv_import",
+  };
+}
+
+function LeadsTab() {
+  const [leads, setLeads]       = useState<Lead[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [importing, setImporting] = useState(false);
+  const [search, setSearch]     = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [importMsg, setImportMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [addOpen, setAddOpen]   = useState(false);
+  const [newLead, setNewLead]   = useState({ first_name: "", last_name: "", phone: "", email: "", state: "", product_interest: "" });
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch("/api/leads")
+      .then(r => r.json())
+      .then((d: { leads: Lead[] }) => setLeads(d.leads ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleFileImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportMsg(null);
+    try {
+      const text = await file.text();
+      const rows = parseCSV(text).map(mapCSVRow);
+      if (rows.length === 0) { setImportMsg({ ok: false, text: "No valid rows found in CSV." }); return; }
+      const res = await fetch("/api/leads/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leads: rows }),
+      });
+      const data = await res.json() as { imported?: number; error?: string };
+      if (data.imported) {
+        setImportMsg({ ok: true, text: `✓ ${data.imported} leads imported` });
+        const refreshed = await fetch("/api/leads").then(r => r.json()) as { leads: Lead[] };
+        setLeads(refreshed.leads ?? []);
+      } else {
+        setImportMsg({ ok: false, text: data.error ?? "Import failed" });
+      }
+    } catch { setImportMsg({ ok: false, text: "Failed to read file." }); }
+    finally { setImporting(false); if (fileRef.current) fileRef.current.value = ""; }
+  }
+
+  async function updateStatus(id: string, status: string) {
+    setLeads(prev => prev.map(l => l.id === id ? { ...l, status: status as Lead["status"] } : l));
+    await fetch("/api/leads", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+  }
+
+  async function deleteLead(id: string) {
+    setLeads(prev => prev.filter(l => l.id !== id));
+    await fetch("/api/leads", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+  }
+
+  async function addLead() {
+    if (!newLead.first_name.trim()) return;
+    const res = await fetch("/api/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newLead) });
+    const data = await res.json() as { lead?: Lead };
+    if (data.lead) { setLeads(prev => [data.lead!, ...prev]); setNewLead({ first_name: "", last_name: "", phone: "", email: "", state: "", product_interest: "" }); setAddOpen(false); }
+  }
+
+  const filtered = leads.filter(l => {
+    const q = search.toLowerCase();
+    const matchSearch = !q || `${l.first_name} ${l.last_name} ${l.phone ?? ""} ${l.email ?? ""}`.toLowerCase().includes(q);
+    const matchStatus = statusFilter === "all" || l.status === statusFilter;
+    return matchSearch && matchStatus;
+  });
+
+  const counts = { all: leads.length, new: 0, contacted: 0, closed: 0, lost: 0 };
+  leads.forEach(l => { if (l.status in counts) counts[l.status as keyof typeof counts]++; });
+
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="h-6 w-6 rounded-full border-2 border-zinc-700 border-t-blue-500 animate-spin" /></div>;
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-base font-semibold text-white">Leads</h2>
+          <p className="text-xs text-zinc-500 mt-0.5">{leads.length} total leads</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setAddOpen(v => !v)}
+            className="px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-900 text-xs text-zinc-300 hover:bg-zinc-800 transition-colors font-semibold">
+            + Add Lead
+          </button>
+          <button onClick={() => fileRef.current?.click()} disabled={importing}
+            className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-semibold transition-colors flex items-center gap-2">
+            {importing ? <><span className="h-3 w-3 rounded-full border border-white/40 border-t-white animate-spin" />Importing...</> : "Import CSV"}
+          </button>
+          <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFileImport} />
+        </div>
+      </div>
+
+      {importMsg && (
+        <div className={`rounded-xl px-4 py-3 text-sm font-medium border ${importMsg.ok ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300" : "bg-red-500/10 border-red-500/20 text-red-300"}`}>
+          {importMsg.text}
+        </div>
+      )}
+
+      {/* CSV format hint */}
+      {leads.length === 0 && (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 text-center space-y-3">
+          <p className="text-sm font-semibold text-zinc-300">Import your lead list</p>
+          <p className="text-xs text-zinc-500 leading-relaxed max-w-sm mx-auto">
+            Upload a CSV with columns: <span className="text-zinc-400">first_name, last_name, phone, email, state, product_interest</span>
+          </p>
+          <button onClick={() => fileRef.current?.click()}
+            className="mx-auto px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-colors">
+            Choose CSV File
+          </button>
+        </div>
+      )}
+
+      {/* Add lead form */}
+      {addOpen && (
+        <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-5 space-y-3">
+          <p className="text-xs font-semibold text-zinc-300">New Lead</p>
+          <div className="grid grid-cols-2 gap-3">
+            {(["first_name","last_name","phone","email","state","product_interest"] as const).map(field => (
+              <input key={field} value={newLead[field]} onChange={e => setNewLead(p => ({ ...p, [field]: e.target.value }))}
+                placeholder={field.replace(/_/g, " ")}
+                className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600" />
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={addLead} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-colors">Save</button>
+            <button onClick={() => setAddOpen(false)} className="px-4 py-2 rounded-xl border border-zinc-700 text-zinc-400 hover:bg-zinc-800 text-xs font-semibold transition-colors">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {leads.length > 0 && (
+        <>
+          {/* Filters */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-48">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search leads..."
+                className="w-full pl-9 pr-3 py-2 rounded-xl border border-zinc-700 bg-zinc-900 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              {(["all","new","contacted","closed","lost"] as const).map(s => (
+                <button key={s} onClick={() => setStatusFilter(s)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors border ${statusFilter === s ? "bg-blue-600 border-blue-600 text-white" : "border-zinc-700 text-zinc-400 hover:bg-zinc-800"}`}>
+                  {s} {s !== "all" ? `(${counts[s]})` : `(${counts.all})`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="rounded-xl border border-zinc-800 overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-zinc-800 bg-zinc-900">
+                  <th className="text-left px-4 py-3 text-zinc-500 font-semibold">Name</th>
+                  <th className="text-left px-4 py-3 text-zinc-500 font-semibold">Phone</th>
+                  <th className="text-left px-4 py-3 text-zinc-500 font-semibold hidden md:table-cell">Email</th>
+                  <th className="text-left px-4 py-3 text-zinc-500 font-semibold hidden md:table-cell">Product</th>
+                  <th className="text-left px-4 py-3 text-zinc-500 font-semibold">Status</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="bg-zinc-950 divide-y divide-zinc-800/60">
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={6} className="text-center py-10 text-zinc-600">No leads match your filter</td></tr>
+                ) : filtered.map(lead => (
+                  <tr key={lead.id} className="hover:bg-zinc-900/60 transition-colors">
+                    <td className="px-4 py-3 font-medium text-zinc-200">
+                      {lead.first_name} {lead.last_name}
+                      {lead.state && <span className="ml-1.5 text-zinc-600">{lead.state}</span>}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-400">{lead.phone ?? "—"}</td>
+                    <td className="px-4 py-3 text-zinc-400 hidden md:table-cell">{lead.email ?? "—"}</td>
+                    <td className="px-4 py-3 text-zinc-400 hidden md:table-cell">{lead.product_interest ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      <select value={lead.status} onChange={e => updateStatus(lead.id, e.target.value)}
+                        className={`text-[10px] font-semibold px-2 py-1 rounded-md border cursor-pointer bg-transparent capitalize ${STATUS_STYLES[lead.status] ?? ""}`}>
+                        <option value="new">New</option>
+                        <option value="contacted">Contacted</option>
+                        <option value="closed">Closed</option>
+                        <option value="lost">Lost</option>
+                      </select>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button onClick={() => deleteLead(lead.id)} className="text-zinc-700 hover:text-red-400 transition-colors text-xs">✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Agents Tab ───────────────────────────────────────────────────────────────
 
 function AgentsTab() {
@@ -1951,7 +2200,7 @@ function DashboardHome({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-type Tab = "dashboard" | "calls" | "analytics" | "coaching" | "agents";
+type Tab = "dashboard" | "calls" | "analytics" | "coaching" | "agents" | "leads";
 
 function DashboardPage() {
   const searchParams = useSearchParams();
@@ -2179,12 +2428,13 @@ function DashboardPage() {
     { id: "calls",     label: "Calls",     Icon: Phone,           feature: "call_history" },
     { id: "analytics", label: "Analytics", Icon: BarChart3,       feature: "analytics"    },
     { id: "coaching",  label: "Coaching",  Icon: BookOpen,        feature: "coaching_hub" },
+    { id: "leads",     label: "Leads",     Icon: Target,          feature: "leads_import" },
     { id: "agents",    label: "Agents",    Icon: Users,           feature: "agents_tab"   },
   ];
 
   const tabTitle: Record<Tab, string> = {
     dashboard: "Dashboard", calls: "Calls", analytics: "Analytics",
-    coaching: "Coaching Hub", agents: "Agents",
+    coaching: "Coaching Hub", leads: "Leads", agents: "Agents",
   };
 
   return (
@@ -2327,6 +2577,11 @@ function DashboardPage() {
             {activeTab === "coaching"   && (
               <FeatureGate feature="coaching_hub">
                 <CoachingTab />
+              </FeatureGate>
+            )}
+            {activeTab === "leads"      && (
+              <FeatureGate feature="leads_import">
+                <LeadsTab />
               </FeatureGate>
             )}
             {activeTab === "agents"     && (

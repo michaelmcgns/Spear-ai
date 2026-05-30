@@ -95,7 +95,7 @@ async function uploadBufferToAssemblyAI(buffer: Buffer): Promise<string> {
 // Download all chunk files from Supabase, concatenate into one Buffer,
 // upload the full file to AssemblyAI, then transcribe.
 // Used when a file was split client-side to stay under Supabase's 50 MB per-file limit.
-async function transcribeChunks(chunkPaths: string[]): Promise<string> {
+async function transcribeChunks(chunkPaths: string[]): Promise<{ text: string; audioDuration: number }> {
   const db = createServiceClient();
   const buffers: Buffer[] = [];
 
@@ -114,7 +114,7 @@ async function transcribeChunks(chunkPaths: string[]): Promise<string> {
 }
 
 // Submit an audio URL to AssemblyAI and poll until transcription completes
-async function transcribeUrl(audioUrl: string): Promise<string> {
+async function transcribeUrl(audioUrl: string): Promise<{ text: string; audioDuration: number }> {
   const apiKey = process.env.ASSEMBLYAI_API_KEY;
   if (!apiKey) throw new Error("ASSEMBLYAI_API_KEY is not set");
 
@@ -137,8 +137,8 @@ async function transcribeUrl(audioUrl: string): Promise<string> {
   for (;;) {
     await new Promise((r) => setTimeout(r, 3000));
     const pollRes = await fetch(pollingUrl, { headers: { authorization: apiKey } });
-    const data = (await pollRes.json()) as { status: string; text?: string; error?: string };
-    if (data.status === "completed") return data.text ?? "";
+    const data = (await pollRes.json()) as { status: string; text?: string; error?: string; audio_duration?: number };
+    if (data.status === "completed") return { text: data.text ?? "", audioDuration: data.audio_duration ?? 0 };
     if (data.status === "error") throw new Error(`Transcription failed: ${data.error}`);
   }
 }
@@ -157,7 +157,7 @@ function isAssemblyUploadUrl(uploadUrl: string): boolean {
 }
 
 // Upload audio file directly to AssemblyAI (legacy path — only used if <4 MB)
-async function transcribeAudio(file: File): Promise<string> {
+async function transcribeAudio(file: File): Promise<{ text: string; audioDuration: number }> {
   const apiKey = process.env.ASSEMBLYAI_API_KEY;
   if (!apiKey) throw new Error("ASSEMBLYAI_API_KEY is not set");
 
@@ -400,6 +400,7 @@ export async function POST(req: NextRequest) {
     }
 
     let transcript: string;
+    let audioDuration = 0;
     let sessionId: string;
     let agentId: string | undefined;
     let storagePath: string | undefined;
@@ -429,24 +430,24 @@ export async function POST(req: NextRequest) {
       if (body.audioUrl) {
         // ── R2 path: browser uploaded directly to Cloudflare R2, we got a presigned GET URL ─
         console.log("[analyze-call] R2 direct upload flow");
-        transcript = await transcribeUrl(body.audioUrl);
+        ({ text: transcript, audioDuration } = await transcribeUrl(body.audioUrl));
       } else if (body.uploadUrl) {
         // ── Legacy streamed path: browser already uploaded the recording to AssemblyAI ─
         if (!isAssemblyUploadUrl(body.uploadUrl)) {
           return NextResponse.json({ error: "Invalid AssemblyAI upload URL" }, { status: 400 });
         }
         console.log("[analyze-call] AssemblyAI streamed upload flow");
-        transcript = await transcribeUrl(body.uploadUrl);
+        ({ text: transcript, audioDuration } = await transcribeUrl(body.uploadUrl));
       } else if (body.chunkPaths && body.chunkPaths.length > 0) {
         // ── Chunked path: reassemble chunks server-side ─────────────────────
         console.log(`[analyze-call] chunked path: ${body.chunkPaths.length} chunk(s)`);
-        transcript = await transcribeChunks(body.chunkPaths);
+        ({ text: transcript, audioDuration } = await transcribeChunks(body.chunkPaths));
       } else if (body.storagePath) {
         // ── Single-file path ────────────────────────────────────────────────
         storagePath = body.storagePath;
         console.log(`[analyze-call] storage path flow: ${storagePath}`);
         const signedUrl = await getStorageDownloadUrl(storagePath);
-        transcript = await transcribeUrl(signedUrl);
+        ({ text: transcript, audioDuration } = await transcribeUrl(signedUrl));
         void deleteStorageFile(storagePath);
       } else {
         return NextResponse.json({ error: "uploadUrl, storagePath, or chunkPaths required" }, { status: 400 });
@@ -469,7 +470,7 @@ export async function POST(req: NextRequest) {
           { status: 413 }
         );
       }
-      transcript = await transcribeAudio(file);
+      ({ text: transcript, audioDuration } = await transcribeAudio(file));
     }
     let analysis = await analyzeTranscript(transcript);
     analysis = await applyFiltersAndLog(analysis, sessionId, agentId);
@@ -483,7 +484,7 @@ export async function POST(req: NextRequest) {
         const db = createServiceClient(); // bypasses RLS
         const { error: saveError } = await db.from("call_sessions").insert({
           user_id:               user.id,
-          duration_seconds:      0, // audio duration not available at this point
+          duration_seconds:      audioDuration,
           transcript:            [{ text: transcript }],
           outcome:               callOutcome,
           talk_ratio_agent:      analysis.talkRatio?.agentPct ?? null,
@@ -508,7 +509,7 @@ export async function POST(req: NextRequest) {
           // Try minimal insert as fallback
           await db.from("call_sessions").insert({
             user_id:          user.id,
-            duration_seconds: 0,
+            duration_seconds: audioDuration,
             outcome:          callOutcome,
             notes:            JSON.stringify({ nextCallFocus: analysis.nextCallFocus }),
           }).then(({ error }) => {

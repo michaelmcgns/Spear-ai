@@ -9,6 +9,7 @@ export type Feature =
   | "call_history"
   | "analytics"
   | "coaching_hub"
+  | "leads_import"
   // Agent Pro ($197) — AI learning layer
   | "weekly_review"
   | "drill_plan"
@@ -40,7 +41,7 @@ export interface PlanMeta {
 // Cumulative — each plan includes all features from plans below it
 const AGENT_FEATURES: Feature[] = [
   "live_call", "call_upload", "post_call_report",
-  "call_history", "analytics", "coaching_hub",
+  "call_history", "analytics", "coaching_hub", "leads_import",
 ];
 
 const AGENT_PRO_FEATURES: Feature[] = [
@@ -107,6 +108,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   call_history:       "Call History",
   analytics:          "Performance Analytics",
   coaching_hub:       "Coaching Hub",
+  leads_import:       "Lead Import & CRM",
   weekly_review:      "Weekly AI Performance Review",
   drill_plan:         "Personalized Drill Plan",
   skill_progression:  "Skill Progression Tracking",
@@ -133,6 +135,7 @@ export const FEATURE_MIN_PLAN: Record<Feature, Plan> = {
   call_history:       "agent",
   analytics:          "agent",
   coaching_hub:       "agent",
+  leads_import:       "agent",
   weekly_review:      "agent_pro",
   drill_plan:         "agent_pro",
   skill_progression:  "agent_pro",
