@@ -2004,6 +2004,8 @@ export default function Page() {
             <div style={{ display: "flex", gap: "28px" }}>
               <Link href="/dashboard" style={{ fontSize: "11px", color: WARM_GRAY, textDecoration: "none", letterSpacing: "0.12em", textTransform: "uppercase" }}>Dashboard</Link>
               <Link href="/login" style={{ fontSize: "11px", color: WARM_GRAY, textDecoration: "none", letterSpacing: "0.12em", textTransform: "uppercase" }}>Sign In</Link>
+              <Link href="/Terms" style={{ fontSize: "11px", color: WARM_GRAY, textDecoration: "none", letterSpacing: "0.12em", textTransform: "uppercase" }}>Terms</Link>
+              <Link href="/Privacy" style={{ fontSize: "11px", color: WARM_GRAY, textDecoration: "none", letterSpacing: "0.12em", textTransform: "uppercase" }}>Privacy</Link>
             </div>
           </div>
           <div style={{ height: 1, backgroundColor: `rgba(37,99,235,0.08)` }} />

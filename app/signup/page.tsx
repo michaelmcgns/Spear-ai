@@ -523,7 +523,10 @@ export default function SignupPage({
                   <SubmitButton label="Create my account" />
 
                   <p style={{ fontSize: "11px", color: "rgba(184,168,120,0.35)", textAlign: "center", lineHeight: 1.65 }}>
-                    By creating an account you agree to our Terms of Service and Privacy Policy.
+                    By creating an account you agree to our{" "}
+                    <a href="/Terms" style={{ color: "rgba(184,168,120,0.6)", textDecoration: "underline" }}>Terms of Service</a>
+                    {" "}and{" "}
+                    <a href="/Privacy" style={{ color: "rgba(184,168,120,0.6)", textDecoration: "underline" }}>Privacy Policy</a>.
                   </p>
                 </form>
               </motion.div>

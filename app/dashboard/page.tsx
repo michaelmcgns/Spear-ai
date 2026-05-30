@@ -2244,6 +2244,16 @@ function DashboardPage() {
               <Settings className="h-4 w-4 shrink-0" />
               Privacy &amp; Data
             </Link>
+            <Link href="/Terms" target="_blank"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors border border-transparent">
+              <BookOpen className="h-4 w-4 shrink-0" />
+              Terms of Service
+            </Link>
+            <Link href="/Privacy" target="_blank"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors border border-transparent">
+              <Lock className="h-4 w-4 shrink-0" />
+              Privacy Policy
+            </Link>
             <form action={logout}>
               <button type="submit"
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
