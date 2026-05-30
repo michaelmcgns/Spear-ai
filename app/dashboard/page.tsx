@@ -1139,8 +1139,12 @@ function CoachingTab() {
       .finally(() => setFetching(false));
   }, [hasReal]);
 
-  const logSession = (id: number, max: number) =>
+  const logSession = (id: number, max: number, questionCount: number) => {
     setSessions(p => ({ ...p, [id]: Math.min((p[id] ?? 0) + 1, max) }));
+    setActivePrompt(p => ({ ...p, [id]: ((p[id] ?? 0) + 1) % questionCount }));
+    setDrafts(p => ({ ...p, [id]: "" }));
+    setFeedback(p => ({ ...p, [id]: null }));
+  };
 
   const togglePracticed = (id: number, index: number) =>
     setPracticed(prev => {
@@ -1428,7 +1432,7 @@ function CoachingTab() {
                       {/* Log session footer */}
                       <div className="flex items-center gap-2 mt-4 pt-4 border-t border-zinc-800/60">
                         <button
-                          onClick={() => logSession(drill.id, drill.sessionsTarget)}
+                          onClick={() => logSession(drill.id, drill.sessionsTarget, drill.questions.length)}
                           disabled={complete}
                           className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-300 text-xs font-semibold transition-colors border border-zinc-700"
                         >
@@ -1649,6 +1653,7 @@ function DashboardHome({
   isAnalyzing, analyzeStep, result, error, selectedFileName, isDragging,
   fileInputRef, resultRef, handleFileChange, handleDragOver,
   setIsDragging, handleFile, manualProduct, setManualProduct, manualOutcome, setManualOutcome,
+  agentName,
 }: {
   isAnalyzing: boolean; analyzeStep: string; result: SpearAnalysis | null;
   error: string | null; selectedFileName: string; isDragging: boolean;
@@ -1662,7 +1667,10 @@ function DashboardHome({
   setManualProduct: (value: string) => void;
   manualOutcome: "unknown" | "closed" | "not_closed" | "follow_up";
   setManualOutcome: (value: "unknown" | "closed" | "not_closed" | "follow_up") => void;
+  agentName?: string | null;
 }) {
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const phases = result ? [
     { label: "Connection & Credibility",  ...result.nepqPhases.connection        },
     { label: "Situation Questions",        ...result.nepqPhases.situation         },
@@ -1688,6 +1696,14 @@ function DashboardHome({
 
   return (
     <div className="space-y-5">
+      {/* Greeting */}
+      <div>
+        <h1 className="text-xl font-semibold text-white">
+          {greeting}{agentName ? `, ${agentName}` : ""}.
+        </h1>
+        <p className="text-xs text-zinc-500 mt-0.5">Here&apos;s how your calls are looking.</p>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {liveStats.map(s => (
@@ -2017,6 +2033,7 @@ function DashboardPage() {
 
   // ── Real data ──────────────────────────────────────────────────────────────
   const [userId, setUserId]         = useState<string | null>(null);
+  const [agentName, setAgentName]   = useState<string | null>(null);
   const [realCalls, setRealCalls]   = useState<CallRecord[]>([]);
   const [dashStats, setDashStats]   = useState({ totalCalls: 0, closeRate: 0, avgScore: "—", objectionsCaught: 0 });
   const [dataLoading, setDataLoading] = useState(true);
@@ -2049,7 +2066,14 @@ function DashboardPage() {
     // Get real user ID (used when uploading calls)
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserId(user.id);
+      if (user) {
+        setUserId(user.id);
+        const name =
+          (user.user_metadata?.full_name as string | undefined) ||
+          (user.user_metadata?.name as string | undefined) ||
+          user.email?.split("@")[0] || null;
+        setAgentName(name);
+      }
     });
     refreshCalls();
   }, [refreshCalls]);
@@ -2339,6 +2363,7 @@ function DashboardPage() {
                   setManualProduct={setManualProduct}
                   manualOutcome={manualOutcome}
                   setManualOutcome={setManualOutcome}
+                  agentName={agentName}
                 />
               </FeatureGate>
             )}
