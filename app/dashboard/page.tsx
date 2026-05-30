@@ -1324,28 +1324,6 @@ function CoachingTab() {
 
                   {isOpen && (
                     <div className="px-5 pb-5 pt-4 border-t border-zinc-800/60">
-                      <div className="flex items-center justify-between gap-3 mb-3">
-                        <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Practice Lab</p>
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-300">
-                            {timerDrill === drill.id ? formatTimer(timerSeconds) : "0:00"}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (timerDrill === drill.id) {
-                                setTimerDrill(null);
-                              } else {
-                                setTimerDrill(drill.id);
-                                setTimerSeconds(0);
-                              }
-                            }}
-                            className="px-3 py-1.5 rounded-lg border border-zinc-700 text-xs text-zinc-300 hover:bg-zinc-800 transition-colors"
-                          >
-                            {timerDrill === drill.id ? "Pause" : "Start"}
-                          </button>
-                        </div>
-                      </div>
                       {(() => {
                         const promptIndex = activePrompt[drill.id] ?? 0;
                         const question = drill.questions[promptIndex] ?? drill.questions[0];
@@ -1353,124 +1331,108 @@ function CoachingTab() {
                         const practicedCount = (practiced[drill.id] ?? []).filter(Boolean).length;
 
                         return (
-                          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4 mb-4">
-                            <div className="flex items-center justify-between gap-3 mb-3">
-                              <span className="text-[10px] text-blue-300 uppercase tracking-wider font-semibold">
-                                Prompt {promptIndex + 1} of {drill.questions.length}
+                          <div className="space-y-3">
+                            {/* Prompt navigation */}
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-zinc-500">
+                                Prompt <span className="text-white font-semibold">{promptIndex + 1}</span> / {drill.questions.length}
+                                {practicedCount > 0 && <span className="ml-2 text-emerald-500">· {practicedCount} done</span>}
                               </span>
-                              <span className="text-[10px] text-zinc-500">{practicedCount}/{drill.questions.length} practiced</span>
+                              <div className="flex items-center gap-1.5">
+                                <button type="button"
+                                  onClick={() => setActivePrompt(prev => ({ ...prev, [drill.id]: Math.max(promptIndex - 1, 0) }))}
+                                  disabled={promptIndex === 0}
+                                  className="px-2.5 py-1 rounded-md border border-zinc-700 text-xs text-zinc-400 hover:bg-zinc-800 disabled:opacity-30 transition-colors"
+                                >←</button>
+                                <button type="button"
+                                  onClick={() => setActivePrompt(prev => ({ ...prev, [drill.id]: Math.min(promptIndex + 1, drill.questions.length - 1) }))}
+                                  disabled={promptIndex >= drill.questions.length - 1}
+                                  className="px-2.5 py-1 rounded-md border border-zinc-700 text-xs text-zinc-400 hover:bg-zinc-800 disabled:opacity-30 transition-colors"
+                                >→</button>
+                              </div>
                             </div>
-                            <p className="text-sm text-zinc-100 leading-relaxed mb-4">{question}</p>
+
+                            {/* Prompt */}
+                            <div className="rounded-xl bg-zinc-800/50 border border-zinc-700/60 px-4 py-3">
+                              <p className="text-sm text-zinc-100 leading-relaxed">{question}</p>
+                            </div>
+
+                            {/* Response input */}
                             <textarea
                               value={drafts[drill.id] ?? ""}
                               onChange={e => {
                                 setDrafts(prev => ({ ...prev, [drill.id]: e.target.value }));
                                 setFeedback(prev => ({ ...prev, [drill.id]: null }));
                               }}
-                              placeholder="Type your version of the response here..."
-                              className="w-full min-h-20 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600"
+                              placeholder="Type your response here..."
+                              rows={3}
+                              className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600 resize-none"
                             />
-                            <button
-                              type="button"
-                              disabled={!drafts[drill.id]?.trim() || feedbackLoading === drill.id}
-                              onClick={() => getFeedback(drill, question, promptIndex)}
-                              className="mt-2 w-full py-2 rounded-lg bg-blue-600/20 border border-blue-500/30 text-blue-300 text-xs font-semibold hover:bg-blue-600/30 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
-                            >
-                              {feedbackLoading === drill.id
-                                ? <><span className="h-3 w-3 rounded-full border border-blue-400 border-t-transparent animate-spin" />Getting feedback...</>
-                                : "⚡ Get AI Feedback"}
-                            </button>
+
+                            {/* Actions row */}
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                disabled={!drafts[drill.id]?.trim() || feedbackLoading === drill.id}
+                                onClick={() => getFeedback(drill, question, promptIndex)}
+                                className="flex-1 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white text-xs font-semibold transition-colors flex items-center justify-center gap-2"
+                              >
+                                {feedbackLoading === drill.id
+                                  ? <><span className="h-3 w-3 rounded-full border border-white/40 border-t-white animate-spin" />Analyzing...</>
+                                  : "Get AI Feedback"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => togglePracticed(drill.id, promptIndex)}
+                                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-colors border ${checked ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" : "bg-zinc-800 text-zinc-400 border-zinc-700 hover:bg-zinc-700"}`}
+                              >
+                                {checked ? "✓ Done" : "Mark Done"}
+                              </button>
+                            </div>
+
+                            {/* Feedback card */}
                             {feedback[drill.id] && (
-                              <div className="mt-3 rounded-lg border border-zinc-700 bg-zinc-950 overflow-hidden">
-                                <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800">
-                                  <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold">Spear Feedback</span>
-                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${(feedback[drill.id]!.score ?? 0) >= 7 ? "bg-emerald-500/15 text-emerald-300" : (feedback[drill.id]!.score ?? 0) >= 5 ? "bg-amber-500/15 text-amber-300" : "bg-red-500/15 text-red-300"}`}>
+                              <div className="rounded-xl border border-zinc-700 bg-zinc-950 overflow-hidden">
+                                <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+                                  <span className="text-xs font-semibold text-zinc-300">Feedback</span>
+                                  <span className={`text-sm font-bold px-2.5 py-0.5 rounded-lg ${(feedback[drill.id]!.score ?? 0) >= 7 ? "bg-emerald-500/15 text-emerald-300" : (feedback[drill.id]!.score ?? 0) >= 5 ? "bg-amber-500/15 text-amber-300" : "bg-red-500/15 text-red-300"}`}>
                                     {feedback[drill.id]!.score}/10
                                   </span>
                                 </div>
-                                <div className="px-4 py-3 space-y-3">
+                                <div className="px-4 py-3 space-y-2.5">
                                   {feedback[drill.id]!.what_worked && (
-                                    <div className="flex gap-2">
-                                      <span className="text-emerald-400 text-xs shrink-0">✓</span>
+                                    <div className="flex gap-2.5">
+                                      <span className="text-emerald-400 text-xs mt-0.5 shrink-0">✓</span>
                                       <p className="text-xs text-zinc-300 leading-relaxed">{feedback[drill.id]!.what_worked}</p>
                                     </div>
                                   )}
                                   {feedback[drill.id]!.what_missed && (
-                                    <div className="flex gap-2">
-                                      <span className="text-red-400 text-xs shrink-0">✗</span>
+                                    <div className="flex gap-2.5">
+                                      <span className="text-red-400 text-xs mt-0.5 shrink-0">✗</span>
                                       <p className="text-xs text-zinc-300 leading-relaxed">{feedback[drill.id]!.what_missed}</p>
                                     </div>
                                   )}
                                   {feedback[drill.id]!.ideal_response && (
-                                    <div className="rounded-lg bg-blue-500/8 border border-blue-500/20 px-3 py-2.5">
-                                      <p className="text-[10px] text-blue-400 uppercase tracking-wider font-semibold mb-1.5">Use This Instead</p>
-                                      <p className="text-xs text-zinc-100 leading-relaxed italic">"{feedback[drill.id]!.ideal_response}"</p>
+                                    <div className="rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2.5 mt-1">
+                                      <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mb-1.5">Say This</p>
+                                      <p className="text-xs text-zinc-100 leading-relaxed">"{feedback[drill.id]!.ideal_response}"</p>
                                     </div>
                                   )}
                                 </div>
                               </div>
                             )}
-                            <div className="flex items-center justify-between gap-2 mt-3">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setActivePrompt(prev => ({ ...prev, [drill.id]: Math.max(promptIndex - 1, 0) }))}
-                                  disabled={promptIndex === 0}
-                                  className="px-3 py-1.5 rounded-lg border border-zinc-700 text-xs text-zinc-300 hover:bg-zinc-800 disabled:opacity-40 transition-colors"
-                                >
-                                  Previous
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setActivePrompt(prev => ({ ...prev, [drill.id]: Math.min(promptIndex + 1, drill.questions.length - 1) }))}
-                                  disabled={promptIndex >= drill.questions.length - 1}
-                                  className="px-3 py-1.5 rounded-lg border border-zinc-700 text-xs text-zinc-300 hover:bg-zinc-800 disabled:opacity-40 transition-colors"
-                                >
-                                  Next
-                                </button>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => togglePracticed(drill.id, promptIndex)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${checked ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" : "bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700"}`}
-                              >
-                                {checked ? "Practiced" : "Mark Practiced"}
-                              </button>
-                            </div>
                           </div>
                         );
                       })()}
 
-                      <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-3">All Techniques</p>
-                      <div className="space-y-2.5 mb-4">
-                        {drill.questions.map((q, i) => (
-                          <div key={i} className="flex items-start gap-3 rounded-lg bg-zinc-800/60 px-4 py-3">
-                            <input
-                              type="checkbox"
-                              checked={practiced[drill.id]?.[i] ?? false}
-                              onChange={() => togglePracticed(drill.id, i)}
-                              className="mt-0.5 h-3.5 w-3.5 rounded accent-blue-500 shrink-0"
-                            />
-                            <p className="text-xs text-zinc-200 leading-relaxed">{q}</p>
-                          </div>
-                        ))}
-                      </div>
-                      <label className="block mb-4">
-                        <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Practice Notes</span>
-                        <textarea
-                          value={notes[drill.id] ?? ""}
-                          onChange={e => setNotes(prev => ({ ...prev, [drill.id]: e.target.value }))}
-                          placeholder="What felt awkward? What line will you use on the next call?"
-                          className="mt-2 w-full min-h-20 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600"
-                        />
-                      </label>
-                      <div className="flex items-center gap-2 flex-wrap">
+                      {/* Log session footer */}
+                      <div className="flex items-center gap-2 mt-4 pt-4 border-t border-zinc-800/60">
                         <button
                           onClick={() => logSession(drill.id, drill.sessionsTarget)}
                           disabled={complete}
-                          className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white text-xs font-semibold transition-colors"
+                          className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-300 text-xs font-semibold transition-colors border border-zinc-700"
                         >
-                          {complete ? "All Sessions Logged" : "Log Practice Session"}
+                          {complete ? "✓ All Sessions Logged" : "Log Session"}
                         </button>
                         <button
                           type="button"
