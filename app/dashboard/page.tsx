@@ -1430,6 +1430,7 @@ interface Lead {
   notes: string | null;
   source: string | null;
   created_at: string;
+  call_sessions?: { id: string; created_at: string; overall_score: number | null }[];
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -1552,6 +1553,17 @@ function LeadsTab() {
             className="px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-900 text-xs text-zinc-300 hover:bg-zinc-800 transition-colors font-semibold">
             + Add Lead
           </button>
+          <button
+            onClick={() => {
+              const csv = "first_name,last_name,phone,email,state,product_interest\nJane,Smith,5551234567,jane@email.com,FL,Term Life\nJohn,Doe,5559876543,,TX,Final Expense";
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+              a.download = "spear_leads_template.csv";
+              a.click();
+            }}
+            className="px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-900 text-xs text-zinc-400 hover:bg-zinc-800 transition-colors">
+            Template
+          </button>
           <button onClick={() => fileRef.current?.click()} disabled={importing}
             className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-semibold transition-colors flex items-center gap-2">
             {importing ? <><span className="h-3 w-3 rounded-full border border-white/40 border-t-white animate-spin" />Importing...</> : "Import CSV"}
@@ -1624,8 +1636,8 @@ function LeadsTab() {
                 <tr className="border-b border-zinc-800 bg-zinc-900">
                   <th className="text-left px-4 py-3 text-zinc-500 font-semibold">Name</th>
                   <th className="text-left px-4 py-3 text-zinc-500 font-semibold">Phone</th>
-                  <th className="text-left px-4 py-3 text-zinc-500 font-semibold hidden md:table-cell">Email</th>
                   <th className="text-left px-4 py-3 text-zinc-500 font-semibold hidden md:table-cell">Product</th>
+                  <th className="text-left px-4 py-3 text-zinc-500 font-semibold hidden md:table-cell">Calls</th>
                   <th className="text-left px-4 py-3 text-zinc-500 font-semibold">Status</th>
                   <th className="px-4 py-3" />
                 </tr>
@@ -1633,15 +1645,29 @@ function LeadsTab() {
               <tbody className="bg-zinc-950 divide-y divide-zinc-800/60">
                 {filtered.length === 0 ? (
                   <tr><td colSpan={6} className="text-center py-10 text-zinc-600">No leads match your filter</td></tr>
-                ) : filtered.map(lead => (
+                ) : filtered.map(lead => {
+                  const callCount = lead.call_sessions?.length ?? 0;
+                  const lastCall = lead.call_sessions?.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+                  const lastCallDate = lastCall ? new Date(lastCall.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;
+                  const fullName = `${lead.first_name} ${lead.last_name}`.trim();
+                  const callUrl = `/dashboard/live-call?lead=${lead.id}&name=${encodeURIComponent(fullName)}`;
+                  return (
                   <tr key={lead.id} className="hover:bg-zinc-900/60 transition-colors">
-                    <td className="px-4 py-3 font-medium text-zinc-200">
-                      {lead.first_name} {lead.last_name}
-                      {lead.state && <span className="ml-1.5 text-zinc-600">{lead.state}</span>}
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-zinc-200 text-xs">{fullName}{lead.state && <span className="ml-1.5 text-zinc-600">{lead.state}</span>}</p>
+                      {lead.email && <p className="text-[10px] text-zinc-600 mt-0.5">{lead.email}</p>}
                     </td>
-                    <td className="px-4 py-3 text-zinc-400">{lead.phone ?? "—"}</td>
-                    <td className="px-4 py-3 text-zinc-400 hidden md:table-cell">{lead.email ?? "—"}</td>
-                    <td className="px-4 py-3 text-zinc-400 hidden md:table-cell">{lead.product_interest ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      {lead.phone
+                        ? <a href={`tel:${lead.phone}`} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">{lead.phone}</a>
+                        : <span className="text-xs text-zinc-600">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-zinc-400 hidden md:table-cell">{lead.product_interest ?? "—"}</td>
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      {callCount > 0
+                        ? <span className="text-xs text-zinc-400">{callCount} call{callCount !== 1 ? "s" : ""}{lastCallDate && <span className="text-zinc-600 ml-1">· {lastCallDate}</span>}</span>
+                        : <span className="text-xs text-zinc-600">No calls yet</span>}
+                    </td>
                     <td className="px-4 py-3">
                       <select value={lead.status} onChange={e => updateStatus(lead.id, e.target.value)}
                         className={`text-[10px] font-semibold px-2 py-1 rounded-md border cursor-pointer bg-transparent capitalize ${STATUS_STYLES[lead.status] ?? ""}`}>
@@ -1652,10 +1678,17 @@ function LeadsTab() {
                       </select>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button onClick={() => deleteLead(lead.id)} className="text-zinc-700 hover:text-red-400 transition-colors text-xs">✕</button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Link href={callUrl}
+                          className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-semibold transition-colors whitespace-nowrap">
+                          Start Call
+                        </Link>
+                        <button onClick={() => deleteLead(lead.id)} className="text-zinc-700 hover:text-red-400 transition-colors text-xs">✕</button>
+                      </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

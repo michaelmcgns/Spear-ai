@@ -27,6 +27,7 @@ interface SaveBody {
   topImprovement?: string | null;
   topStrength?: string | null;
   nepqPhaseReached?: string | null;
+  leadId?: string | null;
 }
 
 // ─── Background agent profile recalculation ───────────────────────────────────
@@ -173,6 +174,7 @@ export async function POST(req: NextRequest) {
       notes:                 body.notes ?? null,
       prospect_name:         body.prospectName ?? null,
       product_name:          body.productName ?? null,
+      lead_id:               body.leadId ?? null,
     })
     .select()
     .single();
@@ -198,6 +200,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ id: minData.id, session: minData });
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Auto-update lead status to "contacted" when a call is linked
+  if (body.leadId) {
+    void db
+      .from("leads")
+      .update({ status: "contacted", updated_at: new Date().toISOString() })
+      .eq("id", body.leadId)
+      .eq("user_id", userId)
+      .then(({ error: lErr }) => {
+        if (lErr) console.error("[calls/save] lead status update failed:", lErr.message);
+      });
   }
 
   // Background profile update — non-blocking

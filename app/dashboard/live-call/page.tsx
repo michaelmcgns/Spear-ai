@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -181,6 +182,9 @@ export default function LiveCallPage() {
   const [micError, setMicError]       = useState<string | null>(null);
   const [userId, setUserId]           = useState<string>("demo-agent");
   const [prospectName, setProspectName] = useState<string>("");
+  const searchParams = useSearchParams();
+  const leadId = searchParams.get("lead");
+  const leadName = searchParams.get("name");
   // Which Deepgram speaker index (0 or 1) is the agent. Flip if DG gets it wrong.
   const [agentSpeakerNum, setAgentSpeakerNum] = useState(0);
   const agentSpeakerNumRef = useRef(0);
@@ -190,7 +194,9 @@ export default function LiveCallPage() {
     createClient().auth.getUser().then(({ data: { user } }) => {
       if (user?.id) setUserId(user.id);
     });
-  }, []);
+    // Pre-fill prospect name from lead URL param
+    if (leadName) setProspectName(decodeURIComponent(leadName));
+  }, [leadName]);
 
   const wsRef              = useRef<WebSocket | null>(null);
   const streamRef          = useRef<MediaStream | null>(null);
@@ -596,6 +602,7 @@ export default function LiveCallPage() {
           nepqPhases: { highest_phase_reached: currentPhase },
           outcome: "unknown",
           prospectName: prospectName.trim() || null,
+          leadId: leadId || null,
         }),
       });
     } catch {
