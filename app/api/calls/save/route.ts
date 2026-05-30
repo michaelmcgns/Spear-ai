@@ -22,6 +22,7 @@ interface SaveBody {
   overallScore?: number | null;
   notes?: string | null;
   prospectName?: string | null;
+  productName?: string | null;
   prospectPhone?: string | null;
   topImprovement?: string | null;
   topStrength?: string | null;
@@ -171,6 +172,7 @@ export async function POST(req: NextRequest) {
       overall_score:         body.overallScore ?? null,
       notes:                 body.notes ?? null,
       prospect_name:         body.prospectName ?? null,
+      product_name:          body.productName ?? null,
     })
     .select()
     .single();
@@ -184,6 +186,7 @@ export async function POST(req: NextRequest) {
         .insert({
           user_id:          userId,
           duration_seconds: body.durationSeconds ?? 0,
+          outcome:          body.outcome ?? "unknown",
           notes:            body.notes ?? null,
         })
         .select()
