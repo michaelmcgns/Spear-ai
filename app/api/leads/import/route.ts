@@ -45,15 +45,21 @@ export async function POST(req: NextRequest) {
     source:           l.source ?? "csv_import",
   }));
 
-  const { data, error } = await supabase
-    .from("leads")
-    .insert(rows)
-    .select("id");
-
-  if (error) {
-    console.error("[leads/import] error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  // Supabase PostgREST has a per-request row limit, so chunk the inserts
+  const CHUNK = 500;
+  let imported = 0;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+    const { data, error } = await supabase
+      .from("leads")
+      .insert(chunk)
+      .select("id");
+    if (error) {
+      console.error(`[leads/import] error on chunk ${i / CHUNK + 1}:`, error.message);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    imported += data?.length ?? 0;
   }
 
-  return NextResponse.json({ imported: data?.length ?? 0 });
+  return NextResponse.json({ imported });
 }
