@@ -29,22 +29,22 @@ export async function POST(req: NextRequest) {
 
   const prompt = `You are Spear, an elite NEPQ sales coach for life insurance phone sales.
 
-An agent is practicing the "${drillTitle}" drill (${phase} phase).
+An agent is drilling the "${drillTitle}" drill (${phase} phase). They are practicing saying an NEPQ line to a prospect — NOT responding to a prospect. Their job is to internalize and deliver this line naturally in their own words.
 
-The NEPQ prompt they were practicing:
+The target NEPQ line they are learning:
 "${question}"
 
-The agent's practice response:
+How the agent said it:
 "${response}"
 
-Give concise, direct coaching feedback. Be brutally honest. Use this format:
+Score how well their version captures the intent, tone, and power of the original. Be brutally honest. Use this format:
 
 \`\`\`json
 {
   "score": <integer 1-10>,
-  "what_worked": "<1 sentence — what was good, if anything. Be specific.>",
-  "what_missed": "<1 sentence — the main thing missing or weak. Be specific.>",
-  "ideal_response": "<The exact words you'd want them to say. Full sentence, ready to use on a real call.>"
+  "what_worked": "<1 sentence — what landed well about their delivery. Be specific.>",
+  "what_missed": "<1 sentence — what was weak, missing, or off-tone. Be specific.>",
+  "ideal_response": "<The exact words you'd want them to say on a real call. Natural, conversational, powerful.>"
 }
 \`\`\`
 
