@@ -1486,7 +1486,7 @@ function mapCSVRow(row: Record<string, string>) {
     state:            get("state", "st"),
     product_interest: get("product", "product_interest", "interest", "type"),
     notes:            get("notes", "note", "comments"),
-    source:           "csv_import",
+    source:           "file_import",
   };
 }
 
@@ -1509,18 +1509,49 @@ function LeadsTab() {
       .finally(() => setLoading(false));
   }, []);
 
+  async function parseFileToRows(file: File): Promise<Record<string, string>[]> {
+    const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
+    if (isExcel) {
+      // Dynamically load SheetJS from CDN
+      await new Promise<void>((resolve, reject) => {
+        if ((window as unknown as Record<string, unknown>).XLSX) { resolve(); return; }
+        const script = document.createElement("script");
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+        script.onload = () => resolve();
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const XLSX = (window as any).XLSX;
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: "" }) as Record<string, string>[];
+      return rawRows.map(row => {
+        // Normalize keys to lowercase for mapCSVRow
+        const normalized: Record<string, string> = {};
+        for (const [k, v] of Object.entries(row)) {
+          normalized[k.toLowerCase().trim()] = String(v ?? "");
+        }
+        return normalized;
+      });
+    } else {
+      const text = await file.text();
+      return parseCSV(text);
+    }
+  }
+
   async function handleFileImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setImporting(true);
     setImportMsg(null);
     try {
-      const text = await file.text();
-      const parsed = parseCSV(text);
-      console.log(`[leads] CSV parsed: ${parsed.length} rows, headers: ${Object.keys(parsed[0] ?? {}).join(", ")}`);
+      const parsed = await parseFileToRows(file);
+      console.log(`[leads] parsed: ${parsed.length} rows, headers: ${Object.keys(parsed[0] ?? {}).join(", ")}`);
       const rows = parsed.map(mapCSVRow);
-      if (rows.length === 0) { setImportMsg({ ok: false, text: "No valid rows found in CSV." }); return; }
-      if (rows.length > 5000) { setImportMsg({ ok: false, text: `CSV has ${rows.length} rows — check your file for extra blank lines or formatting issues.` }); return; }
+      if (rows.length === 0) { setImportMsg({ ok: false, text: "No valid rows found in file." }); return; }
+      if (rows.length > 5000) { setImportMsg({ ok: false, text: `File has ${rows.length} rows — max 5000 per import.` }); return; }
       const res = await fetch("/api/leads/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1593,9 +1624,9 @@ function LeadsTab() {
           </button>
           <button onClick={() => fileRef.current?.click()} disabled={importing}
             className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-semibold transition-colors flex items-center gap-2">
-            {importing ? <><span className="h-3 w-3 rounded-full border border-white/40 border-t-white animate-spin" />Importing...</> : "Import CSV"}
+            {importing ? <><span className="h-3 w-3 rounded-full border border-white/40 border-t-white animate-spin" />Importing...</> : "Import File"}
           </button>
-          <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFileImport} />
+          <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileImport} />
         </div>
       </div>
 
@@ -1605,16 +1636,16 @@ function LeadsTab() {
         </div>
       )}
 
-      {/* CSV format hint */}
+      {/* File format hint */}
       {leads.length === 0 && (
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 text-center space-y-3">
           <p className="text-sm font-semibold text-zinc-300">Import your lead list</p>
           <p className="text-xs text-zinc-500 leading-relaxed max-w-sm mx-auto">
-            Upload a CSV with columns: <span className="text-zinc-400">first_name, last_name, phone, email, state, product_interest</span>
+            Upload a CSV or Excel file with columns: <span className="text-zinc-400">first_name, last_name, phone, email, state, product_interest</span>
           </p>
           <button onClick={() => fileRef.current?.click()}
             className="mx-auto px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-colors">
-            Choose CSV File
+            Choose File
           </button>
         </div>
       )}
@@ -1662,6 +1693,7 @@ function LeadsTab() {
               <thead>
                 <tr className="border-b border-zinc-800 bg-zinc-900">
                   <th className="text-left px-4 py-3 text-zinc-500 font-semibold">Name</th>
+                  <th className="text-left px-4 py-3 text-zinc-500 font-semibold hidden md:table-cell">Location</th>
                   <th className="text-left px-4 py-3 text-zinc-500 font-semibold">Phone</th>
                   <th className="text-left px-4 py-3 text-zinc-500 font-semibold hidden md:table-cell">Product</th>
                   <th className="text-left px-4 py-3 text-zinc-500 font-semibold hidden md:table-cell">Calls</th>
@@ -1671,7 +1703,7 @@ function LeadsTab() {
               </thead>
               <tbody className="bg-zinc-950 divide-y divide-zinc-800/60">
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-10 text-zinc-600">No leads match your filter</td></tr>
+                  <tr><td colSpan={7} className="text-center py-10 text-zinc-600">No leads match your filter</td></tr>
                 ) : filtered.map(lead => {
                   const callCount = lead.call_sessions?.length ?? 0;
                   const lastCall = lead.call_sessions?.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
@@ -1681,8 +1713,11 @@ function LeadsTab() {
                   return (
                   <tr key={lead.id} className="hover:bg-zinc-900/60 transition-colors">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-zinc-200 text-xs">{fullName}{lead.state && <span className="ml-1.5 text-zinc-600">{lead.state}</span>}</p>
+                      <p className="font-medium text-zinc-200 text-xs">{fullName}</p>
                       {lead.email && <p className="text-[10px] text-zinc-600 mt-0.5">{lead.email}</p>}
+                    </td>
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      <span className="text-xs text-zinc-400">{lead.state ?? "—"}</span>
                     </td>
                     <td className="px-4 py-3">
                       {lead.phone
