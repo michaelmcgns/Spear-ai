@@ -1516,8 +1516,11 @@ function LeadsTab() {
     setImportMsg(null);
     try {
       const text = await file.text();
-      const rows = parseCSV(text).map(mapCSVRow);
+      const parsed = parseCSV(text);
+      console.log(`[leads] CSV parsed: ${parsed.length} rows, headers: ${Object.keys(parsed[0] ?? {}).join(", ")}`);
+      const rows = parsed.map(mapCSVRow);
       if (rows.length === 0) { setImportMsg({ ok: false, text: "No valid rows found in CSV." }); return; }
+      if (rows.length > 5000) { setImportMsg({ ok: false, text: `CSV has ${rows.length} rows — check your file for extra blank lines or formatting issues.` }); return; }
       const res = await fetch("/api/leads/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
