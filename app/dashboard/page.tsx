@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Phone, BarChart3, BookOpen, Users,
   Settings, LogOut, Upload, TrendingUp, CheckCircle2, AlertTriangle,
   Brain, Target, MessageSquare, Mic, Search, ChevronDown, ChevronRight,
-  Award, ArrowUp, ArrowDown, Star, Zap, Radio, X, Lock,
+  Award, ArrowUp, ArrowDown, Star, Zap, Radio, X, Lock, Pencil, Check,
 } from "lucide-react";
 import Link from "next/link";
 import { RegulatoryBanner } from "@/components/compliance/RegulatoryBanner";
@@ -287,12 +287,14 @@ interface DashboardData {
   loading:   boolean;
   totalCalls: number; closeRate: number; avgScore: string; objectionsCaught: number;
   updateCallOutcome?: (sessionId: string, outcome: "closed" | "lost" | "follow_up" | "pending") => void;
+  updateCallProspect?: (sessionId: string, name: string) => void;
 }
 
 const DashboardDataCtx = createContext<DashboardData>({
   userId: null, calls: MOCK_CALLS, hasReal: false, loading: true,
   totalCalls: 0, closeRate: 0, avgScore: "—", objectionsCaught: 0,
   updateCallOutcome: undefined,
+  updateCallProspect: undefined,
 });
 
 function useDashboardData() { return useContext(DashboardDataCtx); }
@@ -363,6 +365,73 @@ function sessionToRecord(s: RawCallSession, i: number): CallRecord {
 }
 
 // ─── Shared micro-components ──────────────────────────────────────────────────
+
+function EditableProspectName({ name, sessionId, onUpdate }: {
+  name: string;
+  sessionId?: string;
+  onUpdate?: (sessionId: string, name: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(name);
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setValue(name); }, [name]);
+  useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
+
+  async function save() {
+    if (!sessionId || saving) { setEditing(false); return; }
+    const trimmed = value.trim() || name;
+    setValue(trimmed);
+    setEditing(false);
+    if (trimmed === name) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/calls/update-prospect-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: sessionId, prospectName: trimmed }),
+      });
+      if (res.ok) onUpdate?.(sessionId, trimmed);
+      else setValue(name);
+    } catch {
+      setValue(name);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function cancel() { setValue(name); setEditing(false); }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+        <input
+          ref={inputRef}
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel(); }}
+          onBlur={save}
+          className="text-xs font-medium text-zinc-100 bg-zinc-800 border border-zinc-600 rounded px-1.5 py-0.5 w-32 focus:outline-none focus:border-blue-500"
+          maxLength={80}
+        />
+        <button type="button" onMouseDown={e => { e.preventDefault(); save(); }} className="text-emerald-400 hover:text-emerald-300">
+          <Check className="h-3 w-3" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="group flex items-center gap-1 cursor-pointer"
+      onClick={e => { if (!sessionId) return; e.stopPropagation(); setEditing(true); }}
+    >
+      <span className={`text-xs font-medium text-zinc-100 ${saving ? "opacity-50" : ""}`}>{value}</span>
+      {sessionId && <Pencil className="h-3 w-3 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />}
+    </div>
+  );
+}
 
 function ScoreBadge({ score }: { score: number }) {
   let cls = "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
@@ -461,7 +530,7 @@ function DiscPill({ disc }: { disc: "D" | "I" | "S" | "C" }) {
 // ─── Calls Tab ────────────────────────────────────────────────────────────────
 
 function CallsTab() {
-  const { calls, hasReal, loading, updateCallOutcome } = useDashboardData();
+  const { calls, hasReal, loading, updateCallOutcome, updateCallProspect } = useDashboardData();
   const [search, setSearch]             = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState<"all" | "closed" | "lost" | "follow_up">("all");
   const [sortKey, setSortKey]           = useState<"date" | "score" | "duration">("date");
@@ -553,7 +622,9 @@ function CallsTab() {
                     <p className="text-xs text-zinc-300">{call.date}</p>
                     <p className="text-[10px] text-zinc-600">{call.time}</p>
                   </td>
-                  <td className="px-4 py-3 text-xs font-medium text-zinc-100">{call.prospect}</td>
+                  <td className="px-4 py-3">
+                    <EditableProspectName name={call.prospect} sessionId={call.sessionId} onUpdate={updateCallProspect} />
+                  </td>
                   <td className="px-4 py-3 text-xs text-zinc-400 hidden md:table-cell">{call.product}</td>
                   <td className="px-4 py-3 text-xs text-zinc-400 hidden md:table-cell">{call.duration}</td>
                   <td className="px-4 py-3"><ScoreBadge score={call.score} /></td>
@@ -1938,6 +2009,10 @@ function DashboardPage() {
       .catch(console.error);
   }, []);
 
+  const updateCallProspect = useCallback((sessionId: string, name: string) => {
+    setRealCalls(prev => prev.map(c => c.sessionId === sessionId ? { ...c, prospect: name } : c));
+  }, []);
+
   useEffect(() => {
     // Get real user ID (used when uploading calls)
     const supabase = createClient();
@@ -1957,6 +2032,7 @@ function DashboardPage() {
     avgScore:         dashStats.avgScore,
     objectionsCaught: dashStats.objectionsCaught,
     updateCallOutcome,
+    updateCallProspect,
   };
 
   // ── Analysis state ─────────────────────────────────────────────────────────
