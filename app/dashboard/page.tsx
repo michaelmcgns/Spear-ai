@@ -903,6 +903,13 @@ interface CoachingWorkspaceState {
   drafts: Record<number, string>;
 }
 
+interface PracticeFeedback {
+  score: number;
+  what_worked: string;
+  what_missed: string;
+  ideal_response: string;
+}
+
 function CoachingTab() {
   const { hasReal, loading: ctxLoading } = useDashboardData();
   const [report, setReport]   = useState<CoachingReportData | null>(null);
@@ -915,6 +922,40 @@ function CoachingTab() {
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [timerDrill, setTimerDrill] = useState<number | null>(null);
   const [timerSeconds, setTimerSeconds] = useState(0);
+  const [feedbackLoading, setFeedbackLoading] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<Record<number, PracticeFeedback | null>>({});
+
+  async function getFeedback(drill: CoachingReportData["drills"][0], question: string, promptIndex: number) {
+    const draft = drafts[drill.id]?.trim();
+    if (!draft) return;
+    setFeedbackLoading(drill.id);
+    setFeedback(prev => ({ ...prev, [drill.id]: null }));
+    try {
+      const res = await fetch("/api/coaching/practice-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question,
+          response: draft,
+          phase: drill.phase,
+          drillTitle: drill.title,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json() as PracticeFeedback;
+        setFeedback(prev => ({ ...prev, [drill.id]: data }));
+        // Auto-mark as practiced if score >= 6
+        if (data.score >= 6) {
+          setPracticed(prev => {
+            const next = [...(prev[drill.id] ?? [])];
+            next[promptIndex] = true;
+            return { ...prev, [drill.id]: next };
+          });
+        }
+      }
+    } catch { /* non-fatal */ }
+    finally { setFeedbackLoading(null); }
+  }
 
   useEffect(() => {
     try {
@@ -1181,10 +1222,53 @@ function CoachingTab() {
                             <p className="text-sm text-zinc-100 leading-relaxed mb-4">{question}</p>
                             <textarea
                               value={drafts[drill.id] ?? ""}
-                              onChange={e => setDrafts(prev => ({ ...prev, [drill.id]: e.target.value }))}
+                              onChange={e => {
+                                setDrafts(prev => ({ ...prev, [drill.id]: e.target.value }));
+                                setFeedback(prev => ({ ...prev, [drill.id]: null }));
+                              }}
                               placeholder="Type your version of the response here..."
                               className="w-full min-h-20 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600"
                             />
+                            <button
+                              type="button"
+                              disabled={!drafts[drill.id]?.trim() || feedbackLoading === drill.id}
+                              onClick={() => getFeedback(drill, question, promptIndex)}
+                              className="mt-2 w-full py-2 rounded-lg bg-blue-600/20 border border-blue-500/30 text-blue-300 text-xs font-semibold hover:bg-blue-600/30 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+                            >
+                              {feedbackLoading === drill.id
+                                ? <><span className="h-3 w-3 rounded-full border border-blue-400 border-t-transparent animate-spin" />Getting feedback...</>
+                                : "⚡ Get AI Feedback"}
+                            </button>
+                            {feedback[drill.id] && (
+                              <div className="mt-3 rounded-lg border border-zinc-700 bg-zinc-950 overflow-hidden">
+                                <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800">
+                                  <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold">Spear Feedback</span>
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${(feedback[drill.id]!.score ?? 0) >= 7 ? "bg-emerald-500/15 text-emerald-300" : (feedback[drill.id]!.score ?? 0) >= 5 ? "bg-amber-500/15 text-amber-300" : "bg-red-500/15 text-red-300"}`}>
+                                    {feedback[drill.id]!.score}/10
+                                  </span>
+                                </div>
+                                <div className="px-4 py-3 space-y-3">
+                                  {feedback[drill.id]!.what_worked && (
+                                    <div className="flex gap-2">
+                                      <span className="text-emerald-400 text-xs shrink-0">✓</span>
+                                      <p className="text-xs text-zinc-300 leading-relaxed">{feedback[drill.id]!.what_worked}</p>
+                                    </div>
+                                  )}
+                                  {feedback[drill.id]!.what_missed && (
+                                    <div className="flex gap-2">
+                                      <span className="text-red-400 text-xs shrink-0">✗</span>
+                                      <p className="text-xs text-zinc-300 leading-relaxed">{feedback[drill.id]!.what_missed}</p>
+                                    </div>
+                                  )}
+                                  {feedback[drill.id]!.ideal_response && (
+                                    <div className="rounded-lg bg-blue-500/8 border border-blue-500/20 px-3 py-2.5">
+                                      <p className="text-[10px] text-blue-400 uppercase tracking-wider font-semibold mb-1.5">Use This Instead</p>
+                                      <p className="text-xs text-zinc-100 leading-relaxed italic">"{feedback[drill.id]!.ideal_response}"</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                             <div className="flex items-center justify-between gap-2 mt-3">
                               <div className="flex items-center gap-2">
                                 <button
