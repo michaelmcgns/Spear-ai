@@ -27,8 +27,9 @@ export async function POST(req: NextRequest) {
   if (!Array.isArray(leads) || leads.length === 0) {
     return NextResponse.json({ error: "No leads provided" }, { status: 400 });
   }
+  console.log(`[leads/import] received ${leads.length} rows from user ${user.id}`);
   if (leads.length > 5000) {
-    return NextResponse.json({ error: "Max 5000 leads per import" }, { status: 400 });
+    return NextResponse.json({ error: `Too many rows (${leads.length}). Max 5000 per import. Check your CSV for formatting issues.` }, { status: 400 });
   }
 
   const rows = leads.map(l => ({
