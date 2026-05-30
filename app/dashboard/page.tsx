@@ -1441,15 +1441,39 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 function parseCSV(text: string): Record<string, string>[] {
-  const lines = text.trim().split("\n");
+  // Properly parse CSV including quoted fields with commas inside
+  function parseLine(line: string): string[] {
+    const result: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (ch === "," && !inQuotes) {
+        result.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  }
+
+  const lines = text.trim().split(/\r?\n/);
   if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_"));
-  return lines.slice(1).map(line => {
-    const values = line.split(",");
-    const row: Record<string, string> = {};
-    headers.forEach((h, i) => { row[h] = (values[i] ?? "").trim().replace(/^"|"$/g, ""); });
-    return row;
-  }).filter(r => Object.values(r).some(v => v));
+  const headers = parseLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9_]/g, "_"));
+  return lines.slice(1)
+    .filter(l => l.trim())
+    .map(line => {
+      const values = parseLine(line);
+      const row: Record<string, string> = {};
+      headers.forEach((h, i) => { row[h] = values[i] ?? ""; });
+      return row;
+    })
+    .filter(r => Object.values(r).some(v => v));
 }
 
 function mapCSVRow(row: Record<string, string>) {
