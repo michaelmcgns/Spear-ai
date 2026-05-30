@@ -1356,8 +1356,15 @@ function CoachingTab() {
                               </div>
                             </div>
 
+                            {/* How it works */}
+                            <div className="flex items-start gap-2 rounded-lg bg-zinc-800/40 px-3 py-2.5 text-xs text-zinc-500 leading-relaxed">
+                              <span className="shrink-0 mt-0.5">💡</span>
+                              <span>Read the prompt below as if a prospect just said it. Type how you&apos;d respond on a real call, then hit <strong className="text-zinc-400">Get AI Feedback</strong> to see your score and the ideal response.</span>
+                            </div>
+
                             {/* Prompt */}
                             <div className="rounded-xl bg-zinc-800/50 border border-zinc-700/60 px-4 py-3">
+                              <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold mb-1.5">Prospect says:</p>
                               <p className="text-sm text-zinc-100 leading-relaxed">{question}</p>
                             </div>
 
@@ -1368,7 +1375,7 @@ function CoachingTab() {
                                 setDrafts(prev => ({ ...prev, [drill.id]: e.target.value }));
                                 setFeedback(prev => ({ ...prev, [drill.id]: null }));
                               }}
-                              placeholder="Type your response here..."
+                              placeholder="You say..."
                               rows={3}
                               className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600 resize-none"
                             />
