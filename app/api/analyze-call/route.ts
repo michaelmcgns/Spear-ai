@@ -403,6 +403,8 @@ export async function POST(req: NextRequest) {
     let sessionId: string;
     let agentId: string | undefined;
     let storagePath: string | undefined;
+    let productName: string | null = null;
+    let callOutcome: "closed" | "not_closed" | "follow_up" | "unknown" = "unknown";
 
     const contentType = req.headers.get("content-type") ?? "";
 
@@ -415,10 +417,14 @@ export async function POST(req: NextRequest) {
         chunkPaths?: string[];   // legacy: multiple chunks if file was > 40 MB
         sessionId?: string;
         agentId?: string;
+        productName?: string;
+        outcome?: "closed" | "not_closed" | "follow_up" | "unknown";
       };
 
       sessionId = body.sessionId ?? `session-${Date.now()}`;
       agentId   = body.agentId ?? undefined;
+      productName = body.productName?.trim() || null;
+      callOutcome = body.outcome ?? "unknown";
 
       if (body.audioUrl) {
         // ── R2 path: browser uploaded directly to Cloudflare R2, we got a presigned GET URL ─
@@ -451,6 +457,8 @@ export async function POST(req: NextRequest) {
       const file = formData.get("audio") as File | null;
       sessionId   = (formData.get("sessionId") as string | null) ?? `session-${Date.now()}`;
       agentId     = formData.get("agentId") as string | null ?? undefined;
+      productName = (formData.get("productName") as string | null)?.trim() || null;
+      callOutcome = (formData.get("outcome") as typeof callOutcome | null) ?? "unknown";
 
       if (!file) {
         return NextResponse.json({ error: "No audio file provided" }, { status: 400 });
@@ -477,7 +485,7 @@ export async function POST(req: NextRequest) {
           user_id:               user.id,
           duration_seconds:      0, // audio duration not available at this point
           transcript:            [{ text: transcript }],
-          outcome:               "unknown",
+          outcome:               callOutcome,
           talk_ratio_agent:      analysis.talkRatio?.agentPct ?? null,
           talk_ratio_prospect:   analysis.talkRatio?.prospectPct ?? null,
           disc_profile_detected: analysis.discProfile?.type ?? null,
@@ -488,6 +496,7 @@ export async function POST(req: NextRequest) {
             : {},
           objections_raised:     analysis.objections ?? [],
           overall_score:         analysis.overallScore ?? null,
+          product_name:          productName,
           notes:                 JSON.stringify({
             nextCallFocus: analysis.nextCallFocus,
             mindsetNote:   analysis.mindsetNote,
@@ -500,6 +509,7 @@ export async function POST(req: NextRequest) {
           await db.from("call_sessions").insert({
             user_id:          user.id,
             duration_seconds: 0,
+            outcome:          callOutcome,
             notes:            JSON.stringify({ nextCallFocus: analysis.nextCallFocus }),
           }).then(({ error }) => {
             if (error) console.error("[analyze-call] minimal save also failed:", error.message);

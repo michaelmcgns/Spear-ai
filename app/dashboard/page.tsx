@@ -136,10 +136,10 @@ interface SpearAnalysis {
 }
 
 type CallRecord = {
-  id: number; date: string; time: string; prospect: string;
+  id: number; sessionId?: string; date: string; time: string; prospect: string;
   duration: string; durationSec: number; score: number;
   disc: "D" | "I" | "S" | "C"; objectionCount: number;
-  phase: string; outcome: "closed" | "lost" | "pending";
+  phase: string; outcome: "closed" | "lost" | "follow_up" | "pending";
   revenue: number | null; product: string; topIssue: string | null;
   talkRatio: number;
   createdAtMs?: number;
@@ -277,6 +277,7 @@ interface RawCallSession {
   nepq_phases_completed: Record<string, { score?: number }>;
   talk_ratio_agent: number | null; notes: string | null;
   prospect_name: string | null;
+  product_name?: string | null;
 }
 
 interface DashboardData {
@@ -285,11 +286,13 @@ interface DashboardData {
   hasReal:   boolean;   // true once we have at least 1 real call
   loading:   boolean;
   totalCalls: number; closeRate: number; avgScore: string; objectionsCaught: number;
+  updateCallOutcome?: (sessionId: string, outcome: "closed" | "lost" | "follow_up" | "pending") => void;
 }
 
 const DashboardDataCtx = createContext<DashboardData>({
   userId: null, calls: MOCK_CALLS, hasReal: false, loading: true,
   totalCalls: 0, closeRate: 0, avgScore: "—", objectionsCaught: 0,
+  updateCallOutcome: undefined,
 });
 
 function useDashboardData() { return useContext(DashboardDataCtx); }
@@ -334,9 +337,14 @@ function sessionToRecord(s: RawCallSession, i: number): CallRecord {
   for (const key of Object.keys(phaseMap)) {
     if ((phases[key] as { score?: number } | undefined)?.score != null) lastPhase = phaseMap[key];
   }
-  const outcome = s.outcome === "closed" ? "closed" : s.outcome === "not_closed" ? "lost" : "pending";
+  const outcome =
+    s.outcome === "closed" ? "closed" :
+    s.outcome === "not_closed" ? "lost" :
+    s.outcome === "follow_up" ? "follow_up" :
+    "pending";
   return {
     id: i + 1,
+    sessionId: s.id,
     date: dt.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     time: dt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
     createdAtMs: dt.getTime(),
@@ -346,7 +354,7 @@ function sessionToRecord(s: RawCallSession, i: number): CallRecord {
     score: s.overall_score ?? 0,
     disc: (s.disc_profile_detected as "D" | "I" | "S" | "C") ?? "S",
     objectionCount: (s.objections_raised as unknown[])?.length ?? 0,
-    phase: lastPhase, outcome, revenue: null, product: "Call Recording",
+    phase: lastPhase, outcome, revenue: null, product: s.product_name ?? "Call Recording",
     topIssue: s.notes ?? null,
     talkRatio: Math.round(s.talk_ratio_agent ?? 50),
     nepqScores,
@@ -363,10 +371,81 @@ function ScoreBadge({ score }: { score: number }) {
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold border ${cls}`}>{score.toFixed(1)}</span>;
 }
 
-function OutcomeBadge({ outcome }: { outcome: "closed" | "lost" | "pending" }) {
-  if (outcome === "closed") return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">✓ Closed</span>;
-  if (outcome === "lost")   return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-red-500/15 text-red-400 border border-red-500/20">✗ Lost</span>;
-  return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-zinc-500/15 text-zinc-400 border border-zinc-500/20">⋯ Pending</span>;
+function OutcomeBadge({ outcome, sessionId, onUpdate }: {
+  outcome: "closed" | "lost" | "follow_up" | "pending";
+  sessionId?: string;
+  onUpdate?: (sessionId: string, outcome: "closed" | "lost" | "follow_up" | "pending") => void;
+}) {
+  const [current, setCurrent] = useState(outcome);
+  const [saving, setSaving] = useState<"closed" | "lost" | "follow_up" | "pending" | null>(null);
+
+  useEffect(() => { setCurrent(outcome); }, [outcome]);
+
+  async function select(val: "closed" | "lost" | "follow_up" | "pending") {
+    if (!sessionId || saving) return;
+    setSaving(val);
+    const prev = current;
+    setCurrent(val);
+    try {
+      const res = await fetch("/api/calls/update-outcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: sessionId, outcome: val }),
+      });
+      if (!res.ok) {
+        setCurrent(prev);
+        return;
+      }
+      onUpdate?.(sessionId, val);
+    } catch {
+      setCurrent(prev);
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  if (current === "closed") {
+    return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">✓ Closed</span>;
+  }
+  if (current === "lost") {
+    return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-red-500/15 text-red-400 border border-red-500/20">✗ Lost</span>;
+  }
+  if (current === "follow_up") {
+    return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-500/20">↗ Follow-up</span>;
+  }
+
+  if (!sessionId) {
+    return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-zinc-500/15 text-zinc-500 border border-zinc-500/20">—</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={() => select("closed")}
+        disabled={!!saving}
+        className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
+      >
+        {saving === "closed" ? "…" : "✓ Closed"}
+      </button>
+      <button
+        type="button"
+        onClick={() => select("lost")}
+        disabled={!!saving}
+        className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
+      >
+        {saving === "lost" ? "…" : "✗ Lost"}
+      </button>
+      <button
+        type="button"
+        onClick={() => select("follow_up")}
+        disabled={!!saving}
+        className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+      >
+        {saving === "follow_up" ? "…" : "↗ Follow-up"}
+      </button>
+    </div>
+  );
 }
 
 function DiscPill({ disc }: { disc: "D" | "I" | "S" | "C" }) {
@@ -382,9 +461,9 @@ function DiscPill({ disc }: { disc: "D" | "I" | "S" | "C" }) {
 // ─── Calls Tab ────────────────────────────────────────────────────────────────
 
 function CallsTab() {
-  const { calls, hasReal, loading } = useDashboardData();
+  const { calls, hasReal, loading, updateCallOutcome } = useDashboardData();
   const [search, setSearch]             = useState("");
-  const [outcomeFilter, setOutcomeFilter] = useState<"all" | "closed" | "lost">("all");
+  const [outcomeFilter, setOutcomeFilter] = useState<"all" | "closed" | "lost" | "follow_up">("all");
   const [sortKey, setSortKey]           = useState<"date" | "score" | "duration">("date");
   const [expandedId, setExpandedId]     = useState<number | null>(null);
 
@@ -440,10 +519,10 @@ function CallsTab() {
               className="pl-8 pr-3 py-1.5 bg-zinc-900 border border-zinc-700 rounded-lg text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600 w-52"
             />
           </div>
-          {(["all", "closed", "lost"] as const).map(f => (
+          {(["all", "closed", "lost", "follow_up"] as const).map(f => (
             <button key={f} onClick={() => setOutcomeFilter(f)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${outcomeFilter === f ? "bg-blue-600/20 text-blue-300 border border-blue-500/30" : "text-zinc-500 border border-zinc-800 hover:border-zinc-600 hover:text-zinc-300"}`}>
-              {f === "all" ? "All" : f === "closed" ? "✓ Closed" : "✗ Lost"}
+              {f === "all" ? "All" : f === "closed" ? "✓ Closed" : f === "lost" ? "✗ Lost" : "↗ Follow-up"}
             </button>
           ))}
           <select value={sortKey} onChange={e => setSortKey(e.target.value as typeof sortKey)}
@@ -484,7 +563,9 @@ function CallsTab() {
                       <span className="px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 text-[11px] font-semibold">{call.objectionCount}</span>
                     )}
                   </td>
-                  <td className="px-4 py-3"><OutcomeBadge outcome={call.outcome} /></td>
+                  <td className="px-4 py-3">
+                    <OutcomeBadge outcome={call.outcome} sessionId={call.sessionId} onUpdate={updateCallOutcome} />
+                  </td>
                   <td className="px-4 py-3 text-zinc-600">
                     {expandedId === call.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   </td>
@@ -814,12 +895,52 @@ interface CoachingReportData {
   coachingFocus: string | null;
 }
 
+interface CoachingWorkspaceState {
+  sessions: Record<number, number>;
+  notes: Record<number, string>;
+  practiced: Record<number, boolean[]>;
+  activePrompt: Record<number, number>;
+  drafts: Record<number, string>;
+}
+
 function CoachingTab() {
   const { hasReal, loading: ctxLoading } = useDashboardData();
   const [report, setReport]   = useState<CoachingReportData | null>(null);
   const [fetching, setFetching] = useState(false);
   const [activeDrill, setActiveDrill] = useState<number | null>(null);
   const [sessions, setSessions] = useState<Record<number, number>>({});
+  const [notes, setNotes] = useState<Record<number, string>>({});
+  const [practiced, setPracticed] = useState<Record<number, boolean[]>>({});
+  const [activePrompt, setActivePrompt] = useState<Record<number, number>>({});
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
+  const [timerDrill, setTimerDrill] = useState<number | null>(null);
+  const [timerSeconds, setTimerSeconds] = useState(0);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("spear_coaching_workspace_v1");
+      if (!raw) return;
+      const saved = JSON.parse(raw) as Partial<CoachingWorkspaceState>;
+      setSessions(saved.sessions ?? {});
+      setNotes(saved.notes ?? {});
+      setPracticed(saved.practiced ?? {});
+      setActivePrompt(saved.activePrompt ?? {});
+      setDrafts(saved.drafts ?? {});
+    } catch {
+      // Ignore corrupt local practice data.
+    }
+  }, []);
+
+  useEffect(() => {
+    const payload: CoachingWorkspaceState = { sessions, notes, practiced, activePrompt, drafts };
+    localStorage.setItem("spear_coaching_workspace_v1", JSON.stringify(payload));
+  }, [sessions, notes, practiced, activePrompt, drafts]);
+
+  useEffect(() => {
+    if (timerDrill == null) return;
+    const id = window.setInterval(() => setTimerSeconds(s => s + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [timerDrill]);
 
   useEffect(() => {
     if (!hasReal) return;
@@ -838,6 +959,30 @@ function CoachingTab() {
 
   const logSession = (id: number, max: number) =>
     setSessions(p => ({ ...p, [id]: Math.min((p[id] ?? 0) + 1, max) }));
+
+  const togglePracticed = (id: number, index: number) =>
+    setPracticed(prev => {
+      const next = [...(prev[id] ?? [])];
+      next[index] = !next[index];
+      return { ...prev, [id]: next };
+    });
+
+  const resetDrill = (id: number) => {
+    setSessions(prev => ({ ...prev, [id]: 0 }));
+    setPracticed(prev => ({ ...prev, [id]: [] }));
+    setNotes(prev => ({ ...prev, [id]: "" }));
+    setDrafts(prev => ({ ...prev, [id]: "" }));
+    if (timerDrill === id) {
+      setTimerDrill(null);
+      setTimerSeconds(0);
+    }
+  };
+
+  const formatTimer = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
 
   const priorityStyle: Record<string, string> = {
     critical: "text-red-400 border-red-500/30 bg-red-500/10",
@@ -865,6 +1010,8 @@ function CoachingTab() {
 
   const phasesWithRealData = report.nepqPhaseScores.filter(p => p.score !== 5.0);
   const weakest = report.weakestPhase;
+  const loggedSessions = Object.values(sessions).reduce((sum, value) => sum + value, 0);
+  const targetSessions = report.drills.reduce((sum, drill) => sum + drill.sessionsTarget, 0);
 
   return (
     <div className="space-y-5">
@@ -873,7 +1020,12 @@ function CoachingTab() {
           <h2 className="text-base font-semibold text-white">Coaching Hub</h2>
           <p className="text-xs text-zinc-500 mt-0.5">Drills generated from your {report.totalCalls} call{report.totalCalls !== 1 ? "s" : ""}</p>
         </div>
-        <AIBadge />
+        <div className="flex items-center gap-3">
+          <span className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-400">
+            {loggedSessions}/{targetSessions} practice sessions
+          </span>
+          <AIBadge />
+        </div>
       </div>
 
       {/* AI coaching focus */}
@@ -990,22 +1142,119 @@ function CoachingTab() {
 
                   {isOpen && (
                     <div className="px-5 pb-5 pt-4 border-t border-zinc-800/60">
-                      <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-3">Practice Techniques</p>
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Practice Lab</p>
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-xs text-zinc-300">
+                            {timerDrill === drill.id ? formatTimer(timerSeconds) : "0:00"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (timerDrill === drill.id) {
+                                setTimerDrill(null);
+                              } else {
+                                setTimerDrill(drill.id);
+                                setTimerSeconds(0);
+                              }
+                            }}
+                            className="px-3 py-1.5 rounded-lg border border-zinc-700 text-xs text-zinc-300 hover:bg-zinc-800 transition-colors"
+                          >
+                            {timerDrill === drill.id ? "Pause" : "Start"}
+                          </button>
+                        </div>
+                      </div>
+                      {(() => {
+                        const promptIndex = activePrompt[drill.id] ?? 0;
+                        const question = drill.questions[promptIndex] ?? drill.questions[0];
+                        const checked = practiced[drill.id]?.[promptIndex] ?? false;
+                        const practicedCount = (practiced[drill.id] ?? []).filter(Boolean).length;
+
+                        return (
+                          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4 mb-4">
+                            <div className="flex items-center justify-between gap-3 mb-3">
+                              <span className="text-[10px] text-blue-300 uppercase tracking-wider font-semibold">
+                                Prompt {promptIndex + 1} of {drill.questions.length}
+                              </span>
+                              <span className="text-[10px] text-zinc-500">{practicedCount}/{drill.questions.length} practiced</span>
+                            </div>
+                            <p className="text-sm text-zinc-100 leading-relaxed mb-4">{question}</p>
+                            <textarea
+                              value={drafts[drill.id] ?? ""}
+                              onChange={e => setDrafts(prev => ({ ...prev, [drill.id]: e.target.value }))}
+                              placeholder="Type your version of the response here..."
+                              className="w-full min-h-20 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600"
+                            />
+                            <div className="flex items-center justify-between gap-2 mt-3">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setActivePrompt(prev => ({ ...prev, [drill.id]: Math.max(promptIndex - 1, 0) }))}
+                                  disabled={promptIndex === 0}
+                                  className="px-3 py-1.5 rounded-lg border border-zinc-700 text-xs text-zinc-300 hover:bg-zinc-800 disabled:opacity-40 transition-colors"
+                                >
+                                  Previous
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setActivePrompt(prev => ({ ...prev, [drill.id]: Math.min(promptIndex + 1, drill.questions.length - 1) }))}
+                                  disabled={promptIndex >= drill.questions.length - 1}
+                                  className="px-3 py-1.5 rounded-lg border border-zinc-700 text-xs text-zinc-300 hover:bg-zinc-800 disabled:opacity-40 transition-colors"
+                                >
+                                  Next
+                                </button>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => togglePracticed(drill.id, promptIndex)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${checked ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" : "bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700"}`}
+                              >
+                                {checked ? "Practiced" : "Mark Practiced"}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-3">All Techniques</p>
                       <div className="space-y-2.5 mb-4">
                         {drill.questions.map((q, i) => (
                           <div key={i} className="flex items-start gap-3 rounded-lg bg-zinc-800/60 px-4 py-3">
-                            <span className="text-[10px] font-bold text-blue-400 mt-0.5 shrink-0">{i + 1}.</span>
+                            <input
+                              type="checkbox"
+                              checked={practiced[drill.id]?.[i] ?? false}
+                              onChange={() => togglePracticed(drill.id, i)}
+                              className="mt-0.5 h-3.5 w-3.5 rounded accent-blue-500 shrink-0"
+                            />
                             <p className="text-xs text-zinc-200 leading-relaxed">{q}</p>
                           </div>
                         ))}
                       </div>
-                      <button
-                        onClick={() => logSession(drill.id, drill.sessionsTarget)}
-                        disabled={complete}
-                        className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white text-xs font-semibold transition-colors"
-                      >
-                        {complete ? "✓ All sessions logged" : "Log Practice Session"}
-                      </button>
+                      <label className="block mb-4">
+                        <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Practice Notes</span>
+                        <textarea
+                          value={notes[drill.id] ?? ""}
+                          onChange={e => setNotes(prev => ({ ...prev, [drill.id]: e.target.value }))}
+                          placeholder="What felt awkward? What line will you use on the next call?"
+                          className="mt-2 w-full min-h-20 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600"
+                        />
+                      </label>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => logSession(drill.id, drill.sessionsTarget)}
+                          disabled={complete}
+                          className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white text-xs font-semibold transition-colors"
+                        >
+                          {complete ? "All Sessions Logged" : "Log Practice Session"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => resetDrill(drill.id)}
+                          className="px-4 py-2 rounded-lg border border-zinc-700 text-zinc-400 hover:bg-zinc-800 text-xs font-semibold transition-colors"
+                        >
+                          Reset Drill
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1212,7 +1461,7 @@ function AgentsTab() {
 function DashboardHome({
   isAnalyzing, analyzeStep, result, error, selectedFileName, isDragging,
   fileInputRef, resultRef, handleFileChange, handleDragOver,
-  setIsDragging, handleFile,
+  setIsDragging, handleFile, manualProduct, setManualProduct, manualOutcome, setManualOutcome,
 }: {
   isAnalyzing: boolean; analyzeStep: string; result: SpearAnalysis | null;
   error: string | null; selectedFileName: string; isDragging: boolean;
@@ -1222,6 +1471,10 @@ function DashboardHome({
   handleDragOver: (e: React.DragEvent) => void;
   setIsDragging: (v: boolean) => void;
   handleFile: (f: File) => void;
+  manualProduct: string;
+  setManualProduct: (value: string) => void;
+  manualOutcome: "unknown" | "closed" | "not_closed" | "follow_up";
+  setManualOutcome: (value: "unknown" | "closed" | "not_closed" | "follow_up") => void;
 }) {
   const phases = result ? [
     { label: "Connection & Credibility",  ...result.nepqPhases.connection        },
@@ -1236,7 +1489,7 @@ function DashboardHome({
     ? (Object.values(result.nepqPhases).reduce((a, p) => a + p.score, 0) / 7).toFixed(1)
     : null;
 
-  const { calls, hasReal, loading, totalCalls, closeRate, avgScore, objectionsCaught } = useDashboardData();
+  const { calls, hasReal, loading, totalCalls, closeRate, avgScore, objectionsCaught, updateCallOutcome } = useDashboardData();
   const recentCalls = hasReal ? calls.slice(0, 4) : [];
 
   const liveStats = [
@@ -1268,6 +1521,33 @@ function DashboardHome({
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-sm font-semibold text-white">Analyze a Call</h2>
             <span className="text-xs text-zinc-600">MP3 · MP4 · M4A · WAV · up to {MAX_CALL_UPLOAD_MB} MB</span>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3 mb-4">
+            <label className="block">
+              <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Product</span>
+              <input
+                type="text"
+                value={manualProduct}
+                onChange={e => setManualProduct(e.target.value)}
+                placeholder="e.g. Term Life, IUL, Final Expense"
+                disabled={isAnalyzing}
+                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600 disabled:opacity-60"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Call Status</span>
+              <select
+                value={manualOutcome}
+                onChange={e => setManualOutcome(e.target.value as "unknown" | "closed" | "not_closed" | "follow_up")}
+                disabled={isAnalyzing}
+                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-blue-600 disabled:opacity-60"
+              >
+                <option value="unknown">Pending / Unknown</option>
+                <option value="closed">Closed</option>
+                <option value="not_closed">Not Closed</option>
+                <option value="follow_up">Follow-up</option>
+              </select>
+            </label>
           </div>
           <input ref={fileInputRef} type="file" accept=".mp3,.mp4,.m4a,.wav" className="hidden" onChange={handleFileChange} />
           <div
@@ -1338,7 +1618,7 @@ function DashboardHome({
                 </div>
                 <div className="flex items-center gap-2">
                   <ScoreBadge score={call.score} />
-                  <OutcomeBadge outcome={call.outcome} />
+                  <OutcomeBadge outcome={call.outcome} sessionId={call.sessionId} onUpdate={updateCallOutcome} />
                 </div>
               </div>
             ))
@@ -1566,6 +1846,14 @@ function DashboardPage() {
     }).catch(console.error).finally(() => setDataLoading(false));
   }, []);
 
+  const updateCallOutcome = useCallback((sessionId: string, outcome: "closed" | "lost" | "follow_up" | "pending") => {
+    setRealCalls(prev => prev.map(c => c.sessionId === sessionId ? { ...c, outcome } : c));
+    fetch("/api/dashboard/stats")
+      .then(r => r.json())
+      .then(setDashStats)
+      .catch(console.error);
+  }, []);
+
   useEffect(() => {
     // Get real user ID (used when uploading calls)
     const supabase = createClient();
@@ -1584,6 +1872,7 @@ function DashboardPage() {
     closeRate:        dashStats.closeRate,
     avgScore:         dashStats.avgScore,
     objectionsCaught: dashStats.objectionsCaught,
+    updateCallOutcome,
   };
 
   // ── Analysis state ─────────────────────────────────────────────────────────
@@ -1592,6 +1881,8 @@ function DashboardPage() {
   const [result, setResult]                   = useState<SpearAnalysis | null>(null);
   const [error, setError]                     = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState("");
+  const [manualProduct, setManualProduct]     = useState("");
+  const [manualOutcome, setManualOutcome]     = useState<"unknown" | "closed" | "not_closed" | "follow_up">("unknown");
   const [isDragging, setIsDragging]           = useState(false);
 
   // Compliance gate
@@ -1670,7 +1961,13 @@ function DashboardPage() {
       const res = await fetch("/api/analyze-call", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ audioUrl: getUrl, sessionId: sessionIdRef.current, agentId: userId ?? undefined }),
+        body:    JSON.stringify({
+          audioUrl: getUrl,
+          sessionId: sessionIdRef.current,
+          agentId: userId ?? undefined,
+          productName: manualProduct.trim() || undefined,
+          outcome: manualOutcome,
+        }),
       });
 
       if (!res.ok) {
@@ -1688,7 +1985,7 @@ function DashboardPage() {
       setIsAnalyzing(false);
       setAnalyzeStep("");
     }
-  }, [userId, refreshCalls]); // userId kept for agentId passthrough to GHL sync
+  }, [userId, refreshCalls, manualProduct, manualOutcome]); // userId kept for agentId passthrough to GHL sync
 
   const handleFile = useCallback((file: File) => {
     sessionIdRef.current = `session-${Date.now()}`;
@@ -1832,7 +2129,24 @@ function DashboardPage() {
             {/* Tab content — each wrapped in its feature gate */}
             {activeTab === "dashboard"  && (
               <FeatureGate feature="call_upload">
-                <DashboardHome isAnalyzing={isAnalyzing} analyzeStep={analyzeStep} result={result} error={error} selectedFileName={selectedFileName} isDragging={isDragging} fileInputRef={fileInputRef} resultRef={resultRef} handleFileChange={handleFileChange} handleDragOver={handleDragOver} setIsDragging={setIsDragging} handleFile={handleFile} />
+                <DashboardHome
+                  isAnalyzing={isAnalyzing}
+                  analyzeStep={analyzeStep}
+                  result={result}
+                  error={error}
+                  selectedFileName={selectedFileName}
+                  isDragging={isDragging}
+                  fileInputRef={fileInputRef}
+                  resultRef={resultRef}
+                  handleFileChange={handleFileChange}
+                  handleDragOver={handleDragOver}
+                  setIsDragging={setIsDragging}
+                  handleFile={handleFile}
+                  manualProduct={manualProduct}
+                  setManualProduct={setManualProduct}
+                  manualOutcome={manualOutcome}
+                  setManualOutcome={setManualOutcome}
+                />
               </FeatureGate>
             )}
             {activeTab === "calls"      && (
