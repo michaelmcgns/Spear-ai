@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Phone, BarChart3, BookOpen, Users,
   Settings, LogOut, Upload, TrendingUp, CheckCircle2, AlertTriangle,
   Brain, Target, MessageSquare, Mic, Search, ChevronDown, ChevronRight,
-  Award, ArrowUp, ArrowDown, Star, Zap, Radio, X, Lock, Pencil, Check,
+  Award, ArrowUp, ArrowDown, Star, Zap, Radio, X, Lock, Pencil, Check, Tag,
 } from "lucide-react";
 import Link from "next/link";
 import { RegulatoryBanner } from "@/components/compliance/RegulatoryBanner";
@@ -513,6 +513,76 @@ function OutcomeBadge({ outcome, sessionId, onUpdate }: {
       >
         {saving === "follow_up" ? "…" : "↗ Follow-up"}
       </button>
+    </div>
+  );
+}
+
+function PromoCodeEntry() {
+  const [open, setOpen]     = useState(false);
+  const [code, setCode]     = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg]       = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function redeem() {
+    if (!code.trim()) return;
+    setLoading(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/promo/redeem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code.trim() }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string; label?: string; durationDays?: number };
+      if (data.ok) {
+        setMsg({ ok: true, text: `✓ ${data.label} applied! Reload to activate.` });
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        setMsg({ ok: false, text: data.error ?? "Invalid code." });
+      }
+    } catch {
+      setMsg({ ok: false, text: "Something went wrong." });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors border border-transparent"
+      >
+        <Tag className="h-4 w-4 shrink-0" />
+        Promo Code
+      </button>
+    );
+  }
+
+  return (
+    <div className="px-1 py-2">
+      <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 px-2">Enter Promo Code</p>
+      <div className="flex gap-1.5">
+        <input
+          autoFocus
+          value={code}
+          onChange={e => { setCode(e.target.value.toUpperCase()); setMsg(null); }}
+          onKeyDown={e => e.key === "Enter" && redeem()}
+          placeholder="SPEAR30"
+          className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-2.5 py-1.5 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500"
+        />
+        <button
+          onClick={redeem}
+          disabled={loading || !code.trim()}
+          className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-semibold transition-colors"
+        >
+          {loading ? "…" : "Apply"}
+        </button>
+        <button onClick={() => { setOpen(false); setCode(""); setMsg(null); }} className="px-2 text-zinc-600 hover:text-zinc-300 text-xs">✕</button>
+      </div>
+      {msg && (
+        <p className={`text-[11px] mt-2 px-1 ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>
+      )}
     </div>
   );
 }
@@ -2245,6 +2315,7 @@ function DashboardPage() {
           </div>
 
           <div className="px-3 py-4 border-t border-zinc-800 space-y-0.5">
+            <PromoCodeEntry />
             <Link href="/settings/privacy"
               className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors border border-transparent">
               <Settings className="h-4 w-4 shrink-0" />
