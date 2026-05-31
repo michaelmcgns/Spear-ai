@@ -1693,7 +1693,7 @@ function LeadsTab() {
               <thead>
                 <tr className="border-b border-zinc-800 bg-zinc-900">
                   <th className="text-left px-4 py-3 text-zinc-500 font-semibold">Name</th>
-                  <th className="text-left px-4 py-3 text-zinc-500 font-semibold hidden md:table-cell">Location</th>
+                  <th className="text-left px-4 py-3 text-zinc-500 font-semibold">State</th>
                   <th className="text-left px-4 py-3 text-zinc-500 font-semibold">Phone</th>
                   <th className="text-left px-4 py-3 text-zinc-500 font-semibold hidden md:table-cell">Product</th>
                   <th className="text-left px-4 py-3 text-zinc-500 font-semibold hidden md:table-cell">Calls</th>
@@ -1716,7 +1716,7 @@ function LeadsTab() {
                       <p className="font-medium text-zinc-200 text-xs">{fullName}</p>
                       {lead.email && <p className="text-[10px] text-zinc-600 mt-0.5">{lead.email}</p>}
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
+                    <td className="px-4 py-3">
                       <span className="text-xs text-zinc-400">{lead.state ?? "—"}</span>
                     </td>
                     <td className="px-4 py-3">
