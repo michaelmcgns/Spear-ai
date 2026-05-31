@@ -366,21 +366,28 @@ function LiveCallPageInner() {
     }
 
     if (isFinal && !speechFinal) {
-      // Mid-turn final segment: accumulate text, show in interim so the agent
-      // can read along, but don't commit to transcript yet
+      // Mid-turn final: commit immediately so transcript feels responsive.
+      // Still accumulate so speech_final can flush any trailing words.
       if (text) {
         utteranceAccRef.current[speakerNum] =
           ((utteranceAccRef.current[speakerNum] ?? "") + " " + text).trim();
-        setInterim(prev => ({ ...prev, [speaker]: utteranceAccRef.current[speakerNum] }));
+        setInterim(prev => ({ ...prev, [speaker]: "" }));
+        // Commit each is_final chunk immediately
+        setTranscript(prev => [...prev, {
+          id: `${speaker}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          speaker, speakerNum, text, isFinal: true, timestamp: Date.now(),
+        }]);
+        analyzeUtterance(text, speaker);
       }
       return;
     }
 
-    // speech_final: true — utterance is complete. Flush the buffer.
+    // speech_final: true — flush any remaining accumulated text not yet committed.
     const accumulated = (utteranceAccRef.current[speakerNum] ?? "").trim();
-    const fullText = text
-      ? accumulated ? `${accumulated} ${text}` : text
-      : accumulated;
+    // Only flush if there's something new beyond what was already committed
+    const alreadyCommitted = utteranceAccRef.current[speakerNum] ?? "";
+    const newText = text && !alreadyCommitted.endsWith(text.trim()) ? text : "";
+    const fullText = newText;
     utteranceAccRef.current[speakerNum] = "";
 
     if (!fullText) return;
@@ -434,9 +441,9 @@ function LiveCallPageInner() {
       return;
     }
 
-    // nova-3 + endpointing=400 gives faster turn boundaries; utterance_end_ms=1500 flushes
-    // stalled speakers sooner; diarize=true enables word-level speaker tags
-    const qs = "model=nova-3&language=en&punctuate=true&smart_format=true&interim_results=true&diarize=true&utterance_end_ms=1500&endpointing=400&filler_words=false";
+    // nova-3 + endpointing=200 for fast turn finalization; utterance_end_ms=800 flushes
+    // stalled speakers quickly; diarize=true enables word-level speaker tags
+    const qs = "model=nova-3&language=en&punctuate=true&smart_format=true&interim_results=true&diarize=true&utterance_end_ms=800&endpointing=200&filler_words=false";
     const ws = new WebSocket(`wss://api.deepgram.com/v1/listen?${qs}`, ["token", apiKey]);
     wsRef.current = ws;
 
