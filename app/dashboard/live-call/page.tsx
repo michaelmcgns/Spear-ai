@@ -441,9 +441,9 @@ function LiveCallPageInner() {
       return;
     }
 
-    // nova-3 + endpointing=200 for fast turn finalization; utterance_end_ms=800 flushes
-    // stalled speakers quickly; diarize=true enables word-level speaker tags
-    const qs = "model=nova-3&language=en&punctuate=true&smart_format=true&interim_results=true&diarize=true&utterance_end_ms=800&endpointing=200&filler_words=false";
+    // nova-2 is faster than nova-3 for real-time; no_delay reduces buffering;
+    // endpointing=100ms for snappy turn detection; no smart_format to skip post-processing
+    const qs = "model=nova-2&language=en&punctuate=true&interim_results=true&diarize=true&utterance_end_ms=500&endpointing=100&filler_words=false&no_delay=true";
     const ws = new WebSocket(`wss://api.deepgram.com/v1/listen?${qs}`, ["token", apiKey]);
     wsRef.current = ws;
 
@@ -455,7 +455,7 @@ function LiveCallPageInner() {
       recorder.addEventListener("dataavailable", (e) => {
         if (ws.readyState === WebSocket.OPEN && e.data.size > 0) ws.send(e.data);
       });
-      recorder.start(250); // 250ms chunks
+      recorder.start(100); // 100ms chunks for lower latency
     };
 
     ws.onmessage = (e) => handleDgMessage(e.data as string);
