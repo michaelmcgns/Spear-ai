@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { Suspense, useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
@@ -170,7 +170,7 @@ function getSupportedMimeType(): string {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function LiveCallPage() {
+function LiveCallPageInner() {
   const [callState, setCallState]     = useState<CallState>("idle");
   const [transcript, setTranscript]   = useState<TranscriptLine[]>([]);
   const [interim, setInterim]         = useState<{ agent: string; prospect: string }>({ agent: "", prospect: "" });
@@ -1017,5 +1017,13 @@ export default function LiveCallPage() {
         </AnimatePresence>
       </div>
     </div>
+  );
+}
+
+export default function LiveCallPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#050A14] flex items-center justify-center text-zinc-500 text-sm">Loading...</div>}>
+      <LiveCallPageInner />
+    </Suspense>
   );
 }
