@@ -443,7 +443,7 @@ function LiveCallPageInner() {
 
     // nova-2 is faster than nova-3 for real-time; no_delay reduces buffering;
     // endpointing=100ms for snappy turn detection; no smart_format to skip post-processing
-    const qs = "model=nova-2&language=en&punctuate=true&interim_results=true&diarize=true&utterance_end_ms=500&endpointing=100&filler_words=false&no_delay=true";
+    const qs = "model=nova-2&language=en&punctuate=true&interim_results=true&diarize=true&utterance_end_ms=500&endpointing=100&filler_words=false";
     const ws = new WebSocket(`wss://api.deepgram.com/v1/listen?${qs}`, ["token", apiKey]);
     wsRef.current = ws;
 
