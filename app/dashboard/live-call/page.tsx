@@ -210,6 +210,7 @@ function LiveCallPageInner() {
   const callActiveRef      = useRef(false);
   // Accumulate is_final segments per speaker until speech_final marks end of turn
   const utteranceAccRef    = useRef<Record<number, string>>({ 0: "", 1: "" });
+  const lastSpeakerRef     = useRef<number>(0);
   // Capture current state in refs so WebSocket callbacks always see fresh values
   const currentPhaseRef    = useRef(1);
   // Transcript ref so coaching callbacks always see latest lines
@@ -340,9 +341,9 @@ function LiveCallPageInner() {
     // If no clear winner (crosstalk), keep last known speaker
     const speakerNum: number = topEntry && (topShare >= 0.6 || totalWords <= 2)
       ? +topEntry[0]
-      : (utteranceAccRef.current._lastSpeaker ?? 0);
+      : lastSpeakerRef.current;
     if (topShare >= 0.6 || totalWords <= 2) {
-      (utteranceAccRef.current as Record<string, unknown>)._lastSpeaker = speakerNum;
+      lastSpeakerRef.current = speakerNum;
     }
     // Use agentSpeakerNumRef so flipping mid-call takes effect immediately
     const speaker: Speaker = speakerNum === agentSpeakerNumRef.current ? "agent" : "prospect";
