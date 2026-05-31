@@ -366,28 +366,20 @@ function LiveCallPageInner() {
     }
 
     if (isFinal && !speechFinal) {
-      // Mid-turn final: commit immediately so transcript feels responsive.
-      // Still accumulate so speech_final can flush any trailing words.
+      // Accumulate mid-turn finals and show as interim so agent can read along
       if (text) {
         utteranceAccRef.current[speakerNum] =
           ((utteranceAccRef.current[speakerNum] ?? "") + " " + text).trim();
-        setInterim(prev => ({ ...prev, [speaker]: "" }));
-        // Commit each is_final chunk immediately
-        setTranscript(prev => [...prev, {
-          id: `${speaker}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          speaker, speakerNum, text, isFinal: true, timestamp: Date.now(),
-        }]);
-        analyzeUtterance(text, speaker);
+        setInterim(prev => ({ ...prev, [speaker]: utteranceAccRef.current[speakerNum] }));
       }
       return;
     }
 
-    // speech_final: true — flush any remaining accumulated text not yet committed.
+    // speech_final: flush the accumulated buffer
     const accumulated = (utteranceAccRef.current[speakerNum] ?? "").trim();
-    // Only flush if there's something new beyond what was already committed
-    const alreadyCommitted = utteranceAccRef.current[speakerNum] ?? "";
-    const newText = text && !alreadyCommitted.endsWith(text.trim()) ? text : "";
-    const fullText = newText;
+    const fullText = text
+      ? accumulated ? `${accumulated} ${text}` : text
+      : accumulated;
     utteranceAccRef.current[speakerNum] = "";
 
     if (!fullText) return;
@@ -461,7 +453,10 @@ function LiveCallPageInner() {
     ws.onmessage = (e) => handleDgMessage(e.data as string);
 
     ws.onerror = () => {
-      setMicError("Transcription service connection failed. Check your Deepgram API key and internet connection.");
+      // Only show error if we've exhausted reconnect attempts
+      if (reconnectRef.current >= 3) {
+        setMicError("Transcription service connection failed. Check your Deepgram API key and internet connection.");
+      }
     };
 
     ws.onclose = () => {
