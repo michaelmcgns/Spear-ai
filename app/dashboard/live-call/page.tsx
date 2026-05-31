@@ -329,11 +329,21 @@ function LiveCallPageInner() {
     const isFinal  = msg.is_final    ?? false;
     const speechFinal = msg.speech_final ?? false;
 
-    // Determine dominant speaker from word-level diarization tags
+    // Determine dominant speaker from word-level diarization tags.
+    // Require >60% of words to belong to a speaker before committing —
+    // mixed segments (crosstalk) fall back to the previously active speaker.
     const counts: Record<number, number> = {};
     words.forEach(w => { if (w.speaker != null) counts[w.speaker] = (counts[w.speaker] ?? 0) + 1; });
+    const totalWords = Object.values(counts).reduce((a, b) => a + b, 0);
     const topEntry = Object.entries(counts).sort((a, b) => +b[1] - +a[1])[0];
-    const speakerNum: number = topEntry ? +topEntry[0] : 0;
+    const topShare = topEntry && totalWords > 0 ? +topEntry[1] / totalWords : 0;
+    // If no clear winner (crosstalk), keep last known speaker
+    const speakerNum: number = topEntry && (topShare >= 0.6 || totalWords <= 2)
+      ? +topEntry[0]
+      : (utteranceAccRef.current._lastSpeaker ?? 0);
+    if (topShare >= 0.6 || totalWords <= 2) {
+      (utteranceAccRef.current as Record<string, unknown>)._lastSpeaker = speakerNum;
+    }
     // Use agentSpeakerNumRef so flipping mid-call takes effect immediately
     const speaker: Speaker = speakerNum === agentSpeakerNumRef.current ? "agent" : "prospect";
 
@@ -423,8 +433,9 @@ function LiveCallPageInner() {
       return;
     }
 
-    // nova-3 has better diarization; utterance_end_ms=2000 prevents mid-utterance speaker flips
-    const qs = "model=nova-3&language=en&punctuate=true&smart_format=true&interim_results=true&diarize=true&utterance_end_ms=2000&filler_words=false";
+    // nova-3 + endpointing=400 gives faster turn boundaries; utterance_end_ms=1500 flushes
+    // stalled speakers sooner; diarize=true enables word-level speaker tags
+    const qs = "model=nova-3&language=en&punctuate=true&smart_format=true&interim_results=true&diarize=true&utterance_end_ms=1500&endpointing=400&filler_words=false";
     const ws = new WebSocket(`wss://api.deepgram.com/v1/listen?${qs}`, ["token", apiKey]);
     wsRef.current = ws;
 
