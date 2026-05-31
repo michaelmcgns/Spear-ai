@@ -330,21 +330,11 @@ function LiveCallPageInner() {
     const isFinal  = msg.is_final    ?? false;
     const speechFinal = msg.speech_final ?? false;
 
-    // Determine dominant speaker from word-level diarization tags.
-    // Require >60% of words to belong to a speaker before committing —
-    // mixed segments (crosstalk) fall back to the previously active speaker.
+    // Determine dominant speaker from word-level diarization tags
     const counts: Record<number, number> = {};
     words.forEach(w => { if (w.speaker != null) counts[w.speaker] = (counts[w.speaker] ?? 0) + 1; });
-    const totalWords = Object.values(counts).reduce((a, b) => a + b, 0);
     const topEntry = Object.entries(counts).sort((a, b) => +b[1] - +a[1])[0];
-    const topShare = topEntry && totalWords > 0 ? +topEntry[1] / totalWords : 0;
-    // If no clear winner (crosstalk), keep last known speaker
-    const speakerNum: number = topEntry && (topShare >= 0.6 || totalWords <= 2)
-      ? +topEntry[0]
-      : lastSpeakerRef.current;
-    if (topShare >= 0.6 || totalWords <= 2) {
-      lastSpeakerRef.current = speakerNum;
-    }
+    const speakerNum: number = topEntry ? +topEntry[0] : 0;
     // Use agentSpeakerNumRef so flipping mid-call takes effect immediately
     const speaker: Speaker = speakerNum === agentSpeakerNumRef.current ? "agent" : "prospect";
 
@@ -365,37 +355,27 @@ function LiveCallPageInner() {
       setTalkRatio({ agent: agentPct, prospect: 100 - agentPct });
     }
 
-    if (isFinal && !speechFinal) {
-      // Accumulate mid-turn finals and show as interim so agent can read along
-      if (text) {
-        utteranceAccRef.current[speakerNum] =
-          ((utteranceAccRef.current[speakerNum] ?? "") + " " + text).trim();
-        setInterim(prev => ({ ...prev, [speaker]: utteranceAccRef.current[speakerNum] }));
-      }
-      return;
+    if (isFinal) {
+      // Commit every is_final chunk immediately — don't wait for speech_final.
+      // This prevents pauses from stalling the transcript and prevents two speakers
+      // from getting merged into one long utterance.
+      if (!text) return;
+      setInterim(prev => ({ ...prev, [speaker]: "" }));
+      setTranscript(prev => [...prev, {
+        id: `${speaker}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        speaker, speakerNum, text, isFinal: true, timestamp: Date.now(),
+      }]);
+      // Accumulate for coaching analysis (fired on speech_final below)
+      utteranceAccRef.current[speakerNum] =
+        ((utteranceAccRef.current[speakerNum] ?? "") + " " + text).trim();
+      if (!speechFinal) return;
     }
 
-    // speech_final: flush the accumulated buffer
-    const accumulated = (utteranceAccRef.current[speakerNum] ?? "").trim();
-    const fullText = text
-      ? accumulated ? `${accumulated} ${text}` : text
-      : accumulated;
+    // speech_final: run coaching on the full accumulated utterance
+    const fullText = utteranceAccRef.current[speakerNum]?.trim() ?? "";
     utteranceAccRef.current[speakerNum] = "";
 
     if (!fullText) return;
-
-    console.log(`[Spear] DG utterance complete → speaker=${speaker}(${speakerNum}) text="${fullText.slice(0, 80)}"`);
-
-    // Commit full utterance to transcript
-    setTranscript(prev => [...prev, {
-      id: `${speaker}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      speaker,
-      speakerNum,
-      text: fullText,
-      isFinal: true,
-      timestamp: Date.now(),
-    }]);
-    setInterim(prev => ({ ...prev, [speaker]: "" }));
 
     // NEPQ phase advance (agent only)
     if (speaker === "agent") {
@@ -433,8 +413,7 @@ function LiveCallPageInner() {
       return;
     }
 
-    // Restored original working params + endpointing=200 for faster turn detection
-    const qs = "model=nova-3&language=en&punctuate=true&smart_format=true&interim_results=true&diarize=true&utterance_end_ms=2000&endpointing=200&filler_words=false";
+    const qs = "model=nova-3&language=en&punctuate=true&smart_format=true&interim_results=true&diarize=true&utterance_end_ms=1000&endpointing=300&filler_words=false";
     const ws = new WebSocket(`wss://api.deepgram.com/v1/listen?${qs}`, ["token", apiKey]);
     wsRef.current = ws;
 
@@ -446,28 +425,21 @@ function LiveCallPageInner() {
       recorder.addEventListener("dataavailable", (e) => {
         if (ws.readyState === WebSocket.OPEN && e.data.size > 0) ws.send(e.data);
       });
-      recorder.start(100); // 100ms chunks for lower latency
+      recorder.start(250);
     };
 
     ws.onmessage = (e) => handleDgMessage(e.data as string);
 
     ws.onerror = () => {
-      // Silently let onclose handle reconnects; only surface error after all retries fail
+      setMicError("Transcription service connection failed. Check your Deepgram API key and internet connection.");
     };
 
-    ws.onclose = (ev) => {
-      if (!callActiveRef.current) return;
-      // 1006 = abnormal close (network drop mid-call) — retry with backoff
-      // Other close codes during startup are likely bad key/params — don't loop
-      const isNetworkDrop = ev.code === 1006 || ev.code === 1001;
-      if (isNetworkDrop && reconnectRef.current < 3) {
+    ws.onclose = () => {
+      if (callActiveRef.current && reconnectRef.current < 3) {
         reconnectRef.current += 1;
         recorderRef.current?.stop();
         recorderRef.current = null;
-        const delay = reconnectRef.current * 2000; // 2s, 4s, 6s backoff
-        setTimeout(() => { if (callActiveRef.current) connectDeepgram(stream); }, delay);
-      } else if (!isNetworkDrop && ev.code !== 1000) {
-        setMicError("Transcription failed to connect. Check your Deepgram API key in Vercel environment variables.");
+        setTimeout(() => { if (callActiveRef.current) connectDeepgram(stream); }, 1500);
       }
     };
 
