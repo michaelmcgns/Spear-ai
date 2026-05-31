@@ -433,9 +433,8 @@ function LiveCallPageInner() {
       return;
     }
 
-    // nova-2 is faster than nova-3 for real-time; no_delay reduces buffering;
-    // endpointing=100ms for snappy turn detection; no smart_format to skip post-processing
-    const qs = "model=nova-2&language=en&punctuate=true&interim_results=true&diarize=true&utterance_end_ms=500&endpointing=100&filler_words=false";
+    // Restored original working params + endpointing=200 for faster turn detection
+    const qs = "model=nova-3&language=en&punctuate=true&smart_format=true&interim_results=true&diarize=true&utterance_end_ms=2000&endpointing=200&filler_words=false";
     const ws = new WebSocket(`wss://api.deepgram.com/v1/listen?${qs}`, ["token", apiKey]);
     wsRef.current = ws;
 
@@ -453,20 +452,25 @@ function LiveCallPageInner() {
     ws.onmessage = (e) => handleDgMessage(e.data as string);
 
     ws.onerror = () => {
-      // Only show error if we've exhausted reconnect attempts
-      if (reconnectRef.current >= 3) {
-        setMicError("Transcription service connection failed. Check your Deepgram API key and internet connection.");
-      }
+      // Silently let onclose handle reconnects; only surface error after all retries fail
     };
 
-    ws.onclose = () => {
-      if (callActiveRef.current && reconnectRef.current < 3) {
+    ws.onclose = (ev) => {
+      if (!callActiveRef.current) return;
+      // 1006 = abnormal close (network drop mid-call) — retry with backoff
+      // Other close codes during startup are likely bad key/params — don't loop
+      const isNetworkDrop = ev.code === 1006 || ev.code === 1001;
+      if (isNetworkDrop && reconnectRef.current < 3) {
         reconnectRef.current += 1;
         recorderRef.current?.stop();
         recorderRef.current = null;
-        setTimeout(() => { if (callActiveRef.current) connectDeepgram(stream); }, 1500);
+        const delay = reconnectRef.current * 2000; // 2s, 4s, 6s backoff
+        setTimeout(() => { if (callActiveRef.current) connectDeepgram(stream); }, delay);
+      } else if (!isNetworkDrop && ev.code !== 1000) {
+        setMicError("Transcription failed to connect. Check your Deepgram API key in Vercel environment variables.");
       }
     };
+
   }, [handleDgMessage]);
 
   // ── Demo call playback ─────────────────────────────────────────────────────
