@@ -1478,14 +1478,33 @@ function parseCSV(text: string): Record<string, string>[] {
 
 function mapCSVRow(row: Record<string, string>) {
   const get = (...keys: string[]) => keys.map(k => row[k]).find(v => v) ?? "";
+  // city+state fallback for location fields
+  const city  = get("city");
+  const state = get("state", "st");
+  const location = city && state ? `${city}, ${state}` : state || city;
+  // phone: prefer mobile, fall back to home
+  const phone = get("phone", "phone_number", "mobile", "cell", "mphone", "hphone", "homephone", "cellphone", "workphone");
+  // notes: combine comment fields + lender/mortgage info if present
+  const lender = get("lender");
+  const mtg    = get("mtg", "mortgage", "loan");
+  const age    = get("age");
+  const dob    = get("dob", "date_of_birth", "birthdate");
+  const baseNotes = get("notes", "note", "comments", "comment");
+  const extraNotes = [
+    lender ? `Lender: ${lender}` : "",
+    mtg    ? `Mortgage: $${Number(mtg).toLocaleString()}` : "",
+    age    ? `Age: ${age}` : "",
+    dob    ? `DOB: ${dob}` : "",
+    baseNotes,
+  ].filter(Boolean).join(" | ");
   return {
     first_name:       get("first_name", "firstname", "first", "fname"),
     last_name:        get("last_name", "lastname", "last", "lname"),
-    phone:            get("phone", "phone_number", "mobile", "cell"),
+    phone,
     email:            get("email", "email_address"),
-    state:            get("state", "st"),
+    state:            location,
     product_interest: get("product", "product_interest", "interest", "type"),
-    notes:            get("notes", "note", "comments"),
+    notes:            extraNotes || undefined,
     source:           "file_import",
   };
 }
