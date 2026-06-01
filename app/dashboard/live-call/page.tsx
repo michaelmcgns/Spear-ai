@@ -357,14 +357,13 @@ function LiveCallPageInner() {
 
     if (isFinal) {
       // Commit every is_final chunk immediately — don't wait for speech_final.
-      // This prevents pauses from stalling the transcript and prevents two speakers
-      // from getting merged into one long utterance.
       if (!text) return;
-      setInterim(prev => ({ ...prev, [speaker]: "" }));
+      // Add to transcript first, then clear interim on next tick to avoid flicker
       setTranscript(prev => [...prev, {
         id: `${speaker}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         speaker, speakerNum, text, isFinal: true, timestamp: Date.now(),
       }]);
+      setTimeout(() => setInterim(prev => ({ ...prev, [speaker]: "" })), 50);
       // Accumulate for coaching analysis (fired on speech_final below)
       utteranceAccRef.current[speakerNum] =
         ((utteranceAccRef.current[speakerNum] ?? "") + " " + text).trim();

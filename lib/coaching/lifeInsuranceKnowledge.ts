@@ -282,4 +282,79 @@ COMMON CLOSE SIGNALS IN LIFE INSURANCE CALLS
 • "That's less than I thought it would be"
 
 When you hear any of these — DO NOT keep selling. The prospect is buying. Move to close immediately.
+
+═══════════════════════════════════════════════════════════════
+CARRIER KNOWLEDGE & POSITIONING
+═══════════════════════════════════════════════════════════════
+
+TOP FINAL EXPENSE CARRIERS
+• Mutual of Omaha: A+ rated, strong simplified issue, popular for final expense
+• Foresters Financial: fraternal benefits, competitive FE rates, no exam
+• American Amicable: excellent graded benefit options, senior market
+• Transamerica: broad age range, competitive premiums
+• Royal Neighbors of America: fraternal carrier, female-focused FE market
+• Gerber Life: guaranteed issue, brand recognition helps with seniors
+• AIG / American General: competitive guaranteed issue, strong brand
+
+TOP TERM LIFE CARRIERS
+• Banner Life / Legal & General: consistently lowest term rates, A+ rated
+• Pacific Life: competitive term, excellent conversion options
+• Protective Life: competitive pricing, strong for 30-year term
+• Prudential: flexible underwriting, good for tobacco users / health issues
+• Principal: competitive for business owners and high face amounts
+• Corebridge (AIG): competitive pricing, digital application
+
+TOP IUL / PERMANENT CARRIERS
+• North American Company: competitive IUL caps, strong living benefits
+• Nationwide: YourLife Accumulator IUL, strong for cash accumulation
+• Athene: competitive FIAs and IUL
+• Allianz: popular IUL, strong index options
+• Lincoln Financial: strong for GUL and survivorship
+• John Hancock: Vitality program rewards healthy living
+
+AM BEST RATING GUIDE (carrier financial strength)
+• A++/A+: Superior — safest, use for client confidence
+• A/A-: Excellent — most carriers here
+• B++/B+: Good — acceptable but explain to analytical buyers
+• Below B+: Weak — avoid recommending unless no other options
+
+═══════════════════════════════════════════════════════════════
+SALES SCENARIOS BY LIFE STAGE
+═══════════════════════════════════════════════════════════════
+
+YOUNG FAMILIES (25-40, kids, mortgage)
+Primary need: income replacement + mortgage protection
+Recommended approach: 20-30 year term + small whole life for child riders
+Key emotional anchor: "Your kids can't replace your income. Your spouse can't replace yours."
+Typical budget: $50-150/month covers $500k-$1M term + riders
+
+MIDDLE INCOME EARNERS (35-55, peak earning years)
+Primary need: income protection + beginning retirement planning
+Recommended approach: term to cover working years + IUL for accumulation
+Key conversation: show term-to-perm strategy, retirement income illustration
+Watch for: employer group coverage that ends at job change
+
+SENIORS / PRE-RETIREMENT (55-75)
+Primary need: final expense, legacy, estate equalization
+Recommended approach: final expense whole life, GUL, or FIA
+Key conversation: burial costs average $12,000-$15,000; don't leave family with bill
+Health sensitivity: use simplified or guaranteed issue for impaired risks
+
+BUSINESS OWNERS
+Primary need: key person, buy-sell agreements, executive bonus
+Products: large term or permanent for key person, split-dollar arrangements
+Key question: "If your business partner died tomorrow, do you have the cash to buy their share from their spouse?"
+
+═══════════════════════════════════════════════════════════════
+COMPLIANCE & REGULATORY — WHAT TO NEVER SAY
+═══════════════════════════════════════════════════════════════
+• NEVER call IUL or any life insurance an "investment" or "investment vehicle"
+• NEVER guarantee returns on any product — only illustrate, never promise
+• NEVER misrepresent policy terms, exclusions, or contestability
+• NEVER suggest replacing in-force coverage without suitability documentation
+• NEVER imply coverage is approved before underwriting confirms
+• ALWAYS disclose you are a licensed life insurance agent
+• ALWAYS disclose that recording consent is required per applicable state law
+• For annuity sales: confirm securities licensing before recommending variable products
+• Replacement: completing a 1035 exchange requires proper replacement forms in most states
 `;
