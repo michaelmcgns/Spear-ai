@@ -358,3 +358,147 @@ COMPLIANCE & REGULATORY — WHAT TO NEVER SAY
 • For annuity sales: confirm securities licensing before recommending variable products
 • Replacement: completing a 1035 exchange requires proper replacement forms in most states
 `;
+
+export const PRODUCT_FOCUS_LABELS: Record<string, string> = {
+  life_insurance:       "All Life Insurance",
+  mortgage_protection:  "Mortgage Protection",
+  final_expense:        "Final Expense",
+  term_life:            "Term Life",
+  iul:                  "Indexed Universal Life (IUL)",
+  whole_life:           "Whole Life",
+  annuities:            "Annuities / Retirement",
+};
+
+export function getProductFocusContext(productFocus: string): string {
+  const contexts: Record<string, string> = {
+    mortgage_protection: `
+═══════════════════════════════════════════════════════════════
+AGENCY PRODUCT FOCUS: MORTGAGE PROTECTION
+═══════════════════════════════════════════════════════════════
+This agency primarily sells mortgage protection insurance. Every coaching response should be geared toward mortgage protection conversations.
+
+MORTGAGE PROTECTION CORE PITCH:
+• The bank is already protected by mortgage insurance if the homeowner dies — the bank gets paid, not the family
+• Mortgage protection ensures the FAMILY keeps the home, not the bank
+• "The bank made you get homeowner's insurance to protect THEIR asset. Who protects YOUR family's biggest asset?"
+• Most leads are homeowners who recently took out a mortgage — they are pre-qualified for need
+
+KEY QUESTIONS FOR MORTGAGE PROTECTION:
+→ "How long do you have left on your mortgage?"
+→ "If something happened to you, would your spouse be able to keep up with the mortgage payments?"
+→ "Do you know the bank is protected no matter what — but who protects your family?"
+→ "Is your home paid off, or do you still have a balance?"
+→ "Does your current coverage actually cover your full mortgage balance?"
+
+MORTGAGE PROTECTION OBJECTIONS:
+"I have PMI / mortgage insurance through my lender"
+→ "That's lender's insurance — it protects the bank, not your family. If you die, the bank gets paid off but your family still has to leave the home if they can't afford it."
+
+"I have life insurance through work"
+→ "How much? Most employer coverage is 1-2x salary. Your mortgage alone might be 3-5x your salary. Is that gap covered?"
+
+"The house will just be sold"
+→ "Is that what you want your spouse to do while grieving — sell your home and uproot your kids?"
+
+MORTGAGE PROTECTION CLOSE:
+• Present Return of Premium (ROP) term — "If you never use it, you get every dollar back"
+• Use the mortgage balance as the face amount anchor
+• Tie premiums to small monthly amounts: "For less than $X/month, your family keeps the home no matter what"
+• Urgency: "You have a mortgage right now — the risk is active today"
+`,
+    final_expense: `
+═══════════════════════════════════════════════════════════════
+AGENCY PRODUCT FOCUS: FINAL EXPENSE
+═══════════════════════════════════════════════════════════════
+This agency primarily sells final expense / burial insurance to seniors (50-85).
+
+TARGET MARKET: Seniors on fixed income, concerned about being a burden to family.
+
+CORE EMOTIONAL ANCHOR:
+• "The average funeral costs $12,000–$15,000. Most families don't have that sitting in a bank account."
+• "Your kids shouldn't have to pass around a hat or start a GoFundMe while they're grieving."
+• "This isn't about you — it's about not leaving your family with debt and stress on the worst day of their lives."
+
+KEY QUESTIONS:
+→ "Do you have anything set aside specifically for your final expenses?"
+→ "Have you thought about what your family would have to do financially if something happened?"
+→ "Does your family know what your wishes are, and do they have the money to carry them out?"
+
+FINAL EXPENSE OBJECTIONS:
+"I have savings" → "That's great. But would you want your savings going to funeral costs, or would you rather your family keep that?"
+"My kids will take care of it" → "Do you know for sure they have $12,000 available right now?"
+"I already have coverage" → "How much? Most people have $10-15k in final expense needs alone."
+
+UNDERWRITING NOTES FOR FINAL EXPENSE:
+• Simplified issue: a few health questions, no exam
+• Guaranteed issue available for impaired risks (2-year graded benefit)
+• Common health issues in this market: diabetes, COPD, heart disease — know your carrier grids
+`,
+    iul: `
+═══════════════════════════════════════════════════════════════
+AGENCY PRODUCT FOCUS: INDEXED UNIVERSAL LIFE (IUL)
+═══════════════════════════════════════════════════════════════
+This agency primarily sells IUL for cash accumulation, retirement income, and living benefits.
+
+CORE IUL PITCH:
+• Tax-free retirement income through policy loans
+• Indexed growth — participate in market upside, protected from downside (floor at 0%)
+• Living benefits: access death benefit while alive for chronic/critical illness
+• "Bank on yourself" strategy — use cash value as your own banking system
+
+KEY IUL QUESTIONS:
+→ "Are you contributing to a 401k or IRA? Do you know what the tax situation looks like when you take it out?"
+→ "What's your plan for retirement income beyond Social Security?"
+→ "Are you aware that IUL cash value grows tax-deferred and can come out tax-free?"
+→ "If you had a heart attack tomorrow, would you want access to your death benefit while you're still alive?"
+
+COMPLIANCE REMINDER FOR IUL:
+• NEVER call it an investment or compare it to stock market returns
+• Always say "index-linked growth" not "market returns"
+• Show illustrations — never make verbal guarantees about performance
+`,
+    term_life: `
+═══════════════════════════════════════════════════════════════
+AGENCY PRODUCT FOCUS: TERM LIFE INSURANCE
+═══════════════════════════════════════════════════════════════
+This agency primarily sells term life for income replacement and family protection.
+
+CORE TERM PITCH:
+• Most affordable way to get maximum coverage during highest-risk years
+• 20-30 year terms cover mortgage, kids through college, working years
+• "Lock in your rate while you're young and healthy — rates only go up"
+
+KEY TERM QUESTIONS:
+→ "How many years until your youngest child is financially independent?"
+→ "How long do you have left on your mortgage?"
+→ "How many years until you plan to retire?"
+→ "If you couldn't work tomorrow, how long could your family maintain their lifestyle?"
+
+TERM CLOSE STRATEGIES:
+• Use income replacement math: 10-12x annual income is standard recommendation
+• Show cost per day: $500k 20yr term for a healthy 35yo = ~$1/day
+• Return of Premium (ROP) for fence-sitters: "If you don't die, you get every dollar back"
+`,
+    annuities: `
+═══════════════════════════════════════════════════════════════
+AGENCY PRODUCT FOCUS: ANNUITIES / RETIREMENT PLANNING
+═══════════════════════════════════════════════════════════════
+This agency primarily sells fixed and fixed indexed annuities for retirement income.
+
+CORE ANNUITY PITCH:
+• Guaranteed income you can't outlive — personal pension
+• Principal protection: Fixed Indexed Annuity (FIA) — zero loss in down markets
+• Tax-deferred growth until distribution
+
+KEY ANNUITY QUESTIONS:
+→ "What's your biggest fear about retirement — running out of money or the market crashing?"
+→ "Do you have a pension, or are you relying on 401k and Social Security?"
+→ "How would it feel to have a guaranteed paycheck every month for the rest of your life?"
+→ "How much of your retirement savings can you afford to lose in a market crash?"
+
+NOTE: Variable annuities require Series 6/63 license. Only recommend fixed/FIA without securities license.
+`,
+  };
+
+  return contexts[productFocus] ?? "";
+}

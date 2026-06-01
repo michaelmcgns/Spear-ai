@@ -2332,6 +2332,31 @@ function DashboardPage() {
     }
   }, [searchParams]);
 
+  // ── Product focus ──────────────────────────────────────────────────────────
+  const [productFocus, setProductFocus] = useState<string>("life_insurance");
+  const [savingFocus, setSavingFocus]   = useState(false);
+
+  useEffect(() => {
+    fetch("/api/agent-profile")
+      .then(r => r.json())
+      .then(data => { if (data.profile?.product_focus) setProductFocus(data.profile.product_focus); })
+      .catch(() => {/* ignore */});
+  }, []);
+
+  const handleProductFocusChange = useCallback(async (focus: string) => {
+    setProductFocus(focus);
+    setSavingFocus(true);
+    try {
+      await fetch("/api/agent-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_focus: focus }),
+      });
+    } catch { /* ignore */ } finally {
+      setSavingFocus(false);
+    }
+  }, []);
+
   // ── Real data ──────────────────────────────────────────────────────────────
   const [userId, setUserId]         = useState<string | null>(null);
   const [agentName, setAgentName]   = useState<string | null>(null);
@@ -2483,6 +2508,7 @@ function DashboardPage() {
           sessionId: sessionIdRef.current,
           agentId: userId ?? undefined,
           productName: manualProduct.trim() || undefined,
+          productFocus: productFocus !== "life_insurance" ? productFocus : undefined,
           outcome: manualOutcome,
         }),
       });
@@ -2600,6 +2626,28 @@ function DashboardPage() {
 
           <div className="px-3 pb-3">
             <ComplianceStatus />
+          </div>
+
+          {/* Product Focus Selector */}
+          <div className="px-3 pb-3 border-t border-zinc-800 pt-3">
+            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-1.5 px-1">Product Focus</p>
+            <div className="relative">
+              <select
+                value={productFocus}
+                onChange={e => handleProductFocusChange(e.target.value)}
+                disabled={savingFocus}
+                className="w-full appearance-none bg-zinc-800/80 border border-zinc-700 text-zinc-300 text-xs rounded-lg px-3 py-2 pr-7 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <option value="life_insurance">All Life Insurance</option>
+                <option value="mortgage_protection">Mortgage Protection</option>
+                <option value="final_expense">Final Expense</option>
+                <option value="term_life">Term Life</option>
+                <option value="iul">IUL / Indexed Universal Life</option>
+                <option value="annuities">Annuities</option>
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-500 pointer-events-none" />
+            </div>
+            {savingFocus && <p className="text-[10px] text-zinc-600 mt-1 px-1">Saving…</p>}
           </div>
 
           <div className="px-3 py-4 border-t border-zinc-800 space-y-0.5">

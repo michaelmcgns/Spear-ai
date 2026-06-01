@@ -4,7 +4,7 @@ import { filterCoachingCard, filterCoachingItems } from "@/lib/coaching/cardFilt
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireFeature } from "@/lib/subscription/server";
-import { LIFE_INSURANCE_KNOWLEDGE } from "@/lib/coaching/lifeInsuranceKnowledge";
+import { LIFE_INSURANCE_KNOWLEDGE, getProductFocusContext } from "@/lib/coaching/lifeInsuranceKnowledge";
 
 // Maximum file size for legacy FormData uploads (100 MB).
 // Larger recordings should use /api/upload-audio/stream first, then pass uploadUrl here.
@@ -195,12 +195,15 @@ const FALLBACK_ANALYSIS: SpearAnalysis = {
   nextCallFocus: "Resubmit for a full analysis.",
 };
 
-async function analyzeTranscript(transcript: string): Promise<SpearAnalysis> {
+async function analyzeTranscript(transcript: string, productFocus?: string): Promise<SpearAnalysis> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  // Inject product-specific coaching context when agent has a configured focus
+  const productContext = productFocus ? `\n\n${getProductFocusContext(productFocus)}` : "";
 
   const systemPrompt = `You are Spear, an elite AI sales coach specializing in life insurance phone sales. You are trained in NEPQ (Next Evolution of Persuasion Questions) methodology and DISC buyer psychology.
 
-${LIFE_INSURANCE_KNOWLEDGE}
+${LIFE_INSURANCE_KNOWLEDGE}${productContext}
 
 Using the life insurance knowledge above, analyze this sales call transcript and return ONLY a JSON object wrapped in \`\`\`json and \`\`\` tags. Be brutally honest and specific — reference exact moments from the transcript. Use your knowledge of life insurance objections, products, and NEPQ phases to give coaching that is specific to this industry.
 
@@ -406,6 +409,7 @@ export async function POST(req: NextRequest) {
     let storagePath: string | undefined;
     let productName: string | null = null;
     let callOutcome: "closed" | "not_closed" | "follow_up" | "unknown" = "unknown";
+    let productFocus: string | undefined = undefined;
 
     const contentType = req.headers.get("content-type") ?? "";
 
@@ -419,6 +423,7 @@ export async function POST(req: NextRequest) {
         sessionId?: string;
         agentId?: string;
         productName?: string;
+        productFocus?: string;   // agent's configured product focus (e.g. "mortgage_protection")
         outcome?: "closed" | "not_closed" | "follow_up" | "unknown";
       };
 
@@ -426,6 +431,7 @@ export async function POST(req: NextRequest) {
       agentId   = body.agentId ?? undefined;
       productName = body.productName?.trim() || null;
       callOutcome = body.outcome ?? "unknown";
+      productFocus = body.productFocus ?? undefined;
 
       if (body.audioUrl) {
         // ── R2 path: browser uploaded directly to Cloudflare R2, we got a presigned GET URL ─
@@ -472,7 +478,8 @@ export async function POST(req: NextRequest) {
       }
       ({ text: transcript, audioDuration } = await transcribeAudio(file));
     }
-    let analysis = await analyzeTranscript(transcript);
+    // Pass product focus so AI coaching is tailored to the agent's product type
+    let analysis = await analyzeTranscript(transcript, productFocus);
     analysis = await applyFiltersAndLog(analysis, sessionId, agentId);
 
     // ── Save call session to DB (server-side, always runs) ──────────────────

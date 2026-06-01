@@ -8,8 +8,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import {
   Phone, PhoneOff, Mic, MicOff, ArrowLeft,
-  ThumbsUp, ThumbsDown, Brain,
+  ThumbsUp, ThumbsDown, Brain, Sparkles,
 } from "lucide-react";
+import type { ProductRec } from "@/app/api/coaching/product-rec/route";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,18 @@ const CARD_STYLE: Record<string, { border: string; bg: string; badge: string; em
   CLOSE_SIGNAL: { border: "border-amber-500/40",  bg: "bg-amber-500/6",  badge: "bg-amber-500/20 text-amber-300",   emoji: "⚡" },
 };
 
+// ─── Product focus options ────────────────────────────────────────────────────
+
+const PRODUCT_FOCUSES = [
+  { id: "mortgage_protection", label: "Mortgage Protection" },
+  { id: "final_expense",       label: "Final Expense"        },
+  { id: "term_life",           label: "Term Life"            },
+  { id: "iul",                 label: "IUL / Living Benefits"},
+  { id: "whole_life",          label: "Whole Life"           },
+] as const;
+
+type ProductFocus = typeof PRODUCT_FOCUSES[number]["id"];
+
 // ─── Demo mode ────────────────────────────────────────────────────────────────
 
 // Demo activates automatically when Deepgram key is absent (no real mic needed)
@@ -109,6 +122,7 @@ interface DemoLine {
   };
   discUpdate?: string;
   nepqPhaseForce?: number;
+  productRec?: ProductRec;
 }
 
 const DEMO_SCRIPT: DemoLine[] = [
@@ -137,7 +151,14 @@ const DEMO_SCRIPT: DemoLine[] = [
     text: "Yeah, wife and two kids.",
     discUpdate: "S",
     card: { type: "DISC_INSIGHT", title: "S-Type Buyer Detected",
-      body: "Steady buyer — family-focused, risk-averse. Lead with protection and security, not numbers." } },
+      body: "Steady buyer — family-focused, risk-averse. Lead with protection and security, not numbers." },
+    productRec: {
+      product: "20-Year Mortgage Protection Term",
+      productType: "Mortgage Protection",
+      reasoning: "Married with two kids and likely a mortgage — if he dies, the family keeps the house. 20-year term matches the typical payoff window.",
+      carriers: ["North American", "American Amicable"],
+      keyPitch: "If something happened to you tomorrow, your family keeps the house — that's exactly what this policy does.",
+    } },
   { speaker: "prospect",
     text: "Honestly I don't know if I need more, and it sounds expensive." },
   { speaker: "agent",
@@ -182,6 +203,11 @@ function LiveCallPageInner() {
   const [micError, setMicError]       = useState<string | null>(null);
   const [userId, setUserId]           = useState<string>("demo-agent");
   const [prospectName, setProspectName] = useState<string>("");
+  const [productRec, setProductRec]   = useState<ProductRec | null>(null);
+  const [productFocus, setProductFocus] = useState<ProductFocus>(() => {
+    if (typeof window === "undefined") return "mortgage_protection";
+    return (localStorage.getItem("spear_product_focus") as ProductFocus) ?? "mortgage_protection";
+  });
   const searchParams = useSearchParams();
   const leadId = searchParams.get("lead");
   const leadName = searchParams.get("name");
@@ -189,11 +215,16 @@ function LiveCallPageInner() {
   const [agentSpeakerNum, setAgentSpeakerNum] = useState(0);
   const agentSpeakerNumRef = useRef(0);
 
-  // Fetch real user ID on mount
+  // Fetch real user ID and product focus on mount
   useEffect(() => {
     createClient().auth.getUser().then(({ data: { user } }) => {
       if (user?.id) setUserId(user.id);
     });
+    // Load product focus so coaching is tailored to the agent's product type
+    fetch("/api/agent-profile")
+      .then(r => r.json())
+      .then(data => { if (data.profile?.product_focus) setProductFocus(data.profile.product_focus); })
+      .catch(() => {/* ignore */});
     // Pre-fill prospect name from lead URL param
     if (leadName) setProspectName(decodeURIComponent(leadName));
   }, [leadName]);
@@ -220,11 +251,14 @@ function LiveCallPageInner() {
   // Track if DISC card has been fired this call (only fire once)
   const discCardFiredRef   = useRef(false);
   const discProfileRef     = useRef<string | null>(null);
+  // Product rec: fire after every 3rd prospect utterance
+  const prospectUtteranceCountRef = useRef(0);
 
   useEffect(() => { currentPhaseRef.current = currentPhase; }, [currentPhase]);
   useEffect(() => { discProfileRef.current = discProfile; }, [discProfile]);
   useEffect(() => { agentSpeakerNumRef.current = agentSpeakerNum; }, [agentSpeakerNum]);
   useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
+  useEffect(() => { localStorage.setItem("spear_product_focus", productFocus); }, [productFocus]);
 
   // Auto-scroll transcript to bottom
   useEffect(() => {
@@ -281,6 +315,7 @@ function LiveCallPageInner() {
           agentId: userId,
           recentLines,
           recentCardTypes,
+          productFocus,
         }),
       });
 
@@ -309,6 +344,36 @@ function LiveCallPageInner() {
       console.error("[Spear] analyzeUtterance threw:", err);
     }
   }, [userId]);
+
+  // ── Product recommendation ─────────────────────────────────────────────────
+
+  const productFocusRef = useRef<ProductFocus>("mortgage_protection");
+  useEffect(() => { productFocusRef.current = productFocus; }, [productFocus]);
+
+  const analyzeProductRec = useCallback(async () => {
+    const recentLines = transcriptRef.current.slice(-12).map(l => ({
+      speaker: l.speakerNum === agentSpeakerNumRef.current ? "agent" : "prospect",
+      text: l.text,
+    }));
+
+    try {
+      const res = await fetch("/api/coaching/product-rec", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          recentLines,
+          discProfile:  discProfileRef.current,
+          nepqPhase:    NEPQ_PHASES[currentPhaseRef.current - 1].name,
+          productFocus: productFocusRef.current,
+        }),
+      });
+      if (!res.ok) return;
+      const { rec } = await res.json() as { rec: ProductRec | null };
+      if (rec) setProductRec(rec);
+    } catch {
+      // best-effort
+    }
+  }, []);
 
   // ── Deepgram message handler ───────────────────────────────────────────────
 
@@ -385,15 +450,19 @@ function LiveCallPageInner() {
       });
     }
 
-    // DISC detection on every 3rd prospect utterance
+    // DISC detection + product rec on every 3rd prospect utterance
     if (speaker === "prospect") {
       prospectLinesRef.current = [...prospectLinesRef.current, fullText];
+      prospectUtteranceCountRef.current += 1;
       if (prospectLinesRef.current.length % 3 === 0) {
         const detected = detectDisc(prospectLinesRef.current);
         if (detected) {
           setDiscProfile(detected);
           discProfileRef.current = detected;
         }
+      }
+      if (prospectUtteranceCountRef.current % 3 === 0) {
+        analyzeProductRec();
       }
     }
 
@@ -460,10 +529,12 @@ function LiveCallPageInner() {
     setTalkRatio({ agent: 50, prospect: 50 });
     setDuration(0);
     setDiscProfile(null);
+    setProductRec(null);
     setAgentSpeakerNum(0);
     agentSpeakerNumRef.current = 0;
     recentCardTypesRef.current = [];
     discCardFiredRef.current = false;
+    prospectUtteranceCountRef.current = 0;
     transcriptRef.current = [];
 
     timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
@@ -521,6 +592,9 @@ function LiveCallPageInner() {
           dismissed: false,
         }, ...prev]);
       }
+
+      // Product recommendation
+      if (line.productRec) setProductRec(line.productRec);
     }, 4000);
   }, []);
 
@@ -551,10 +625,12 @@ function LiveCallPageInner() {
       setTalkRatio({ agent: 50, prospect: 50 });
       setDuration(0);
       setDiscProfile(null);
+      setProductRec(null);
       setAgentSpeakerNum(0);
       agentSpeakerNumRef.current = 0;
       recentCardTypesRef.current = [];
       discCardFiredRef.current = false;
+      prospectUtteranceCountRef.current = 0;
       transcriptRef.current = [];
 
       timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
@@ -734,6 +810,29 @@ function LiveCallPageInner() {
                     className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
                   />
                 </div>
+
+                {/* Product focus selector */}
+                <div className="w-full max-w-xs">
+                  <label className="block text-[11px] text-zinc-500 uppercase tracking-wider mb-1.5">
+                    Product focus
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PRODUCT_FOCUSES.map(f => (
+                      <button
+                        key={f.id}
+                        onClick={() => setProductFocus(f.id)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
+                          productFocus === f.id
+                            ? "bg-blue-600/30 border-blue-500/50 text-blue-300"
+                            : "bg-zinc-800/60 border-zinc-700 text-zinc-400 hover:text-zinc-300 hover:border-zinc-600"
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <p className="text-sm text-zinc-500 text-center max-w-xs leading-relaxed opacity-60">
                   Click <span className="text-emerald-400 font-medium">Start Call</span> and the transcript
                   will appear here as you speak.
@@ -825,13 +924,18 @@ function LiveCallPageInner() {
 
         {/* Right panel — Coaching cards (40%, desktop only) */}
         <div className="hidden lg:flex flex-col w-[40%] overflow-hidden">
-          <div className="px-4 pt-3 pb-2.5 border-b border-zinc-800 bg-zinc-900/40 shrink-0 flex items-center justify-between">
-            <p className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium">AI Coaching</p>
+          <div className="px-4 pt-3 pb-2.5 border-b border-zinc-800 bg-zinc-900/40 shrink-0 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <p className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium shrink-0">AI Coaching</p>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-600/15 border border-blue-500/25 text-blue-400 font-medium truncate">
+                {PRODUCT_FOCUSES.find(f => f.id === productFocus)?.label ?? productFocus}
+              </span>
+            </div>
             <AnimatePresence>
               {discProfile && (
                 <motion.span
                   initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
-                  className="text-[11px] px-2 py-0.5 rounded bg-purple-500/15 border border-purple-500/25 text-purple-300 font-medium"
+                  className="text-[11px] px-2 py-0.5 rounded bg-purple-500/15 border border-purple-500/25 text-purple-300 font-medium shrink-0"
                 >
                   DISC — {discProfile}
                 </motion.span>
@@ -839,13 +943,57 @@ function LiveCallPageInner() {
             </AnimatePresence>
           </div>
 
+          {/* Product Match — sticky above card stack */}
+          <AnimatePresence>
+            {productRec && (
+              <motion.div
+                key={productRec.product}
+                initial={{ opacity: 0, y: -8, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: "auto" }}
+                exit={{ opacity: 0, y: -8, height: 0 }}
+                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden shrink-0"
+              >
+                <div className="mx-3 mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3.5">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide bg-emerald-500/20 text-emerald-300">
+                        Product Match
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-wide font-medium">{productRec.productType}</span>
+                  </div>
+                  <p className="text-xs font-bold text-white mb-1 leading-snug">{productRec.product}</p>
+                  <p className="text-xs text-zinc-300 leading-relaxed mb-2">{productRec.reasoning}</p>
+                  {productRec.carriers.length > 0 && (
+                    <div className="flex gap-1.5 flex-wrap mb-2.5">
+                      {productRec.carriers.map(c => (
+                        <span key={c} className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/60">{c}</span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="pt-2 border-t border-white/6">
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide mb-1">Say:</p>
+                    <p className="text-[11px] text-zinc-200 italic leading-relaxed">&ldquo;{productRec.keyPitch}&rdquo;</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5">
-            {cards.length === 0 && (
+            {cards.length === 0 && !productRec && (
               <div className="h-full flex flex-col items-center justify-center gap-3 opacity-40">
                 <Brain className="h-8 w-8 text-zinc-600" />
                 <p className="text-sm text-zinc-500 text-center px-4 leading-relaxed">
                   Coaching cards will appear here during your call
                 </p>
+              </div>
+            )}
+            {cards.length === 0 && productRec && (
+              <div className="flex items-center justify-center pt-4 opacity-30">
+                <p className="text-xs text-zinc-500 text-center">Coaching cards will appear as the call unfolds</p>
               </div>
             )}
 

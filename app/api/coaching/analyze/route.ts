@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { filterCoachingCard } from "@/lib/coaching/cardFilter";
-import { LIFE_INSURANCE_KNOWLEDGE } from "@/lib/coaching/lifeInsuranceKnowledge";
+import { LIFE_INSURANCE_KNOWLEDGE, getProductFocusContext } from "@/lib/coaching/lifeInsuranceKnowledge";
 
 interface AnalyzeBody {
   utterance:    string;
@@ -12,6 +12,7 @@ interface AnalyzeBody {
   agentId?:     string;
   recentLines?: { speaker: string; text: string }[];
   recentCardTypes?: string[]; // last 2 card types fired — for deduplication
+  productFocus?: string; // agent's configured product focus (e.g. "mortgage_protection")
 }
 
 interface CardPayload {
@@ -94,14 +95,18 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as AnalyzeBody;
-  const { utterance, speaker, nepqPhase, discProfile, agentId, recentLines = [], recentCardTypes = [] } = body;
+  const { utterance, speaker, nepqPhase, discProfile, agentId, recentLines = [], recentCardTypes = [], productFocus } = body;
 
   if (!utterance?.trim()) return NextResponse.json({ card: null });
 
-  console.log(`[Spear] coaching/analyze → speaker=${speaker} phase=${nepqPhase} text="${utterance?.slice(0, 60)}"`);
+  console.log(`[Spear] coaching/analyze → speaker=${speaker} phase=${nepqPhase} product=${productFocus ?? "default"} text="${utterance?.slice(0, 60)}"`);
 
   const agentContext = agentId ? await buildAgentContext(agentId) : "";
-  const systemPrompt = agentContext ? `${BASE_SYSTEM}${agentContext}` : BASE_SYSTEM;
+  // Inject product-specific coaching context if agent has configured a focus
+  const productContext = productFocus ? `\n\n${getProductFocusContext(productFocus)}` : "";
+  const systemPrompt = agentContext
+    ? `${BASE_SYSTEM}${productContext}${agentContext}`
+    : `${BASE_SYSTEM}${productContext}`;
 
   // Build conversation context from recent lines (last 6 turns)
   const contextBlock = recentLines.length > 0
