@@ -1,53 +1,9 @@
 import { NextResponse } from "next/server";
-import { createHmac } from "crypto";
+import { SignJWT } from "jose";
 
 // GET /api/twilio/token
-// Generates a Twilio Access Token for the browser Twilio Client SDK.
-// Built manually (no Twilio SDK) to avoid Next.js serverless bundling issues.
+// Generates a Twilio Access Token using jose (lightweight JWT library).
 // Twilio Access Token spec: https://www.twilio.com/docs/iam/access-tokens
-
-function base64url(input: string | Buffer): string {
-  const buf = typeof input === "string" ? Buffer.from(input) : input;
-  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-}
-
-function buildAccessToken(
-  accountSid: string,
-  apiKey: string,
-  apiSecret: string,
-  twimlAppSid: string,
-  identity: string,
-  ttl = 3600
-): string {
-  const now = Math.floor(Date.now() / 1000);
-
-  const header = { typ: "JWT", alg: "HS256" };
-
-  const payload = {
-    jti:    `${apiKey}-${now}`,
-    iss:    apiKey,
-    sub:    accountSid,
-    nbf:    now,
-    exp:    now + ttl,
-    grants: {
-      identity,
-      voice: {
-        outgoing: { application_sid: twimlAppSid },
-        incoming: { allow: false },
-      },
-    },
-  };
-
-  const headerB64  = base64url(JSON.stringify(header));
-  const payloadB64 = base64url(JSON.stringify(payload));
-  const signingInput = `${headerB64}.${payloadB64}`;
-
-  const sig = createHmac("sha256", apiSecret)
-    .update(signingInput)
-    .digest();
-
-  return `${signingInput}.${base64url(sig)}`;
-}
 
 export async function GET() {
   const accountSid  = process.env.TWILIO_ACCOUNT_SID;
@@ -62,6 +18,24 @@ export async function GET() {
     );
   }
 
-  const token = buildAccessToken(accountSid, apiKey, apiSecret, twimlAppSid, "spear-agent");
+  const now = Math.floor(Date.now() / 1000);
+
+  const token = await new SignJWT({
+    jti:    `${apiKey}-${now}`,
+    iss:    apiKey,
+    sub:    accountSid,
+    nbf:    now,
+    exp:    now + 3600,
+    grants: {
+      identity: "spear-agent",
+      voice: {
+        outgoing: { application_sid: twimlAppSid },
+        incoming: { allow: false },
+      },
+    },
+  })
+    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+    .sign(new TextEncoder().encode(apiSecret));
+
   return NextResponse.json({ token });
 }
