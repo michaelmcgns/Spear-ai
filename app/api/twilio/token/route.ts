@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
-import { SignJWT } from "jose";
+import { createHmac } from "crypto";
 
 // GET /api/twilio/token
-// Generates a Twilio Access Token using jose (lightweight JWT library).
-// Twilio Access Token spec: https://www.twilio.com/docs/iam/access-tokens
+// Generates a Twilio Access Token for the Twilio Voice Client SDK.
+// Twilio requires a specific JWT structure including "cty":"twilio-fpa;v=1" in the header.
+// Built with Node crypto — no SDK required.
+
+function b64url(input: Buffer | string): string {
+  const buf = Buffer.isBuffer(input) ? input : Buffer.from(input as string, "utf8");
+  return buf.toString("base64url");
+}
 
 export async function GET() {
   const accountSid  = process.env.TWILIO_ACCOUNT_SID;
@@ -20,7 +26,14 @@ export async function GET() {
 
   const now = Math.floor(Date.now() / 1000);
 
-  const token = await new SignJWT({
+  // Twilio requires this exact header format
+  const header = {
+    cty: "twilio-fpa;v=1",
+    typ: "JWT",
+    alg: "HS256",
+  };
+
+  const payload = {
     jti:    `${apiKey}-${now}`,
     iss:    apiKey,
     sub:    accountSid,
@@ -30,12 +43,19 @@ export async function GET() {
       identity: "spear-agent",
       voice: {
         outgoing: { application_sid: twimlAppSid },
-        incoming: { allow: false },
       },
     },
-  })
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .sign(new TextEncoder().encode(apiSecret));
+  };
+
+  const headerB64  = b64url(JSON.stringify(header));
+  const payloadB64 = b64url(JSON.stringify(payload));
+  const signingInput = `${headerB64}.${payloadB64}`;
+
+  const sig = createHmac("sha256", apiSecret)
+    .update(signingInput)
+    .digest();
+
+  const token = `${signingInput}.${b64url(sig)}`;
 
   return NextResponse.json({ token });
 }
