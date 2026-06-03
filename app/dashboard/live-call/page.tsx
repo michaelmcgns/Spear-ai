@@ -10,6 +10,10 @@ import {
   Phone, PhoneOff, Mic, MicOff, ArrowLeft,
   ThumbsUp, ThumbsDown, Brain, Sparkles,
 } from "lucide-react";
+
+// Twilio Client types (loaded dynamically to avoid SSR issues)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TwilioDevice = any;
 import type { ProductRec } from "@/app/api/coaching/product-rec/route";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -218,10 +222,12 @@ function LiveCallPageInner() {
   // Which Deepgram speaker index (0 or 1) is the agent. Flip if DG gets it wrong.
   const [agentSpeakerNum, setAgentSpeakerNum] = useState(0);
   const agentSpeakerNumRef = useRef(0);
-  // Twilio: phone number to dial + active call SID
-  const [dialNumber, setDialNumber]   = useState<string>("");
+  // Twilio Client: browser WebRTC phone
+  const [dialNumber, setDialNumber]       = useState<string>("");
   const [twilioCallSid, setTwilioCallSid] = useState<string | null>(null);
-  const [callStatus, setCallStatus]   = useState<string>(""); // "ringing" | "answered" | ""
+  const [callStatus, setCallStatus]       = useState<string>("");
+  const twilioDeviceRef                   = useRef<TwilioDevice>(null);
+  const twilioCallRef                     = useRef<TwilioDevice>(null);
   const hasTwilio = !!process.env.NEXT_PUBLIC_TWILIO_ENABLED;
 
   // Fetch real user ID and product focus on mount
@@ -657,49 +663,85 @@ function LiveCallPageInner() {
     }
   }, [connectDeepgram, startDemoCall]);
 
-  // ── Twilio outbound dial ───────────────────────────────────────────────────
+  // ── Twilio Client outbound dial (WebRTC browser phone) ────────────────────
 
   const dialOut = useCallback(async (toNumber: string) => {
     if (!toNumber) return;
-    // Normalize: ensure E.164 format (+1XXXXXXXXXX for US numbers)
-    let normalized = toNumber.replace(/\D/g, ""); // strip non-digits
+    // Normalize to E.164
+    let normalized = toNumber.replace(/\D/g, "");
     if (normalized.length === 10) normalized = "1" + normalized;
     if (!normalized.startsWith("+")) normalized = "+" + normalized;
+
     setMicError(null);
     setCallStatus("ringing");
+
     try {
-      const res = await fetch("/api/twilio/call", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          to: normalized,
-          agentId: userIdRef.current,
-          leadId: leadId ?? undefined,
-        }),
-      });
-      const data = await res.json() as { callSid?: string; error?: string };
-      if (!res.ok || data.error) {
-        setMicError(`Twilio error: ${data.error ?? "Unknown error"}`);
+      // 1. Fetch access token from our API
+      const tokenRes = await fetch("/api/twilio/token");
+      const tokenData = await tokenRes.json() as { token?: string; error?: string };
+      if (!tokenRes.ok || !tokenData.token) {
+        setMicError(`Twilio token error: ${tokenData.error ?? "Could not get token"}`);
         setCallStatus("");
         return;
       }
-      setTwilioCallSid(data.callSid ?? null);
-      setCallStatus(data.callSid ? "ringing" : "");
-      // Now start the browser mic + Deepgram for agent-side transcription
-      await startCall();
+
+      // 2. Dynamically load Twilio Client SDK (avoids SSR issues)
+      const { Device } = await import("@twilio/voice-sdk");
+
+      // 3. Create and register the Device
+      const device = new Device(tokenData.token, { logLevel: "warn" });
+      twilioDeviceRef.current = device;
+      await device.register();
+
+      // 4. Make the outbound call — Twilio routes through /api/twilio/stream TwiML
+      //    which dials the prospect and bridges audio
+      const call = await device.connect({
+        params: { To: normalized },
+      });
+      twilioCallRef.current = call;
+
+      call.on("ringing", () => setCallStatus("ringing"));
+      call.on("accept",  () => {
+        setCallStatus("answered");
+        setTwilioCallSid(call.parameters?.CallSid ?? null);
+        // Start Deepgram transcription now that call is connected
+        // The browser mic captures the mixed audio (agent + prospect via speaker)
+        startCall();
+      });
+      call.on("disconnect", () => {
+        setCallStatus("");
+        twilioCallRef.current  = null;
+        twilioDeviceRef.current = null;
+      });
+      call.on("error", (err: Error) => {
+        setMicError(`Call error: ${err.message}`);
+        setCallStatus("");
+      });
+
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setMicError(`Failed to dial: ${msg}`);
       setCallStatus("");
     }
-  }, [leadId, startCall]);
+  }, [startCall]);
+
+  // Hang up the Twilio call when agent ends call
+  const hangupTwilio = useCallback(() => {
+    twilioCallRef.current?.disconnect();
+    twilioDeviceRef.current?.destroy();
+    twilioCallRef.current   = null;
+    twilioDeviceRef.current = null;
+    setCallStatus("");
+    setTwilioCallSid(null);
+  }, []);
 
   // Step 1: stop the call, show outcome picker
   const endCall = useCallback(() => {
     stopMedia();
+    hangupTwilio();
     setSelectedOutcome("unknown");
     setCallState("outcome");
-  }, [stopMedia]);
+  }, [stopMedia, hangupTwilio]);
 
   // Step 2: save with chosen outcome
   const saveCall = useCallback(async (outcome: "closed" | "not_closed" | "follow_up" | "unknown") => {
