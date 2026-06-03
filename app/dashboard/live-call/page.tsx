@@ -661,6 +661,10 @@ function LiveCallPageInner() {
 
   const dialOut = useCallback(async (toNumber: string) => {
     if (!toNumber) return;
+    // Normalize: ensure E.164 format (+1XXXXXXXXXX for US numbers)
+    let normalized = toNumber.replace(/\D/g, ""); // strip non-digits
+    if (normalized.length === 10) normalized = "1" + normalized;
+    if (!normalized.startsWith("+")) normalized = "+" + normalized;
     setMicError(null);
     setCallStatus("ringing");
     try {
@@ -668,7 +672,7 @@ function LiveCallPageInner() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          to: toNumber,
+          to: normalized,
           agentId: userIdRef.current,
           leadId: leadId ?? undefined,
         }),
