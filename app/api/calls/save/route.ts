@@ -28,6 +28,7 @@ interface SaveBody {
   topStrength?: string | null;
   nepqPhaseReached?: string | null;
   leadId?: string | null;
+  twilioCallSid?: string | null;
 }
 
 // ─── Background agent profile recalculation ───────────────────────────────────
@@ -175,6 +176,7 @@ export async function POST(req: NextRequest) {
       prospect_name:         body.prospectName ?? null,
       product_name:          body.productName ?? null,
       lead_id:               body.leadId ?? null,
+      twilio_call_sid:       body.twilioCallSid ?? null,
     })
     .select()
     .single();

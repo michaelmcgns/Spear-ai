@@ -14,13 +14,14 @@ import type { ProductRec } from "@/app/api/coaching/product-rec/route";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type CallState = "idle" | "active" | "saving";
+type CallState = "idle" | "active" | "outcome" | "saving" | "saved";
 type Speaker = "agent" | "prospect";
 
 interface TranscriptLine {
   id: string;
   speaker: Speaker;
   speakerNum: number; // Raw Deepgram speaker index (0 or 1)
+  speakerOverride?: Speaker; // Per-line manual correction; takes priority over global agentSpeakerNum
   text: string;
   isFinal: boolean;
   timestamp: number;
@@ -202,7 +203,10 @@ function LiveCallPageInner() {
   const [duration, setDuration]       = useState(0);
   const [micError, setMicError]       = useState<string | null>(null);
   const [userId, setUserId]           = useState<string>("demo-agent");
+  const userIdRef                     = useRef<string>("demo-agent");
   const [prospectName, setProspectName] = useState<string>("");
+  const [selectedOutcome, setSelectedOutcome] = useState<"closed" | "not_closed" | "follow_up" | "unknown">("unknown");
+  const [savedCallId, setSavedCallId] = useState<string | null>(null);
   const [productRec, setProductRec]   = useState<ProductRec | null>(null);
   const [productFocus, setProductFocus] = useState<ProductFocus>(() => {
     if (typeof window === "undefined") return "mortgage_protection";
@@ -214,11 +218,16 @@ function LiveCallPageInner() {
   // Which Deepgram speaker index (0 or 1) is the agent. Flip if DG gets it wrong.
   const [agentSpeakerNum, setAgentSpeakerNum] = useState(0);
   const agentSpeakerNumRef = useRef(0);
+  // Twilio: phone number to dial + active call SID
+  const [dialNumber, setDialNumber]   = useState<string>("");
+  const [twilioCallSid, setTwilioCallSid] = useState<string | null>(null);
+  const [callStatus, setCallStatus]   = useState<string>(""); // "ringing" | "answered" | ""
+  const hasTwilio = !!process.env.NEXT_PUBLIC_TWILIO_ENABLED;
 
   // Fetch real user ID and product focus on mount
   useEffect(() => {
     createClient().auth.getUser().then(({ data: { user } }) => {
-      if (user?.id) setUserId(user.id);
+      if (user?.id) { setUserId(user.id); userIdRef.current = user.id; }
     });
     // Load product focus so coaching is tailored to the agent's product type
     fetch("/api/agent-profile")
@@ -288,8 +297,9 @@ function LiveCallPageInner() {
     console.log(`[Spear] analyzeUtterance → speaker=${speaker} phase=${phase} text="${text.slice(0, 80)}"`);
 
     // Build recent conversation context (last 6 committed lines)
+    // Respect per-line overrides; fall back to global agentSpeakerNum mapping
     const recentLines = transcriptRef.current.slice(-6).map(l => ({
-      speaker: l.speakerNum === agentSpeakerNumRef.current ? "agent" : "prospect",
+      speaker: l.speakerOverride ?? (l.speakerNum === agentSpeakerNumRef.current ? "agent" : "prospect"),
       text: l.text,
     }));
 
@@ -312,10 +322,10 @@ function LiveCallPageInner() {
           speaker,
           nepqPhase: phase,
           discProfile: discProfileRef.current,
-          agentId: userId,
+          agentId: userIdRef.current,       // always fresh — no stale closure
           recentLines,
           recentCardTypes,
-          productFocus,
+          productFocus: productFocusRef.current, // always fresh — no stale closure
         }),
       });
 
@@ -343,7 +353,7 @@ function LiveCallPageInner() {
     } catch (err) {
       console.error("[Spear] analyzeUtterance threw:", err);
     }
-  }, [userId]);
+  }, []); // stable — all values read via refs
 
   // ── Product recommendation ─────────────────────────────────────────────────
 
@@ -352,7 +362,7 @@ function LiveCallPageInner() {
 
   const analyzeProductRec = useCallback(async () => {
     const recentLines = transcriptRef.current.slice(-12).map(l => ({
-      speaker: l.speakerNum === agentSpeakerNumRef.current ? "agent" : "prospect",
+      speaker: l.speakerOverride ?? (l.speakerNum === agentSpeakerNumRef.current ? "agent" : "prospect"),
       text: l.text,
     }));
 
@@ -481,7 +491,9 @@ function LiveCallPageInner() {
       return;
     }
 
-    const qs = "model=nova-3&language=en&punctuate=true&smart_format=true&interim_results=true&diarize=true&utterance_end_ms=1000&endpointing=300&filler_words=false";
+    // utterance_end_ms=1500: wait 1.5s of silence before closing an utterance (reduces short-fragment misidentification)
+    // endpointing=500: slightly longer endpointing window for more accurate speaker diarization on short responses like "Yes."
+    const qs = "model=nova-3&language=en&punctuate=true&smart_format=true&interim_results=true&diarize=true&utterance_end_ms=1500&endpointing=500&filler_words=false";
     const ws = new WebSocket(`wss://api.deepgram.com/v1/listen?${qs}`, ["token", apiKey]);
     wsRef.current = ws;
 
@@ -645,13 +657,51 @@ function LiveCallPageInner() {
     }
   }, [connectDeepgram, startDemoCall]);
 
-  const endCall = useCallback(async () => {
-    stopMedia();
-    setCallState("saving");
+  // ── Twilio outbound dial ───────────────────────────────────────────────────
 
-    // Save session to DB (non-blocking from UI perspective)
+  const dialOut = useCallback(async (toNumber: string) => {
+    if (!toNumber) return;
+    setMicError(null);
+    setCallStatus("ringing");
     try {
-      await fetch("/api/calls/save", {
+      const res = await fetch("/api/twilio/call", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          to: toNumber,
+          agentId: userIdRef.current,
+          leadId: leadId ?? undefined,
+        }),
+      });
+      const data = await res.json() as { callSid?: string; error?: string };
+      if (!res.ok || data.error) {
+        setMicError(`Twilio error: ${data.error ?? "Unknown error"}`);
+        setCallStatus("");
+        return;
+      }
+      setTwilioCallSid(data.callSid ?? null);
+      setCallStatus(data.callSid ? "ringing" : "");
+      // Now start the browser mic + Deepgram for agent-side transcription
+      await startCall();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setMicError(`Failed to dial: ${msg}`);
+      setCallStatus("");
+    }
+  }, [leadId, startCall]);
+
+  // Step 1: stop the call, show outcome picker
+  const endCall = useCallback(() => {
+    stopMedia();
+    setSelectedOutcome("unknown");
+    setCallState("outcome");
+  }, [stopMedia]);
+
+  // Step 2: save with chosen outcome
+  const saveCall = useCallback(async (outcome: "closed" | "not_closed" | "follow_up" | "unknown") => {
+    setCallState("saving");
+    try {
+      const res = await fetch("/api/calls/save", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -665,18 +715,20 @@ function LiveCallPageInner() {
           talkRatioProspect: talkRatio.prospect,
           discProfile,
           nepqPhases: { highest_phase_reached: currentPhase },
-          outcome: "unknown",
+          outcome,
           prospectName: prospectName.trim() || null,
           leadId: leadId || null,
+          twilioCallSid: twilioCallSid || null,
         }),
       });
+      const data = await res.json() as { id?: string };
+      setSavedCallId(data.id ?? null);
+      setCallState("saved");
     } catch {
-      // Save is best-effort; don't block
-    } finally {
-      setCallState("idle");
-      setProspectName(""); // Clear for the next call
+      // Save best-effort — still show saved screen
+      setCallState("saved");
     }
-  }, [stopMedia, duration, transcript, cards, talkRatio, discProfile, currentPhase, prospectName]);
+  }, [userId, duration, transcript, cards, talkRatio, discProfile, currentPhase, prospectName, leadId]);
 
   // ── Card thumbs ────────────────────────────────────────────────────────────
 
@@ -690,8 +742,10 @@ function LiveCallPageInner() {
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
-  const isActive = callState === "active";
-  const phase    = NEPQ_PHASES[currentPhase - 1];
+  const isActive     = callState === "active";
+  const isOutcome    = callState === "outcome";
+  const isSaved      = callState === "saved";
+  const phase        = NEPQ_PHASES[currentPhase - 1];
   const ratioWarning = talkRatio.agent > 50 ? "text-red-400" : talkRatio.agent > 42 ? "text-amber-400" : "text-emerald-400";
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -714,13 +768,22 @@ function LiveCallPageInner() {
             </span>
           )}
           <AnimatePresence>
+            {callStatus === "ringing" && !isActive && (
+              <motion.span
+                initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-semibold"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                Ringing…
+              </motion.span>
+            )}
             {isActive && (
               <motion.span
                 initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-semibold"
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" />
-                LIVE
+                {twilioCallSid ? "LIVE · Twilio" : "LIVE"}
               </motion.span>
             )}
           </AnimatePresence>
@@ -734,6 +797,125 @@ function LiveCallPageInner() {
           )}
         </div>
       </header>
+
+      {/* ── Outcome picker modal ─────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isOutcome && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 12 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl"
+            >
+              <h3 className="text-base font-bold text-white mb-1">How did the call go?</h3>
+              <p className="text-xs text-zinc-500 mb-5">Log the outcome so Spear can track your close rate.</p>
+
+              <div className="grid grid-cols-2 gap-2.5 mb-5">
+                {([
+                  { value: "closed",      label: "🏆 Closed",       desc: "Got the sale",           color: "border-emerald-500/50 bg-emerald-500/8 hover:bg-emerald-500/15 text-emerald-300" },
+                  { value: "not_closed",  label: "❌ Not Closed",    desc: "Didn't close",           color: "border-red-500/40 bg-red-500/6 hover:bg-red-500/12 text-red-300" },
+                  { value: "follow_up",   label: "📅 Follow Up",     desc: "Callback scheduled",     color: "border-blue-500/40 bg-blue-500/6 hover:bg-blue-500/12 text-blue-300" },
+                  { value: "unknown",     label: "— Skip",           desc: "Log later",              color: "border-zinc-700 bg-zinc-800/60 hover:bg-zinc-700/60 text-zinc-400" },
+                ] as const).map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setSelectedOutcome(opt.value)}
+                    className={`rounded-xl border p-3 text-left transition-all ${opt.color} ${selectedOutcome === opt.value ? "ring-2 ring-white/20 scale-[1.02]" : ""}`}
+                  >
+                    <p className="text-xs font-semibold">{opt.label}</p>
+                    <p className="text-[10px] opacity-70 mt-0.5">{opt.desc}</p>
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => saveCall(selectedOutcome)}
+                className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors"
+              >
+                Save &amp; Finish
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Saved screen ──────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isSaved && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950 px-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 16 }} animate={{ scale: 1, y: 0 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full max-w-sm text-center"
+            >
+              {/* Score ring */}
+              <div className="w-20 h-20 rounded-full border-2 border-blue-500/40 bg-blue-500/10 flex items-center justify-center mx-auto mb-5">
+                <Brain className="h-9 w-9 text-blue-400" />
+              </div>
+
+              <h2 className="text-xl font-bold text-white mb-1">Call saved</h2>
+              <p className="text-sm text-zinc-400 mb-6 leading-relaxed">
+                {prospectName ? `${prospectName}'s call` : "Your call"} has been logged.{" "}
+                {selectedOutcome === "closed" && "🏆 Nice close!"}
+                {selectedOutcome === "follow_up" && "📅 Follow-up noted."}
+              </p>
+
+              {/* Quick stats */}
+              <div className="grid grid-cols-3 gap-3 mb-7">
+                <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-3">
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Duration</p>
+                  <p className="text-sm font-bold text-zinc-100">{formatDuration(duration)}</p>
+                </div>
+                <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-3">
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Talk %</p>
+                  <p className={`text-sm font-bold ${ratioWarning}`}>{talkRatio.agent}%</p>
+                </div>
+                <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-3">
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Cards</p>
+                  <p className="text-sm font-bold text-zinc-100">{cards.length}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2.5">
+                {savedCallId && (
+                  <Link
+                    href={`/dashboard?tab=coaching&call=${savedCallId}`}
+                    className="block w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors text-center"
+                  >
+                    View Coaching Report
+                  </Link>
+                )}
+                <button
+                  onClick={() => {
+                    setCallState("idle");
+                    setTranscript([]);
+                    setCards([]);
+                    setDiscProfile(null);
+                    setProductRec(null);
+                    setDuration(0);
+                    setCurrentPhase(1);
+                    setTalkRatio({ agent: 50, prospect: 50 });
+                    setProspectName("");
+                    setSavedCallId(null);
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-semibold transition-colors"
+                >
+                  Start Next Call
+                </button>
+                <Link href="/dashboard" className="block text-xs text-zinc-600 hover:text-zinc-400 transition-colors mt-1 text-center">
+                  Back to Dashboard
+                </Link>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Mic error banner ─────────────────────────────────────────────────── */}
       <AnimatePresence>
@@ -761,14 +943,16 @@ function LiveCallPageInner() {
                 {isActive && (
                   <button
                     onClick={() => {
+                      // Flip global mapping AND clear all per-line overrides
                       const next = agentSpeakerNum === 0 ? 1 : 0;
                       setAgentSpeakerNum(next);
                       agentSpeakerNumRef.current = next;
+                      setTranscript(prev => prev.map(l => ({ ...l, speakerOverride: undefined })));
                     }}
-                    title="Swap which voice is Agent vs Prospect"
+                    title="Flip all speakers globally (clears individual corrections)"
                     className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700 transition-colors"
                   >
-                    ⇄ Flip Speakers
+                    ⇄ Flip All
                   </button>
                 )}
                 <p className="text-xs text-zinc-300 font-medium">
@@ -811,6 +995,23 @@ function LiveCallPageInner() {
                   />
                 </div>
 
+                {/* Twilio dial number (shown when Twilio is enabled) */}
+                {hasTwilio && (
+                  <div className="w-full max-w-xs">
+                    <label className="block text-[11px] text-zinc-500 uppercase tracking-wider mb-1.5">
+                      Phone number to dial
+                    </label>
+                    <input
+                      type="tel"
+                      value={dialNumber}
+                      onChange={e => setDialNumber(e.target.value)}
+                      placeholder="+17725551234"
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors font-mono"
+                    />
+                    <p className="text-[10px] text-zinc-600 mt-1">Include country code. Leave blank to use mic only.</p>
+                  </div>
+                )}
+
                 {/* Product focus selector */}
                 <div className="w-full max-w-xs">
                   <label className="block text-[11px] text-zinc-500 uppercase tracking-wider mb-1.5">
@@ -850,8 +1051,8 @@ function LiveCallPageInner() {
             )}
 
             {transcript.map(line => {
-              // Derive speaker live from agentSpeakerNum — so flipping updates all lines instantly
-              const derivedSpeaker: Speaker = line.speakerNum === agentSpeakerNum ? "agent" : "prospect";
+              // Per-line override takes priority; falls back to global agentSpeakerNum mapping
+              const derivedSpeaker: Speaker = line.speakerOverride ?? (line.speakerNum === agentSpeakerNum ? "agent" : "prospect");
               return (
                 <motion.div
                   key={line.id}
@@ -860,20 +1061,21 @@ function LiveCallPageInner() {
                   transition={{ duration: 0.18 }}
                   className={`flex gap-2.5 ${derivedSpeaker === "prospect" ? "flex-row-reverse" : ""}`}
                 >
-                  {/* Speaker badge — click to flip this speaker's assignment */}
+                  {/* Speaker badge — click to correct this individual line only */}
                   <button
-                    title={`Switch to ${derivedSpeaker === "agent" ? "Prospect" : "Agent"}`}
+                    title={`Correct: mark as ${derivedSpeaker === "agent" ? "Prospect" : "Agent"}`}
                     onClick={() => {
-                      // Reassign: make this line's speakerNum the agent speaker
-                      const newAgentNum = line.speakerNum;
-                      setAgentSpeakerNum(newAgentNum);
-                      agentSpeakerNumRef.current = newAgentNum;
+                      // Toggle this line's speaker without touching global mapping
+                      const correctedSpeaker: Speaker = derivedSpeaker === "agent" ? "prospect" : "agent";
+                      setTranscript(prev => prev.map(l =>
+                        l.id === line.id ? { ...l, speakerOverride: correctedSpeaker } : l
+                      ));
                     }}
                     className={`h-6 w-6 rounded-full shrink-0 flex items-center justify-center text-[9px] font-bold mt-0.5 cursor-pointer transition-opacity hover:opacity-70 ${
                       derivedSpeaker === "agent"
                         ? "bg-blue-600/30 text-blue-300"
                         : "bg-zinc-700 text-zinc-300"
-                    }`}
+                    } ${line.speakerOverride ? "ring-1 ring-amber-400/60" : ""}`}
                   >
                     {derivedSpeaker === "agent" ? "A" : "P"}
                   </button>
@@ -1098,11 +1300,11 @@ function LiveCallPageInner() {
             {callState === "idle" && (
               <motion.button
                 whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                onClick={startCall}
+                onClick={() => hasTwilio && dialNumber ? dialOut(dialNumber) : startCall()}
                 className="flex items-center gap-2 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-colors"
               >
                 <Phone className="h-4 w-4" />
-                Start Call
+                {hasTwilio && dialNumber ? "Dial & Start" : "Start Call"}
               </motion.button>
             )}
             {callState === "active" && (
@@ -1121,6 +1323,14 @@ function LiveCallPageInner() {
               >
                 <span className="h-4 w-4 rounded-full border-2 border-zinc-600 border-t-zinc-400 animate-spin" />
                 Saving…
+              </button>
+            )}
+            {callState === "outcome" && (
+              <button disabled
+                className="flex items-center gap-2 px-5 py-2 rounded-lg bg-zinc-800 text-zinc-500 text-sm font-semibold cursor-not-allowed"
+              >
+                <PhoneOff className="h-4 w-4" />
+                Call Ended
               </button>
             )}
           </div>
