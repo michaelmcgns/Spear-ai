@@ -1,39 +1,67 @@
 import { NextResponse } from "next/server";
-import { jwt } from "twilio";
+import { createHmac } from "crypto";
 
 // GET /api/twilio/token
-// Returns a short-lived Twilio Client access token so the browser can make/receive calls.
-// Requires a TwiML App SID (TWILIO_TWIML_APP_SID) — create one in Twilio console:
-//   Voice → TwiML Apps → Create → set Voice Request URL to https://spearai.live/api/twilio/stream
+// Generates a Twilio Access Token for the browser Twilio Client SDK.
+// Built manually (no Twilio SDK) to avoid Next.js serverless bundling issues.
+// Twilio Access Token spec: https://www.twilio.com/docs/iam/access-tokens
+
+function base64url(input: string | Buffer): string {
+  const buf = typeof input === "string" ? Buffer.from(input) : input;
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+function buildAccessToken(
+  accountSid: string,
+  apiKey: string,
+  apiSecret: string,
+  twimlAppSid: string,
+  identity: string,
+  ttl = 3600
+): string {
+  const now = Math.floor(Date.now() / 1000);
+
+  const header = { typ: "JWT", alg: "HS256" };
+
+  const payload = {
+    jti:    `${apiKey}-${now}`,
+    iss:    apiKey,
+    sub:    accountSid,
+    nbf:    now,
+    exp:    now + ttl,
+    grants: {
+      identity,
+      voice: {
+        outgoing: { application_sid: twimlAppSid },
+        incoming: { allow: false },
+      },
+    },
+  };
+
+  const headerB64  = base64url(JSON.stringify(header));
+  const payloadB64 = base64url(JSON.stringify(payload));
+  const signingInput = `${headerB64}.${payloadB64}`;
+
+  const sig = createHmac("sha256", apiSecret)
+    .update(signingInput)
+    .digest();
+
+  return `${signingInput}.${base64url(sig)}`;
+}
 
 export async function GET() {
-  const accountSid   = process.env.TWILIO_ACCOUNT_SID;
-  const authToken    = process.env.TWILIO_AUTH_TOKEN;
-  const apiKey       = process.env.TWILIO_API_KEY;
-  const apiSecret    = process.env.TWILIO_API_SECRET;
-  const twimlAppSid  = process.env.TWILIO_TWIML_APP_SID;
+  const accountSid  = process.env.TWILIO_ACCOUNT_SID;
+  const apiKey      = process.env.TWILIO_API_KEY;
+  const apiSecret   = process.env.TWILIO_API_SECRET;
+  const twimlAppSid = process.env.TWILIO_TWIML_APP_SID;
 
-  if (!accountSid || !authToken || !apiKey || !apiSecret || !twimlAppSid) {
+  if (!accountSid || !apiKey || !apiSecret || !twimlAppSid) {
     return NextResponse.json(
-      { error: "Missing Twilio env vars: TWILIO_API_KEY, TWILIO_API_SECRET, TWILIO_TWIML_APP_SID" },
+      { error: "Missing env vars: TWILIO_API_KEY, TWILIO_API_SECRET, TWILIO_TWIML_APP_SID" },
       { status: 500 }
     );
   }
 
-  // Create an Access Token with a Voice grant
-  const { AccessToken } = jwt;
-  const { VoiceGrant }  = AccessToken;
-
-  const voiceGrant = new VoiceGrant({
-    outgoingApplicationSid: twimlAppSid,
-    incomingAllow: false, // agent only makes outbound calls
-  });
-
-  const token = new AccessToken(accountSid, apiKey, apiSecret, {
-    identity: "spear-agent",
-    ttl: 3600, // 1 hour
-  });
-  token.addGrant(voiceGrant);
-
-  return NextResponse.json({ token: token.toJwt() });
+  const token = buildAccessToken(accountSid, apiKey, apiSecret, twimlAppSid, "spear-agent");
+  return NextResponse.json({ token });
 }
