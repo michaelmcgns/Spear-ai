@@ -693,9 +693,10 @@ function LiveCallPageInner() {
       twilioDeviceRef.current = device;
       await device.register();
 
-      // 4. Make the outbound call — Twilio routes through /api/twilio/stream TwiML
-      //    which dials the prospect and bridges audio
-      const call = await device.connect({
+      // 4. Make the outbound call — device.connect() returns a Call object (not a Promise)
+      //    Twilio routes through /api/twilio/stream TwiML which dials the prospect
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const call = await (device.connect as any)({
         params: { To: normalized },
       });
       twilioCallRef.current = call;
@@ -719,7 +720,10 @@ function LiveCallPageInner() {
       });
 
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[Spear/Twilio] dialOut error:", err);
+      const msg = err instanceof Error
+        ? err.message
+        : (err != null ? JSON.stringify(err) : "unknown error");
       setMicError(`Failed to dial: ${msg}`);
       setCallStatus("");
     }
