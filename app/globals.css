@@ -2,87 +2,94 @@
 
 /* ── CSS Variables ─────────────────────────────────────────────────── */
 :root {
-  /* Brand palette — concrete theme */
-  --color-navy:          #6B6662;
-  --color-navy-deep:     #5A5754;
-  --color-gray-secondary:#A8A09A;
-  --color-gold:          #C9A84C;
-  --color-blue:          #111111;
+  /* Brand palette */
+  --color-navy:          #1A2C1E;
+  --color-navy-deep:     #2C4A32;
+  --color-gray-secondary:#7A7060;
+  --color-gold:          #8C6D2F;
+  --color-blue:          #8C6D2F;
 
   /* Legacy tokens */
-  --bg:           #6B6662;
-  --bg-card:      #5A5754;
+  --bg:           #F5F0E8;
+  --bg-card:      #FDFAF5;
   --cream:        #F5F0E8;
-  --cream-dim:    #D8D0C8;
-  --gold:         #C9A84C;
-  --gold-light:   #DDB96B;
-  --gold-dark:    #8A6B1E;
-  --navy:         #6B6662;
-  --navy-light:   #7C7874;
-  --navy-muted:   #5A5754;
-  --warm-gray:    #A8A09A;
-  --divider:      rgba(255,255,255,0.10);
-  --accent:       #111111;
+  --cream-dim:    #7A7060;
+  --gold:         #8C6D2F;
+  --gold-light:   #A07E3F;
+  --gold-dark:    #6A5020;
+  --navy:         #1A2C1E;
+  --navy-light:   #2C4A32;
+  --navy-muted:   #F5F0E8;
+  --warm-gray:    #7A7060;
+  --divider:      rgba(0,0,0,0.08);
+  --accent:       #8C6D2F;
   --font-space:   "Space Grotesk", system-ui, sans-serif;
 }
 
 /* ── Tailwind color overrides ──────────────────────────────────────── */
 @theme {
-  /* Backgrounds → concrete gray scale */
-  --color-black:         #2A2826;
-  --color-zinc-950:      #3A3836;
-  --color-zinc-900:      #4A4744;
-  --color-zinc-800:      #5A5754;
-  --color-zinc-700:      #6B6662;
-  --color-gray-900:      #4A4744;
-  --color-slate-900:     #4A4744;
-  /* Gold accents */
-  --color-amber-300:     #DDB96B;
-  --color-amber-400:     #C9A84C;
-  --color-amber-500:     #B8923E;
-  /* Text → cream white scale */
-  --color-zinc-50:       #F5F0E8;
-  --color-zinc-100:      #EDE6DA;
-  --color-zinc-200:      #E0D8CC;
-  --color-zinc-300:      #C8C0B4;
-  --color-zinc-400:      #A89E94;
-  --color-zinc-500:      #887E76;
-  --color-zinc-600:      #6A6360;
-  --color-gray-400:      #A89E94;
-  --color-gray-500:      #887E76;
-  /* Blues → black (accent) */
-  --color-blue-200:      #555555;
-  --color-blue-300:      #333333;
-  --color-blue-400:      #222222;
-  --color-blue-500:      #1A1A1A;
-  --color-blue-600:      #111111;
-  /* Indigo → black accent */
-  --color-indigo-50:     #3A3836;
-  --color-indigo-100:    #444240;
-  --color-indigo-300:    #555555;
-  --color-indigo-400:    #333333;
-  --color-indigo-500:    #222222;
-  --color-indigo-800:    #888888;
-  /* Status colors — vivid on concrete */
-  --color-red-300:       #F87171;
-  --color-red-400:       #EF4444;
-  --color-purple-300:    #C084FC;
-  --color-emerald-300:   #34D399;
+  /* Backgrounds → light parchment scale */
+  --color-black:         #0E1810;
+  --color-zinc-950:      #1A2C1E;
+  --color-zinc-900:      #FDFAF5;
+  --color-zinc-800:      #F5F0E8;
+  --color-zinc-700:      #EDE5D8;
+  --color-gray-900:      #FDFAF5;
+  --color-slate-900:     #FDFAF5;
+  /* Antique brass accents */
+  --color-amber-300:     #A07E3F;
+  --color-amber-400:     #8C6D2F;
+  --color-amber-500:     #7A5C1E;
+  /* Text → dark body scale */
+  --color-zinc-50:       #1C1C1A;
+  --color-zinc-100:      #1C1C1A;
+  --color-zinc-200:      #2A2A26;
+  --color-zinc-300:      #3A3830;
+  --color-zinc-400:      #7A7060;
+  --color-zinc-500:      #7A7060;
+  --color-zinc-600:      #9A9080;
+  --color-gray-400:      #7A7060;
+  --color-gray-500:      #9A9080;
+  /* Blues → antique brass */
+  --color-blue-200:      #6A5020;
+  --color-blue-300:      #8C6D2F;
+  --color-blue-400:      #8C6D2F;
+  --color-blue-500:      #8C6D2F;
+  --color-blue-600:      #8C6D2F;
+  /* Indigo → antique brass */
+  --color-indigo-50:     #FAF5EC;
+  --color-indigo-100:    #F5ECD8;
+  --color-indigo-300:    #A07E3F;
+  --color-indigo-400:    #8C6D2F;
+  --color-indigo-500:    #8C6D2F;
+  --color-indigo-800:    #6A5020;
+  /* Success → forest green */
+  --color-emerald-300:   #4A7C59;
+  --color-emerald-400:   #4A7C59;
+  --color-emerald-500:   #3D6B4C;
+  --color-emerald-600:   #2E5C3E;
+  /* Danger */
+  --color-red-300:       #8B3A3A;
+  --color-red-400:       #8B3A3A;
+  --color-red-500:       #8B3A3A;
+  --color-red-600:       #7A2A2A;
+  /* Keep purple */
+  --color-purple-300:    #7C3AED;
 }
 
 /* ── Base ──────────────────────────────────────────────────────────── */
-:root { color-scheme: dark; }
+:root { color-scheme: light; }
 
 body {
   background-color: var(--bg);
-  color: var(--cream);
+  color: #1C1C1A;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-family: var(--font-space);
 }
 
-/* Concrete theme: text-white → cream */
-.text-white { color: #F5F0E8; }
+/* Light theme: text-white → dark body */
+.text-white { color: #1C1C1A; }
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -213,8 +220,6 @@ body {
 .text-gold-dark  { color: var(--gold-dark); }
 .text-warm-gray  { color: var(--warm-gray); }
 
-/* Ensure inline black styles in dashboard use concrete surface */
-[style*="background: #FDFBF7"], [style*="background:#FDFBF7"] { background: var(--bg-card) !important; }
 
 .gold-glow { text-shadow: 0 0 40px rgba(201,168,76,0.30); }
 

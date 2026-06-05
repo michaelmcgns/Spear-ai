@@ -7,14 +7,14 @@ import { motion, useInView, AnimatePresence, type Variants } from "framer-motion
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 
-const BG        = "#FDFBF7";
-const BG_CARD   = "#F5F2EA";
-const CREAM     = "#111111";
-const CREAM_DIM = "#555555";
-const BLUE      = "#C9A84C";
-const BLUE_LIGHT = "#DDB96B";
-const GOLD      = "#C9A84C";
-const WARM_GRAY = "#555555";
+const BG        = "#F5F0E8";
+const BG_CARD   = "#FDFAF5";
+const CREAM     = "#1C1C1A";
+const CREAM_DIM = "#7A7060";
+const BLUE      = "#8C6D2F";
+const BLUE_LIGHT = "#A07E3F";
+const GOLD      = "#8C6D2F";
+const WARM_GRAY = "#7A7060";
 const DIVIDER   = "rgba(0,0,0,0.08)";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -122,18 +122,18 @@ function LiveCallCard() {
       {/* Glow halo */}
       <div style={{
         position: "absolute", inset: -2, borderRadius: "16px",
-        background: `linear-gradient(135deg, rgba(201,168,76,0.4), rgba(201,168,76,0.2))`,
+        background: "linear-gradient(135deg, rgba(140,109,47,0.25), rgba(140,109,47,0.10))",
         filter: "blur(20px)", opacity: 0.7, pointerEvents: "none",
       }} />
 
       <div style={{
         position: "relative",
-        backgroundColor: "#F5F2EA",
-        border: `1px solid rgba(201,168,76,0.5)`,
+        backgroundColor: "#FDFAF5",
+        border: "1px solid #E8E0D0",
         borderRadius: "12px",
         padding: "22px",
         backdropFilter: "blur(24px)",
-        boxShadow: `0 0 48px rgba(201,168,76,0.2), 0 24px 48px rgba(0,0,0,0.08)`,
+        boxShadow: "0 0 32px rgba(140,109,47,0.12), 0 24px 48px rgba(0,0,0,0.06)",
       }}>
         {/* Card header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "18px" }}>
@@ -142,9 +142,9 @@ function LiveCallCard() {
             <motion.div
               animate={{ opacity: [1, 0.25, 1] }}
               transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-              style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#22C55E", boxShadow: "0 0 8px #22C55E" }}
+              style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#4A7C59", boxShadow: "0 0 8px #4A7C59" }}
             />
-            <span style={{ fontSize: "9px", letterSpacing: "0.22em", color: "#22C55E", textTransform: "uppercase", fontWeight: 700 }}>LIVE</span>
+            <span style={{ fontSize: "9px", letterSpacing: "0.22em", color: "#4A7C59", textTransform: "uppercase", fontWeight: 700 }}>LIVE</span>
           </div>
         </div>
 
@@ -178,8 +178,8 @@ function LiveCallCard() {
 
               {/* Suggested response */}
               <div style={{
-                backgroundColor: "rgba(201,168,76,0.08)",
-                border: `1px solid rgba(201,168,76,0.22)`,
+                backgroundColor: "#F5ECD8",
+                border: "1px solid #E8D8B0",
                 borderRadius: "8px", padding: "12px 14px", marginBottom: "14px",
               }}>
                 <p style={{ fontSize: "9px", letterSpacing: "0.18em", color: CREAM_DIM, textTransform: "uppercase", fontWeight: 700, marginBottom: "7px" }}>
@@ -1255,7 +1255,7 @@ export default function Page() {
         }}
       >
         <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: "64px" }}>
-          <span style={{ fontSize: "22px", fontWeight: 800, color: CREAM, letterSpacing: "-0.5px" }}>SPEAR</span>
+          <span style={{ fontSize: "22px", fontWeight: 800, color: "#1A2C1E", letterSpacing: "-0.5px" }}>SPEAR</span>
           <div className="hidden md:flex" style={{ alignItems: "center", gap: "36px" }}>
             {[["#how-it-works", "How It Works"], ["#features", "Features"], ["#pricing", "Pricing"]].map(([href, label]) => (
               <a key={href} href={href}
@@ -1294,7 +1294,7 @@ export default function Page() {
         <div style={{
           position: "absolute", top: "15%", left: "5%",
           width: "700px", height: "700px", borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(201,168,76,0.07) 0%, transparent 68%)",
+          background: "radial-gradient(circle, rgba(26,44,30,0.05) 0%, transparent 68%)",
           pointerEvents: "none",
         }} />
 
@@ -1309,15 +1309,15 @@ export default function Page() {
                 transition={{ delay: 0.2, duration: 0.7 }}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: "8px",
-                  backgroundColor: "rgba(201,168,76,0.1)",
-                  border: `1px solid rgba(201,168,76,0.28)`,
+                  backgroundColor: "#E8F0EB",
+                  border: "1px solid rgba(74,124,89,0.30)",
                   borderRadius: "20px", padding: "5px 14px", marginBottom: "28px",
                 }}
               >
                 <motion.div
                   animate={{ opacity: [1, 0.3, 1] }}
                   transition={{ duration: 1.5, repeat: Infinity }}
-                  style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#22C55E", boxShadow: "0 0 6px #22C55E" }}
+                  style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#4A7C59", boxShadow: "0 0 6px #4A7C59" }}
                 />
                 <span style={{ fontSize: "11px", color: CREAM_DIM, letterSpacing: "0.12em", fontWeight: 700 }}>BUILT FOR LIFE INSURANCE AGENTS</span>
               </motion.div>

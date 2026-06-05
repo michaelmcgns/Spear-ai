@@ -30,15 +30,15 @@ function WelcomeModal({ onClose }: { onClose: () => void }) {
     <div
       style={{
         position: "fixed", inset: 0, zIndex: 100,
-        background: "rgba(58,56,54,0.92)", backdropFilter: "blur(8px)",
+        background: "rgba(232,224,208,0.85)", backdropFilter: "blur(8px)",
         display: "flex", alignItems: "center", justifyContent: "center",
         padding: "24px",
       }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{
-        background: "#4A4744",
-        border: "1px solid rgba(245,240,232,0.15)",
+        background: "#FDFAF5",
+        border: "1px solid #E8E0D0",
         borderRadius: "16px",
         padding: "40px 36px",
         maxWidth: "460px",
@@ -51,7 +51,7 @@ function WelcomeModal({ onClose }: { onClose: () => void }) {
           style={{
             position: "absolute", top: "16px", right: "16px",
             background: "none", border: "none", cursor: "pointer",
-            color: "rgba(245,240,232,0.45)", padding: "4px",
+            color: "rgba(28,28,26,0.45)", padding: "4px",
             display: "flex", alignItems: "center",
           }}
         >
@@ -70,13 +70,13 @@ function WelcomeModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <h2 style={{
-          fontSize: "22px", fontWeight: 800, color: "#F5F0E8",
+          fontSize: "22px", fontWeight: 800, color: "#1C1C1A",
           marginBottom: "10px", letterSpacing: "-0.02em",
           fontFamily: "var(--font-space), system-ui, sans-serif",
         }}>
           Welcome to Spear.
         </h2>
-        <p style={{ fontSize: "14px", color: "rgba(245,240,232,0.65)", lineHeight: 1.7, marginBottom: "28px" }}>
+        <p style={{ fontSize: "14px", color: "rgba(28,28,26,0.65)", lineHeight: 1.7, marginBottom: "28px" }}>
           Your account is active. Start by uploading your first call recording.
         </p>
 
@@ -88,7 +88,7 @@ function WelcomeModal({ onClose }: { onClose: () => void }) {
             }}
             style={{
               width: "100%", padding: "13px",
-              background: "#111111", color: "#F5F0E8",
+              background: "#8C6D2F", color: "#FAF5EC",
               border: "none", borderRadius: "8px",
               fontWeight: 700, fontSize: "14px", cursor: "pointer",
               letterSpacing: "0.04em",
@@ -422,10 +422,7 @@ function EditableProspectName({ name, sessionId, onUpdate }: {
 }
 
 function ScoreBadge({ score }: { score: number }) {
-  let cls = "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
-  if (score < 7) cls = "bg-amber-500/20 text-amber-300 border-amber-500/30";
-  if (score < 6) cls = "bg-red-500/20 text-red-300 border-red-500/30";
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold border ${cls}`}>{score.toFixed(1)}</span>;
+  return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold border bg-[#2C4A32] text-[#C8D9CB] border-[#2C4A32]/60">{score.toFixed(1)}</span>;
 }
 
 function OutcomeBadge({ outcome, sessionId, onUpdate }: {
@@ -1296,7 +1293,7 @@ function CoachingTab() {
                               }}
                               placeholder="Say it in your own words..."
                               rows={3}
-                              className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600 resize-none"
+                              className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600 resize-none"
                             />
 
                             {/* Actions row */}
@@ -1322,7 +1319,7 @@ function CoachingTab() {
 
                             {/* Feedback card */}
                             {feedback[drill.id] && (
-                              <div className="rounded-xl border border-zinc-700 bg-zinc-950 overflow-hidden">
+                              <div className="rounded-xl border border-zinc-700 bg-zinc-900 overflow-hidden">
                                 <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
                                   <span className="text-xs font-semibold text-zinc-300">Feedback</span>
                                   <span className={`text-sm font-bold px-2.5 py-0.5 rounded-lg ${(feedback[drill.id]!.score ?? 0) >= 7 ? "bg-emerald-500/15 text-emerald-300" : (feedback[drill.id]!.score ?? 0) >= 5 ? "bg-amber-500/15 text-amber-300" : "bg-red-500/15 text-red-300"}`}>
@@ -1665,7 +1662,7 @@ function LeadsTab() {
             {(["first_name","last_name","phone","email","state","product_interest"] as const).map(field => (
               <input key={field} value={newLead[field]} onChange={e => setNewLead(p => ({ ...p, [field]: e.target.value }))}
                 placeholder={field.replace(/_/g, " ")}
-                className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600" />
+                className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600" />
             ))}
           </div>
           <div className="flex gap-2">
@@ -1708,7 +1705,7 @@ function LeadsTab() {
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
-              <tbody className="bg-zinc-950 divide-y divide-zinc-800/60">
+              <tbody className="bg-zinc-900 divide-y divide-zinc-800/60">
                 {filtered.length === 0 ? (
                   <tr><td colSpan={7} className="text-center py-10 text-zinc-600">No leads match your filter</td></tr>
                 ) : filtered.map(lead => {
@@ -2016,7 +2013,7 @@ function DashboardHome({
                 onChange={e => setManualProduct(e.target.value)}
                 placeholder="e.g. Term Life, IUL, Final Expense"
                 disabled={isAnalyzing}
-                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600 disabled:opacity-60"
+                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600 disabled:opacity-60"
               />
             </label>
             <label className="block">
@@ -2025,7 +2022,7 @@ function DashboardHome({
                 value={manualOutcome}
                 onChange={e => setManualOutcome(e.target.value as "unknown" | "closed" | "not_closed" | "follow_up")}
                 disabled={isAnalyzing}
-                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-blue-600 disabled:opacity-60"
+                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-blue-600 disabled:opacity-60"
               >
                 <option value="unknown">Pending / Unknown</option>
                 <option value="closed">Closed</option>
@@ -2040,21 +2037,21 @@ function DashboardHome({
             onDragOver={handleDragOver}
             onDragLeave={() => setIsDragging(false)}
             onDrop={(e) => { e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
-            className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 transition-colors cursor-pointer ${isDragging ? "border-indigo-500 bg-indigo-500/10" : isAnalyzing ? "border-zinc-700 cursor-not-allowed opacity-70" : "border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800/40"}`}
+            className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 transition-colors cursor-pointer ${isDragging ? "border-[#8C6D2F] bg-[#FAF5EC]" : isAnalyzing ? "border-[#C8BFB0] cursor-not-allowed opacity-70" : "border-[#C8BFB0] hover:border-[#8C6D2F] hover:bg-[#FAF5EC]"}`}
           >
             {isAnalyzing ? (
               <div className="flex flex-col items-center gap-3">
                 <div className="relative h-10 w-10">
-                  <div className="absolute inset-0 rounded-full border-2 border-zinc-700" />
-                  <div className="absolute inset-0 rounded-full border-2 border-t-indigo-500 animate-spin" />
+                  <div className="absolute inset-0 rounded-full border-2 border-[#E8E0D0]" />
+                  <div className="absolute inset-0 rounded-full border-2 border-t-[#8C6D2F] animate-spin" />
                 </div>
-                <p className="text-sm font-medium text-indigo-300">{analyzeStep}</p>
+                <p className="text-sm font-medium text-[#8C6D2F]">{analyzeStep}</p>
                 <p className="text-xs text-zinc-600">{selectedFileName}</p>
               </div>
             ) : (
               <>
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-800 border border-zinc-700">
-                  <Upload className="h-5 w-5 text-zinc-400" />
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#F5ECD8] border border-[#E8D8B0]">
+                  <Upload className="h-5 w-5 text-[#8C6D2F]" />
                 </div>
                 <p className="text-sm font-medium text-zinc-200">{selectedFileName || "Drop your call recording here"}</p>
                 <p className="mt-1 text-xs text-zinc-600">or click to browse</p>
@@ -2062,7 +2059,7 @@ function DashboardHome({
             )}
           </div>
           {error && (
-            <div className="mt-4 flex items-start gap-3 rounded-lg border border-red-800/40 bg-red-950/20 px-4 py-3">
+            <div className="mt-4 flex items-start gap-3 rounded-lg border border-red-400/30 bg-red-400/8 px-4 py-3">
               <AlertTriangle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
               <p className="text-xs text-red-300">{error}</p>
             </div>
@@ -2561,7 +2558,7 @@ function DashboardPage() {
 
   return (
     <DashboardDataCtx.Provider value={dashboardCtxValue}>
-    <div className="flex flex-col h-screen bg-zinc-950 overflow-hidden">
+    <div className="flex flex-col h-screen bg-zinc-800 overflow-hidden">
       <RegulatoryBanner />
 
       {showWelcome && <WelcomeModal onClose={() => setShowWelcome(false)} />}
@@ -2573,9 +2570,9 @@ function DashboardPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-zinc-800 bg-zinc-900/50 overflow-y-auto">
-          <div className="px-5 py-4 border-b border-zinc-800">
-            <span style={{ fontSize: "22px", fontWeight: 800, color: "#F5F0E8", letterSpacing: "-0.5px", fontFamily: "var(--font-space), system-ui, sans-serif" }}>SPEAR</span>
+        <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-[#2C4A32] bg-zinc-950 overflow-y-auto">
+          <div className="px-5 py-4 border-b border-[#2C4A32]">
+            <span style={{ fontSize: "22px", fontWeight: 800, color: "#C8D9CB", letterSpacing: "-0.5px", fontFamily: "var(--font-space), system-ui, sans-serif" }}>SPEAR</span>
           </div>
 
           <nav className="flex-1 px-3 py-4 space-y-0.5">
@@ -2585,10 +2582,10 @@ function DashboardPage() {
                 <button key={id} type="button" onClick={() => setActiveTab(id)}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
                     activeTab === id
-                      ? "bg-blue-600/15 text-blue-300 border border-blue-500/20"
-                      : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 border border-transparent"
+                      ? "bg-[#2C4A32] text-[#C8D9CB] border border-[#2C4A32]"
+                      : "text-[#C8D9CB]/75 hover:bg-[#2C4A32] hover:text-[#C8D9CB] border border-transparent"
                   }`}>
-                  {locked ? <Lock className="h-4 w-4 shrink-0 text-zinc-600" /> : <Icon className="h-4 w-4 shrink-0" />}
+                  {locked ? <Lock className="h-4 w-4 shrink-0 text-[#C8D9CB]/40" /> : <Icon className="h-4 w-4 shrink-0" />}
                   {label}
                   {locked && <PlanBadge plan={FEATURE_MIN_PLAN[feature]} />}
                 </button>
@@ -2601,14 +2598,14 @@ function DashboardPage() {
           </div>
 
           {/* Product Focus Selector */}
-          <div className="px-3 pb-3 border-t border-zinc-800 pt-3">
-            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-1.5 px-1">Product Focus</p>
+          <div className="px-3 pb-3 border-t border-[#2C4A32] pt-3">
+            <p className="text-[10px] font-semibold text-[#7A7060] uppercase tracking-wider mb-1.5 px-1">Product Focus</p>
             <div className="relative">
               <select
                 value={productFocus}
                 onChange={e => handleProductFocusChange(e.target.value)}
                 disabled={savingFocus}
-                className="w-full appearance-none bg-zinc-800/80 border border-zinc-700 text-zinc-300 text-xs rounded-lg px-3 py-2 pr-7 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-colors cursor-pointer disabled:opacity-50"
+                className="w-full appearance-none bg-[#2C4A32] border border-[#3A5A40] text-[#C8D9CB] text-xs rounded-lg px-3 py-2 pr-7 focus:outline-none focus:border-[#C8D9CB]/40 focus:ring-1 focus:ring-[#C8D9CB]/10 transition-colors cursor-pointer disabled:opacity-50"
               >
                 <option value="life_insurance">All Life Insurance</option>
                 <option value="mortgage_protection">Mortgage Protection</option>
@@ -2617,30 +2614,30 @@ function DashboardPage() {
                 <option value="iul">IUL / Indexed Universal Life</option>
                 <option value="annuities">Annuities</option>
               </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-500 pointer-events-none" />
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-[#C8D9CB]/60 pointer-events-none" />
             </div>
             {savingFocus && <p className="text-[10px] text-zinc-600 mt-1 px-1">Saving…</p>}
           </div>
 
-          <div className="px-3 py-4 border-t border-zinc-800 space-y-0.5">
+          <div className="px-3 py-4 border-t border-[#2C4A32] space-y-0.5">
             <Link href="/settings/privacy"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors border border-transparent">
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D9CB]/75 hover:bg-[#2C4A32] hover:text-[#C8D9CB] transition-colors border border-transparent">
               <Settings className="h-4 w-4 shrink-0" />
               Privacy &amp; Data
             </Link>
             <Link href="/Terms" target="_blank"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors border border-transparent">
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D9CB]/75 hover:bg-[#2C4A32] hover:text-[#C8D9CB] transition-colors border border-transparent">
               <BookOpen className="h-4 w-4 shrink-0" />
               Terms of Service
             </Link>
             <Link href="/Privacy" target="_blank"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors border border-transparent">
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D9CB]/75 hover:bg-[#2C4A32] hover:text-[#C8D9CB] transition-colors border border-transparent">
               <Lock className="h-4 w-4 shrink-0" />
               Privacy Policy
             </Link>
             <form action={logout}>
               <button type="submit"
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors">
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D9CB]/75 hover:bg-[#2C4A32] hover:text-[#C8D9CB] transition-colors">
                 <LogOut className="h-4 w-4 shrink-0" />
                 Sign out
               </button>
@@ -2660,7 +2657,7 @@ function DashboardPage() {
                 </p>
               </div>
               {process.env.NEXT_PUBLIC_BYPASS_AUTH === "true" && (
-                <span className="text-[11px] px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">Demo Mode</span>
+                <span className="text-[11px] px-2.5 py-1 rounded-full bg-transparent text-[#8C6D2F] border border-[#8C6D2F]">Demo Mode</span>
               )}
             </div>
 
