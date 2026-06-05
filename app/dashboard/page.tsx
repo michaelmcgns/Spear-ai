@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Phone, BarChart3, BookOpen, Users,
   Settings, LogOut, Upload, TrendingUp, CheckCircle2, AlertTriangle,
   Brain, Target, MessageSquare, Mic, Search, ChevronDown, ChevronRight,
-  Award, ArrowUp, ArrowDown, Star, Zap, Radio, X, Lock, Pencil, Check,
+  Award, ArrowUp, ArrowDown, Star, Zap, X, Lock, Pencil, Check,
 } from "lucide-react";
 import Link from "next/link";
 import { RegulatoryBanner } from "@/components/compliance/RegulatoryBanner";
@@ -30,28 +30,28 @@ function WelcomeModal({ onClose }: { onClose: () => void }) {
     <div
       style={{
         position: "fixed", inset: 0, zIndex: 100,
-        background: "rgba(5,10,20,0.85)", backdropFilter: "blur(8px)",
+        background: "rgba(58,56,54,0.92)", backdropFilter: "blur(8px)",
         display: "flex", alignItems: "center", justifyContent: "center",
         padding: "24px",
       }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{
-        background: "#0D1527",
-        border: "1px solid rgba(201,168,76,0.25)",
+        background: "#4A4744",
+        border: "1px solid rgba(245,240,232,0.15)",
         borderRadius: "16px",
         padding: "40px 36px",
         maxWidth: "460px",
         width: "100%",
         position: "relative",
-        boxShadow: "0 0 80px rgba(201,168,76,0.08), 0 32px 64px rgba(0,0,0,0.5)",
+        boxShadow: "0 0 40px rgba(201,168,76,0.12), 0 16px 48px rgba(0,0,0,0.12)",
       }}>
         <button
           onClick={onClose}
           style={{
             position: "absolute", top: "16px", right: "16px",
             background: "none", border: "none", cursor: "pointer",
-            color: "rgba(184,168,120,0.5)", padding: "4px",
+            color: "rgba(245,240,232,0.45)", padding: "4px",
             display: "flex", alignItems: "center",
           }}
         >
@@ -70,29 +70,17 @@ function WelcomeModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <h2 style={{
-          fontSize: "22px", fontWeight: 800, color: "#B8A878",
+          fontSize: "22px", fontWeight: 800, color: "#F5F0E8",
           marginBottom: "10px", letterSpacing: "-0.02em",
           fontFamily: "var(--font-space), system-ui, sans-serif",
         }}>
           Welcome to Spear.
         </h2>
-        <p style={{ fontSize: "14px", color: "rgba(184,168,120,0.75)", lineHeight: 1.7, marginBottom: "28px" }}>
-          Your account is active. Start by uploading your first call recording or launching a live call session.
+        <p style={{ fontSize: "14px", color: "rgba(245,240,232,0.65)", lineHeight: 1.7, marginBottom: "28px" }}>
+          Your account is active. Start by uploading your first call recording.
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          <Link href="/dashboard/live-call" onClick={onClose} style={{ textDecoration: "none" }}>
-            <button style={{
-              width: "100%", padding: "13px",
-              background: "#C9A84C", color: "#060D20",
-              border: "none", borderRadius: "8px",
-              fontWeight: 700, fontSize: "14px", cursor: "pointer",
-              letterSpacing: "0.04em",
-              fontFamily: "var(--font-space), system-ui, sans-serif",
-            }}>
-              Start Live Call
-            </button>
-          </Link>
           <button
             onClick={() => {
               onClose();
@@ -100,9 +88,9 @@ function WelcomeModal({ onClose }: { onClose: () => void }) {
             }}
             style={{
               width: "100%", padding: "13px",
-              background: "transparent", color: "#B8A878",
-              border: "1px solid rgba(184,168,120,0.2)", borderRadius: "8px",
-              fontWeight: 600, fontSize: "14px", cursor: "pointer",
+              background: "#111111", color: "#F5F0E8",
+              border: "none", borderRadius: "8px",
+              fontWeight: 700, fontSize: "14px", cursor: "pointer",
               letterSpacing: "0.04em",
               fontFamily: "var(--font-space), system-ui, sans-serif",
             }}
@@ -550,7 +538,7 @@ function CallsTab() {
       </div>
       <div>
         <p className="text-sm font-semibold text-zinc-300">No calls yet</p>
-        <p className="text-xs text-zinc-600 mt-1">Upload a recording or start a Live Call — your history will appear here.</p>
+        <p className="text-xs text-zinc-600 mt-1">Upload a recording — your history will appear here.</p>
       </div>
     </div>
   );
@@ -726,7 +714,7 @@ function AnalyticsTab() {
       </div>
       <div>
         <p className="text-sm font-semibold text-zinc-300">No analytics yet</p>
-        <p className="text-xs text-zinc-600 mt-1">Upload a call recording or complete a Live Call — charts will populate automatically.</p>
+        <p className="text-xs text-zinc-600 mt-1">Upload a call recording — charts will populate automatically.</p>
       </div>
     </div>
   );
@@ -1120,7 +1108,7 @@ function CoachingTab() {
       </div>
       <div>
         <p className="text-sm font-semibold text-zinc-300">No coaching data yet</p>
-        <p className="text-xs text-zinc-600 mt-1 max-w-xs">Upload a call recording or complete a live call — your personalized AI coaching drills will generate automatically.</p>
+        <p className="text-xs text-zinc-600 mt-1 max-w-xs">Upload a call recording — your personalized AI coaching drills will generate automatically.</p>
       </div>
     </div>
   );
@@ -1728,7 +1716,6 @@ function LeadsTab() {
                   const lastCall = lead.call_sessions?.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
                   const lastCallDate = lastCall ? new Date(lastCall.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;
                   const fullName = `${lead.first_name} ${lead.last_name}`.trim();
-                  const callUrl = `/dashboard/live-call?lead=${lead.id}&name=${encodeURIComponent(fullName)}`;
                   return (
                   <tr key={lead.id} className="hover:bg-zinc-900/60 transition-colors">
                     <td className="px-4 py-3">
@@ -1759,13 +1746,7 @@ function LeadsTab() {
                       </select>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link href={callUrl}
-                          className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-semibold transition-colors whitespace-nowrap">
-                          Start Call
-                        </Link>
-                        <button onClick={() => deleteLead(lead.id)} className="text-zinc-700 hover:text-red-400 transition-colors text-xs">✕</button>
-                      </div>
+                      <button onClick={() => deleteLead(lead.id)} className="text-zinc-700 hover:text-red-400 transition-colors text-xs">✕</button>
                     </td>
                   </tr>
                   );
@@ -2111,7 +2092,7 @@ function DashboardHome({
                   <Phone className="h-4 w-4 text-zinc-600" />
                 </div>
                 <p className="text-xs text-zinc-600 text-center leading-relaxed">
-                  No calls yet.<br />Upload a recording or start a live call.
+                  No calls yet.<br />Upload a recording to get started.
                 </p>
               </div>
             ) : recentCalls.map(call => (
@@ -2404,15 +2385,16 @@ function DashboardPage() {
     refreshCalls();
   }, [refreshCalls]);
 
+  const activeCalls = realCalls.length > 0 ? realCalls : MOCK_CALLS;
   const dashboardCtxValue: DashboardData = {
     userId,
-    calls:     realCalls.length > 0 ? realCalls : MOCK_CALLS,
-    hasReal:   realCalls.length > 0,
-    loading:   dataLoading,
-    totalCalls:       dashStats.totalCalls,
-    closeRate:        dashStats.closeRate,
-    avgScore:         dashStats.avgScore,
-    objectionsCaught: dashStats.objectionsCaught,
+    calls:   activeCalls,
+    hasReal: true,
+    loading: dataLoading,
+    totalCalls:       realCalls.length > 0 ? dashStats.totalCalls       : MOCK_CALLS.length,
+    closeRate:        realCalls.length > 0 ? dashStats.closeRate        : Math.round(MOCK_CALLS.filter(c => c.outcome === "closed").length / MOCK_CALLS.length * 100),
+    avgScore:         realCalls.length > 0 ? dashStats.avgScore         : (MOCK_CALLS.reduce((s, c) => s + c.score, 0) / MOCK_CALLS.length).toFixed(1),
+    objectionsCaught: realCalls.length > 0 ? dashStats.objectionsCaught : MOCK_CALLS.reduce((s, c) => s + c.objectionCount, 0),
     updateCallOutcome,
     updateCallProspect,
   };
@@ -2593,20 +2575,10 @@ function DashboardPage() {
         {/* Sidebar */}
         <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-zinc-800 bg-zinc-900/50 overflow-y-auto">
           <div className="px-5 py-4 border-b border-zinc-800">
-            <span style={{ fontSize: "22px", fontWeight: 800, color: "#B8A878", letterSpacing: "-0.5px", fontFamily: "var(--font-space), system-ui, sans-serif" }}>SPEAR</span>
+            <span style={{ fontSize: "22px", fontWeight: 800, color: "#F5F0E8", letterSpacing: "-0.5px", fontFamily: "var(--font-space), system-ui, sans-serif" }}>SPEAR</span>
           </div>
 
           <nav className="flex-1 px-3 py-4 space-y-0.5">
-            {/* Live Call CTA */}
-            <Link href="/dashboard/live-call"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 mb-3 text-sm font-semibold bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/30 transition-colors">
-              <span className="relative flex h-4 w-4 shrink-0 items-center justify-center">
-                <span className="absolute h-3 w-3 rounded-full bg-emerald-400 opacity-40 animate-ping" />
-                <Radio className="h-4 w-4 relative" />
-              </span>
-              Live Call
-            </Link>
-
             {NAV.map(({ id, label, Icon, feature }) => {
               const locked = !hasFeature(feature);
               return (

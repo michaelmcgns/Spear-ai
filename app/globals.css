@@ -2,53 +2,72 @@
 
 /* ── CSS Variables ─────────────────────────────────────────────────── */
 :root {
-  /* Brand palette from logo */
-  --color-navy:          #0B1221;
-  --color-navy-deep:     #070D18;
-  --color-gray-secondary:#B8A878;
+  /* Brand palette — concrete theme */
+  --color-navy:          #6B6662;
+  --color-navy-deep:     #5A5754;
+  --color-gray-secondary:#A8A09A;
   --color-gold:          #C9A84C;
-  --color-blue:          #2563EB;
+  --color-blue:          #111111;
 
-  /* Legacy tokens (kept for backward compat) */
-  --bg:           #0B1221;
-  --bg-card:      #0D1527;
-  --cream:        #B8A878;
-  --cream-dim:    #C8D8E8;
+  /* Legacy tokens */
+  --bg:           #6B6662;
+  --bg-card:      #5A5754;
+  --cream:        #F5F0E8;
+  --cream-dim:    #D8D0C8;
   --gold:         #C9A84C;
   --gold-light:   #DDB96B;
   --gold-dark:    #8A6B1E;
-  --navy:         #0B1221;
-  --navy-light:   #132040;
-  --navy-muted:   #070D18;
-  --warm-gray:    #B8A878;
-  --divider:      rgba(37,99,235,0.15);
-  --accent:       #2563EB;
+  --navy:         #6B6662;
+  --navy-light:   #7C7874;
+  --navy-muted:   #5A5754;
+  --warm-gray:    #A8A09A;
+  --divider:      rgba(255,255,255,0.10);
+  --accent:       #111111;
   --font-space:   "Space Grotesk", system-ui, sans-serif;
 }
 
 /* ── Tailwind color overrides ──────────────────────────────────────── */
 @theme {
-  /* Backgrounds → brand navy */
-  --color-black:         #070D18;
-  --color-zinc-950:      #070D18;
-  --color-zinc-900:      #0B1221;
-  --color-gray-900:      #0B1221;
-  --color-slate-900:     #0B1221;
-  /* Gold */
+  /* Backgrounds → concrete gray scale */
+  --color-black:         #2A2826;
+  --color-zinc-950:      #3A3836;
+  --color-zinc-900:      #4A4744;
+  --color-zinc-800:      #5A5754;
+  --color-zinc-700:      #6B6662;
+  --color-gray-900:      #4A4744;
+  --color-slate-900:     #4A4744;
+  /* Gold accents */
   --color-amber-300:     #DDB96B;
   --color-amber-400:     #C9A84C;
   --color-amber-500:     #B8923E;
-  /* All zinc text shades → cream */
-  --color-zinc-50:       #B8A878;
-  --color-zinc-100:      #B8A878;
-  --color-zinc-200:      #B8A878;
-  --color-zinc-300:      #B8A878;
-  --color-zinc-400:      #B8A878;
-  --color-zinc-500:      #B8A878;
-  --color-zinc-600:      #B8A878;
-  --color-zinc-700:      #B8A878;
-  --color-gray-400:      #B8A878;
-  --color-gray-500:      #B8A878;
+  /* Text → cream white scale */
+  --color-zinc-50:       #F5F0E8;
+  --color-zinc-100:      #EDE6DA;
+  --color-zinc-200:      #E0D8CC;
+  --color-zinc-300:      #C8C0B4;
+  --color-zinc-400:      #A89E94;
+  --color-zinc-500:      #887E76;
+  --color-zinc-600:      #6A6360;
+  --color-gray-400:      #A89E94;
+  --color-gray-500:      #887E76;
+  /* Blues → black (accent) */
+  --color-blue-200:      #555555;
+  --color-blue-300:      #333333;
+  --color-blue-400:      #222222;
+  --color-blue-500:      #1A1A1A;
+  --color-blue-600:      #111111;
+  /* Indigo → black accent */
+  --color-indigo-50:     #3A3836;
+  --color-indigo-100:    #444240;
+  --color-indigo-300:    #555555;
+  --color-indigo-400:    #333333;
+  --color-indigo-500:    #222222;
+  --color-indigo-800:    #888888;
+  /* Status colors — vivid on concrete */
+  --color-red-300:       #F87171;
+  --color-red-400:       #EF4444;
+  --color-purple-300:    #C084FC;
+  --color-emerald-300:   #34D399;
 }
 
 /* ── Base ──────────────────────────────────────────────────────────── */
@@ -56,11 +75,14 @@
 
 body {
   background-color: var(--bg);
-  color: #B8A878;
+  color: var(--cream);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-family: var(--font-space);
 }
+
+/* Concrete theme: text-white → cream */
+.text-white { color: #F5F0E8; }
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -69,14 +91,14 @@ body {
 /* Upgrade button needs dark text on gold background */
 .upgrade-btn,
 .upgrade-btn * {
-  color: #0a1628 !important;
+  color: #111111 !important;
 }
 
 /* ── Scrollbar ─────────────────────────────────────────────────────── */
 ::-webkit-scrollbar          { width: 3px; }
-::-webkit-scrollbar-track    { background: var(--bg); }
-::-webkit-scrollbar-thumb    { background: var(--gold-dark); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+::-webkit-scrollbar-track    { background: var(--bg-card); }
+::-webkit-scrollbar-thumb    { background: var(--accent); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--cream-dim); }
 
 /* ── Animations ────────────────────────────────────────────────────── */
 
@@ -190,6 +212,9 @@ body {
 .text-gold-light { color: var(--gold-light); }
 .text-gold-dark  { color: var(--gold-dark); }
 .text-warm-gray  { color: var(--warm-gray); }
+
+/* Ensure inline black styles in dashboard use concrete surface */
+[style*="background: #FDFBF7"], [style*="background:#FDFBF7"] { background: var(--bg-card) !important; }
 
 .gold-glow { text-shadow: 0 0 40px rgba(201,168,76,0.30); }
 

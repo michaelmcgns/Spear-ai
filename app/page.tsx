@@ -7,15 +7,15 @@ import { motion, useInView, AnimatePresence, type Variants } from "framer-motion
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 
-const BG        = "#050A14";
-const BG_CARD   = "#080F1E";
-const CREAM     = "#B8A878";
-const CREAM_DIM = "#B8A878";
-const BLUE      = "#2563EB";
-const BLUE_LIGHT = "#3B82F6";
+const BG        = "#FDFBF7";
+const BG_CARD   = "#F5F2EA";
+const CREAM     = "#111111";
+const CREAM_DIM = "#555555";
+const BLUE      = "#C9A84C";
+const BLUE_LIGHT = "#DDB96B";
 const GOLD      = "#C9A84C";
-const WARM_GRAY = "#B8A878";
-const DIVIDER   = "rgba(37,99,235,0.14)";
+const WARM_GRAY = "#555555";
+const DIVIDER   = "rgba(0,0,0,0.08)";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -122,18 +122,18 @@ function LiveCallCard() {
       {/* Glow halo */}
       <div style={{
         position: "absolute", inset: -2, borderRadius: "16px",
-        background: `linear-gradient(135deg, rgba(37,99,235,0.35), rgba(201,168,76,0.15))`,
-        filter: "blur(20px)", opacity: 0.8, pointerEvents: "none",
+        background: `linear-gradient(135deg, rgba(201,168,76,0.4), rgba(201,168,76,0.2))`,
+        filter: "blur(20px)", opacity: 0.7, pointerEvents: "none",
       }} />
 
       <div style={{
         position: "relative",
-        backgroundColor: "rgba(8,15,30,0.92)",
-        border: `1px solid rgba(37,99,235,0.45)`,
+        backgroundColor: "#F5F2EA",
+        border: `1px solid rgba(201,168,76,0.5)`,
         borderRadius: "12px",
         padding: "22px",
         backdropFilter: "blur(24px)",
-        boxShadow: `0 0 48px rgba(37,99,235,0.18), 0 24px 64px rgba(0,0,0,0.6)`,
+        boxShadow: `0 0 48px rgba(201,168,76,0.2), 0 24px 48px rgba(0,0,0,0.08)`,
       }}>
         {/* Card header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "18px" }}>
@@ -178,8 +178,8 @@ function LiveCallCard() {
 
               {/* Suggested response */}
               <div style={{
-                backgroundColor: "rgba(37,99,235,0.08)",
-                border: `1px solid rgba(37,99,235,0.22)`,
+                backgroundColor: "rgba(201,168,76,0.08)",
+                border: `1px solid rgba(201,168,76,0.22)`,
                 borderRadius: "8px", padding: "12px 14px", marginBottom: "14px",
               }}>
                 <p style={{ fontSize: "9px", letterSpacing: "0.18em", color: CREAM_DIM, textTransform: "uppercase", fontWeight: 700, marginBottom: "7px" }}>
@@ -208,11 +208,11 @@ function HowStep({ number, icon, title, body }: { number: string; icon: string; 
     <motion.div variants={cardEnter} style={{ textAlign: "center", padding: "0 12px" }}>
       <div style={{
         width: 64, height: 64, borderRadius: "50%",
-        backgroundColor: "rgba(37,99,235,0.1)",
-        border: `1px solid rgba(37,99,235,0.3)`,
+        backgroundColor: "rgba(201,168,76,0.1)",
+        border: `1px solid rgba(201,168,76,0.3)`,
         display: "flex", alignItems: "center", justifyContent: "center",
         fontSize: "26px", margin: "0 auto 20px",
-        boxShadow: `0 0 28px rgba(37,99,235,0.14)`,
+        boxShadow: `0 0 28px rgba(201,168,76,0.14)`,
       }}>
         {icon}
       </div>
@@ -235,7 +235,7 @@ function FeatureCard({ icon, title, description }: { icon: string; title: string
       style={{
         padding: "28px 24px",
         backgroundColor: BG_CARD,
-        border: `1px solid rgba(37,99,235,0.12)`,
+        border: `1px solid rgba(201,168,76,0.12)`,
         borderTop: `2px solid ${BLUE}`,
         borderRadius: "4px",
       }}
@@ -276,14 +276,14 @@ function PricingCard({ tier, annual, onCTA, loading = false }: { tier: PricingTi
         display: "flex", flexDirection: "column",
         padding: "32px 28px",
         backgroundColor: BG_CARD,
-        border: isPopular ? `1px solid rgba(37,99,235,0.5)` : `1px solid rgba(37,99,235,0.12)`,
+        border: isPopular ? `1px solid rgba(201,168,76,0.5)` : `1px solid rgba(201,168,76,0.12)`,
         borderRadius: "8px",
-        boxShadow: isPopular ? `0 0 48px rgba(37,99,235,0.15), 0 20px 60px rgba(0,0,0,0.4)` : "none",
+        boxShadow: isPopular ? `0 0 48px rgba(201,168,76,0.15), 0 20px 60px rgba(0,0,0,0.4)` : "none",
         transform: isPopular ? "scale(1.03)" : "scale(1)",
       }}
     >
       {/* Top accent line */}
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "2px", borderRadius: "8px 8px 0 0", backgroundColor: isPopular ? BLUE : `rgba(37,99,235,0.25)` }} />
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "2px", borderRadius: "8px 8px 0 0", backgroundColor: isPopular ? BLUE : `rgba(201,168,76,0.25)` }} />
 
       {/* Popular badge */}
       {isPopular && (
@@ -301,7 +301,7 @@ function PricingCard({ tier, annual, onCTA, loading = false }: { tier: PricingTi
       {tier.badge && (
         <div style={{
           display: "inline-block", marginBottom: "12px",
-          backgroundColor: "rgba(37,99,235,0.1)", border: `1px solid rgba(37,99,235,0.2)`,
+          backgroundColor: "rgba(201,168,76,0.1)", border: `1px solid rgba(201,168,76,0.2)`,
           borderRadius: "20px", padding: "3px 12px",
           fontSize: "10px", color: CREAM_DIM, letterSpacing: "0.1em",
         }}>
@@ -362,7 +362,7 @@ function PricingCard({ tier, annual, onCTA, loading = false }: { tier: PricingTi
       {/* Tagline */}
       <p style={{ fontSize: "13px", color: CREAM_DIM, lineHeight: 1.6, marginBottom: "22px" }}>{tier.tagline}</p>
 
-      <div style={{ height: 1, backgroundColor: `rgba(37,99,235,0.12)`, marginBottom: "22px" }} />
+      <div style={{ height: 1, backgroundColor: `rgba(201,168,76,0.12)`, marginBottom: "22px" }} />
 
       {/* Features */}
       <ul style={{ display: "flex", flexDirection: "column", gap: "11px", flex: 1, marginBottom: "28px" }}>
@@ -381,7 +381,7 @@ function PricingCard({ tier, annual, onCTA, loading = false }: { tier: PricingTi
       {/* CTA */}
       <motion.button
         onClick={loading ? undefined : onCTA}
-        whileHover={loading ? {} : { scale: 1.02, boxShadow: tier.ctaVariant === "solid" ? `0 0 28px rgba(37,99,235,0.4)` : `0 0 20px rgba(255,255,255,0.06)` }}
+        whileHover={loading ? {} : { scale: 1.02, boxShadow: tier.ctaVariant === "solid" ? `0 0 28px rgba(201,168,76,0.4)` : `0 0 20px rgba(255,255,255,0.06)` }}
         whileTap={loading ? {} : { scale: 0.98 }}
         style={{
           width: "100%", padding: "13px 0", fontSize: "13px", fontWeight: 700,
@@ -458,10 +458,10 @@ function ComparisonTable() {
       <div style={{ textAlign: "center", marginBottom: "20px" }}>
         <motion.button
           onClick={() => setOpen(o => !o)}
-          whileHover={{ backgroundColor: "rgba(37,99,235,0.08)" }}
+          whileHover={{ backgroundColor: "rgba(201,168,76,0.08)" }}
           whileTap={{ scale: 0.98 }}
           style={{
-            background: "none", border: `1px solid rgba(37,99,235,0.22)`,
+            background: "none", border: `1px solid rgba(201,168,76,0.22)`,
             borderRadius: "6px", padding: "10px 28px",
             fontSize: "12px", fontWeight: 700, color: CREAM_DIM,
             letterSpacing: "0.1em", cursor: "pointer",
@@ -488,15 +488,15 @@ function ComparisonTable() {
                 {/* Header */}
                 <thead>
                   <tr>
-                    <th style={{ textAlign: "left", padding: "12px 16px", fontSize: "11px", color: WARM_GRAY, fontWeight: 600, width: "34%", borderBottom: `1px solid rgba(37,99,235,0.12)` }}>Feature</th>
+                    <th style={{ textAlign: "left", padding: "12px 16px", fontSize: "11px", color: WARM_GRAY, fontWeight: 600, width: "34%", borderBottom: `1px solid rgba(201,168,76,0.12)` }}>Feature</th>
                     {COL_HEADS.map((h, i) => (
                       <th key={h} style={{
                         textAlign: "center", padding: "12px 8px",
                         fontSize: "10px", fontWeight: 800, letterSpacing: "0.14em",
                         color: i === 1 ? BLUE_LIGHT : WARM_GRAY,
                         textTransform: "uppercase",
-                        borderBottom: `1px solid rgba(37,99,235,0.12)`,
-                        borderLeft: `1px solid rgba(37,99,235,0.06)`,
+                        borderBottom: `1px solid rgba(201,168,76,0.12)`,
+                        borderLeft: `1px solid rgba(201,168,76,0.06)`,
                       }}>{h}</th>
                     ))}
                   </tr>
@@ -510,11 +510,11 @@ function ComparisonTable() {
                       {COMPARISON_ROWS.filter(r => r.category === cat).map((row, ri) => (
                         <tr
                           key={`${cat}-${ri}`}
-                          style={{ backgroundColor: ri % 2 === 0 ? "rgba(37,99,235,0.02)" : "transparent" }}
+                          style={{ backgroundColor: ri % 2 === 0 ? "rgba(201,168,76,0.02)" : "transparent" }}
                         >
-                          <td style={{ padding: "11px 16px", color: CREAM_DIM, borderBottom: `1px solid rgba(37,99,235,0.06)` }}>{row.feature}</td>
+                          <td style={{ padding: "11px 16px", color: CREAM_DIM, borderBottom: `1px solid rgba(201,168,76,0.06)` }}>{row.feature}</td>
                           {([row.agent, row.pro, row.team, row.enterprise] as (string | boolean)[]).map((val, ci) => (
-                            <td key={ci} style={{ textAlign: "center", padding: "11px 8px", borderBottom: `1px solid rgba(37,99,235,0.06)`, borderLeft: `1px solid rgba(37,99,235,0.06)`, backgroundColor: ci === 1 ? "rgba(37,99,235,0.04)" : "transparent" }}>
+                            <td key={ci} style={{ textAlign: "center", padding: "11px 8px", borderBottom: `1px solid rgba(201,168,76,0.06)`, borderLeft: `1px solid rgba(201,168,76,0.06)`, backgroundColor: ci === 1 ? "rgba(201,168,76,0.04)" : "transparent" }}>
                               <CellValue val={val} />
                             </td>
                           ))}
@@ -693,8 +693,8 @@ function WaitlistModal({ plan, onClose }: { plan: string; onClose: () => void })
 
   const inputStyle: React.CSSProperties = {
     width: "100%", padding: "11px 14px",
-    backgroundColor: "rgba(5,10,20,0.7)",
-    border: "1px solid rgba(37,99,235,0.22)",
+    backgroundColor: "#F5F2EA",
+    border: "1px solid rgba(201,168,76,0.3)",
     borderRadius: "6px", fontSize: "14px",
     color: CREAM, fontFamily: "var(--font-space)",
     outline: "none", transition: "border-color 0.2s",
@@ -730,7 +730,7 @@ function WaitlistModal({ plan, onClose }: { plan: string; onClose: () => void })
           onClick={e => e.stopPropagation()}
           style={{
             width: "100%", maxWidth: "480px",
-            backgroundColor: "#080F1E",
+            backgroundColor: "#FDFBF7",
             border: `1px solid rgba(201,168,76,0.3)`,
             borderTop: `3px solid ${GOLD}`,
             borderRadius: "12px",
@@ -765,7 +765,7 @@ function WaitlistModal({ plan, onClose }: { plan: string; onClose: () => void })
                     placeholder="Jane Smith"
                     style={inputStyle}
                     onFocus={e => (e.target.style.borderColor = "rgba(201,168,76,0.5)")}
-                    onBlur={e => (e.target.style.borderColor = "rgba(37,99,235,0.22)")}
+                    onBlur={e => (e.target.style.borderColor = "rgba(201,168,76,0.22)")}
                   />
                 </div>
 
@@ -777,7 +777,7 @@ function WaitlistModal({ plan, onClose }: { plan: string; onClose: () => void })
                     placeholder="jane@agency.com"
                     style={inputStyle}
                     onFocus={e => (e.target.style.borderColor = "rgba(201,168,76,0.5)")}
-                    onBlur={e => (e.target.style.borderColor = "rgba(37,99,235,0.22)")}
+                    onBlur={e => (e.target.style.borderColor = "rgba(201,168,76,0.22)")}
                   />
                 </div>
 
@@ -792,7 +792,7 @@ function WaitlistModal({ plan, onClose }: { plan: string; onClose: () => void })
                     placeholder="(555) 000-0000"
                     style={inputStyle}
                     onFocus={e => (e.target.style.borderColor = "rgba(201,168,76,0.5)")}
-                    onBlur={e => (e.target.style.borderColor = "rgba(37,99,235,0.22)")}
+                    onBlur={e => (e.target.style.borderColor = "rgba(201,168,76,0.22)")}
                   />
                 </div>
 
@@ -803,9 +803,9 @@ function WaitlistModal({ plan, onClose }: { plan: string; onClose: () => void })
                     value={selectedPlan} onChange={e => setSelectedPlan(e.target.value)}
                     style={{ ...inputStyle, cursor: "pointer" }}
                     onFocus={e => (e.target.style.borderColor = "rgba(201,168,76,0.5)")}
-                    onBlur={e => (e.target.style.borderColor = "rgba(37,99,235,0.22)")}
+                    onBlur={e => (e.target.style.borderColor = "rgba(201,168,76,0.22)")}
                   >
-                    {PLAN_OPTIONS.map(p => <option key={p} value={p} style={{ backgroundColor: "#080F1E" }}>{p}</option>)}
+                    {PLAN_OPTIONS.map(p => <option key={p} value={p} style={{ backgroundColor: "#F5F2EA" }}>{p}</option>)}
                   </select>
                 </div>
 
@@ -816,9 +816,9 @@ function WaitlistModal({ plan, onClose }: { plan: string; onClose: () => void })
                     value={teamSize} onChange={e => setTeamSize(e.target.value)}
                     style={{ ...inputStyle, cursor: "pointer" }}
                     onFocus={e => (e.target.style.borderColor = "rgba(201,168,76,0.5)")}
-                    onBlur={e => (e.target.style.borderColor = "rgba(37,99,235,0.22)")}
+                    onBlur={e => (e.target.style.borderColor = "rgba(201,168,76,0.22)")}
                   >
-                    {TEAM_SIZE_OPTIONS.map(s => <option key={s} value={s} style={{ backgroundColor: "#080F1E" }}>{s}</option>)}
+                    {TEAM_SIZE_OPTIONS.map(s => <option key={s} value={s} style={{ backgroundColor: "#F5F2EA" }}>{s}</option>)}
                   </select>
                 </div>
 
@@ -996,19 +996,19 @@ function DemoModal({ onClose }: { onClose: () => void }) {
           onClick={e => e.stopPropagation()}
           style={{
             width: "100%", maxWidth: "920px",
-            backgroundColor: "#080F1E",
-            border: `1px solid rgba(37,99,235,0.35)`,
+            backgroundColor: "#FDFBF7",
+            border: `1px solid rgba(201,168,76,0.35)`,
             borderRadius: "14px",
             overflow: "hidden",
-            boxShadow: `0 0 80px rgba(37,99,235,0.22), 0 32px 96px rgba(0,0,0,0.7)`,
+            boxShadow: `0 0 80px rgba(201,168,76,0.22), 0 32px 96px rgba(0,0,0,0.7)`,
           }}
         >
           {/* Modal header */}
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
             padding: "14px 22px",
-            borderBottom: `1px solid rgba(37,99,235,0.15)`,
-            backgroundColor: "rgba(37,99,235,0.05)",
+            borderBottom: `1px solid rgba(201,168,76,0.15)`,
+            backgroundColor: "rgba(201,168,76,0.05)",
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <span style={{ fontSize: "13px", fontWeight: 800, color: CREAM, letterSpacing: "0.1em" }}>SPEAR</span>
@@ -1030,7 +1030,7 @@ function DemoModal({ onClose }: { onClose: () => void }) {
           {/* Main body */}
           {!started ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 40px", gap: "28px" }}>
-              <div style={{ width: 80, height: 80, borderRadius: "50%", border: `2px solid rgba(37,99,235,0.4)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "32px", backgroundColor: "rgba(37,99,235,0.08)" }}>
+              <div style={{ width: 80, height: 80, borderRadius: "50%", border: `2px solid rgba(201,168,76,0.4)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "32px", backgroundColor: "rgba(201,168,76,0.08)" }}>
                 ▶
               </div>
               <div style={{ textAlign: "center" }}>
@@ -1040,7 +1040,7 @@ function DemoModal({ onClose }: { onClose: () => void }) {
                 </p>
               </div>
               <motion.button
-                whileHover={{ scale: 1.04, boxShadow: `0 0 32px rgba(37,99,235,0.45)` }}
+                whileHover={{ scale: 1.04, boxShadow: `0 0 32px rgba(201,168,76,0.45)` }}
                 whileTap={{ scale: 0.97 }}
                 onClick={startDemo}
                 style={{
@@ -1057,8 +1057,8 @@ function DemoModal({ onClose }: { onClose: () => void }) {
           ) : (
             <div className="flex flex-col md:flex-row" style={{ minHeight: "440px" }}>
               {/* Transcript panel */}
-              <div style={{ flex: 1, borderRight: `1px solid rgba(37,99,235,0.12)`, display: "flex", flexDirection: "column" }}>
-                <div style={{ padding: "12px 18px", borderBottom: `1px solid rgba(37,99,235,0.1)` }}>
+              <div style={{ flex: 1, borderRight: `1px solid rgba(201,168,76,0.12)`, display: "flex", flexDirection: "column" }}>
+                <div style={{ padding: "12px 18px", borderBottom: `1px solid rgba(201,168,76,0.1)` }}>
                   <p style={{ fontSize: "9px", letterSpacing: "0.22em", color: WARM_GRAY, textTransform: "uppercase", fontWeight: 700 }}>Live Transcript</p>
                 </div>
                 <div ref={transcriptRef} style={{ flex: 1, overflowY: "auto", padding: "20px 18px", display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -1075,8 +1075,8 @@ function DemoModal({ onClose }: { onClose: () => void }) {
                       </span>
                       <div style={{
                         maxWidth: "78%", padding: "10px 14px", borderRadius: "10px",
-                        backgroundColor: line.speaker === "agent" ? "rgba(37,99,235,0.15)" : "rgba(255,255,255,0.05)",
-                        border: line.speaker === "agent" ? `1px solid rgba(37,99,235,0.25)` : `1px solid rgba(255,255,255,0.08)`,
+                        backgroundColor: line.speaker === "agent" ? "rgba(201,168,76,0.15)" : "rgba(0,0,0,0.04)",
+                        border: line.speaker === "agent" ? `1px solid rgba(201,168,76,0.3)` : `1px solid rgba(0,0,0,0.08)`,
                       }}>
                         <p style={{ fontSize: "13px", color: CREAM, lineHeight: 1.6 }}>{line.text}</p>
                       </div>
@@ -1092,7 +1092,7 @@ function DemoModal({ onClose }: { onClose: () => void }) {
 
               {/* Coaching panel */}
               <div style={{ width: "100%", maxWidth: "340px", display: "flex", flexDirection: "column" }}>
-                <div style={{ padding: "12px 18px", borderBottom: `1px solid rgba(37,99,235,0.1)` }}>
+                <div style={{ padding: "12px 18px", borderBottom: `1px solid rgba(201,168,76,0.1)` }}>
                   <p style={{ fontSize: "9px", letterSpacing: "0.22em", color: WARM_GRAY, textTransform: "uppercase", fontWeight: 700 }}>AI Coaching</p>
                 </div>
                 <div style={{ flex: 1, padding: "18px", display: "flex", flexDirection: "column", justifyContent: "flex-start" }}>
@@ -1105,8 +1105,8 @@ function DemoModal({ onClose }: { onClose: () => void }) {
                         exit={{ opacity: 0, y: -12 }}
                         transition={{ duration: 0.4, ease: EASE }}
                         style={{
-                          backgroundColor: "rgba(5,10,20,0.8)",
-                          border: `1px solid ${coaching.typeColor}33`,
+                          backgroundColor: "#F5F2EA",
+                          border: `1px solid ${coaching.typeColor}66`,
                           borderRadius: "10px", padding: "16px",
                           boxShadow: `0 0 28px ${coaching.typeColor}1A`,
                         }}
@@ -1117,8 +1117,8 @@ function DemoModal({ onClose }: { onClose: () => void }) {
                         </div>
                         <p style={{ fontSize: "14px", fontWeight: 700, color: CREAM, marginBottom: "12px", lineHeight: 1.35 }}>{coaching.title}</p>
                         <div style={{
-                          backgroundColor: "rgba(37,99,235,0.07)",
-                          border: `1px solid rgba(37,99,235,0.2)`,
+                          backgroundColor: "rgba(201,168,76,0.07)",
+                          border: `1px solid rgba(201,168,76,0.2)`,
                           borderRadius: "7px", padding: "10px 12px", marginBottom: "12px",
                         }}>
                           <p style={{ fontSize: "9px", letterSpacing: "0.16em", color: CREAM_DIM, textTransform: "uppercase", fontWeight: 700, marginBottom: "6px" }}>SUGGESTED RESPONSE</p>
@@ -1137,7 +1137,7 @@ function DemoModal({ onClose }: { onClose: () => void }) {
                         <motion.div
                           animate={{ scale: [1, 1.08, 1], opacity: [0.5, 1, 0.5] }}
                           transition={{ duration: 2, repeat: Infinity }}
-                          style={{ width: 44, height: 44, borderRadius: "50%", border: `1px solid rgba(37,99,235,0.3)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px" }}
+                          style={{ width: 44, height: 44, borderRadius: "50%", border: `1px solid rgba(201,168,76,0.3)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px" }}
                         >
                           🧠
                         </motion.div>
@@ -1152,7 +1152,7 @@ function DemoModal({ onClose }: { onClose: () => void }) {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.5 }}
-                      style={{ marginTop: "auto", paddingTop: "16px", borderTop: `1px solid rgba(37,99,235,0.1)` }}
+                      style={{ marginTop: "auto", paddingTop: "16px", borderTop: `1px solid rgba(201,168,76,0.1)` }}
                     >
                       <p style={{ fontSize: "9px", letterSpacing: "0.18em", color: WARM_GRAY, textTransform: "uppercase", fontWeight: 700, marginBottom: "10px" }}>Buyer Profile</p>
                       <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
@@ -1174,14 +1174,14 @@ function DemoModal({ onClose }: { onClose: () => void }) {
           {/* Footer */}
           <div style={{
             padding: "12px 22px",
-            borderTop: `1px solid rgba(37,99,235,0.1)`,
+            borderTop: `1px solid rgba(201,168,76,0.1)`,
             display: "flex", alignItems: "center", justifyContent: "space-between",
-            backgroundColor: "rgba(37,99,235,0.03)",
+            backgroundColor: "rgba(201,168,76,0.03)",
           }}>
             <p style={{ fontSize: "10px", color: WARM_GRAY }}>This is a simulated demo — real calls work identically.</p>
             <Link href="/dashboard" onClick={onClose}>
               <motion.button
-                whileHover={{ scale: 1.03, boxShadow: `0 0 20px rgba(37,99,235,0.35)` }}
+                whileHover={{ scale: 1.03, boxShadow: `0 0 20px rgba(201,168,76,0.35)` }}
                 whileTap={{ scale: 0.97 }}
                 style={{
                   backgroundColor: BLUE, color: CREAM, border: "none",
@@ -1249,7 +1249,7 @@ export default function Page() {
         transition={{ duration: 0.8, ease: EASE }}
         style={{
           position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
-          backgroundColor: "rgba(5,10,20,0.94)",
+          backgroundColor: "rgba(253,251,247,0.95)",
           borderBottom: DIVIDER,
           backdropFilter: "blur(20px)",
         }}
@@ -1268,7 +1268,7 @@ export default function Page() {
             <Link href="/login" style={{ fontSize: "11px", letterSpacing: "0.18em", color: WARM_GRAY, textTransform: "uppercase", textDecoration: "none" }}>Sign In</Link>
             <Link href="/dashboard">
               <motion.button
-                whileHover={{ scale: 1.03, boxShadow: `0 0 20px rgba(37,99,235,0.35)` }}
+                whileHover={{ scale: 1.03, boxShadow: `0 0 20px rgba(201,168,76,0.35)` }}
                 whileTap={{ scale: 0.97 }}
                 style={{
                   backgroundColor: BLUE, color: CREAM, border: "none",
@@ -1294,7 +1294,7 @@ export default function Page() {
         <div style={{
           position: "absolute", top: "15%", left: "5%",
           width: "700px", height: "700px", borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(37,99,235,0.07) 0%, transparent 68%)",
+          background: "radial-gradient(circle, rgba(201,168,76,0.07) 0%, transparent 68%)",
           pointerEvents: "none",
         }} />
 
@@ -1309,8 +1309,8 @@ export default function Page() {
                 transition={{ delay: 0.2, duration: 0.7 }}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: "8px",
-                  backgroundColor: "rgba(37,99,235,0.1)",
-                  border: `1px solid rgba(37,99,235,0.28)`,
+                  backgroundColor: "rgba(201,168,76,0.1)",
+                  border: `1px solid rgba(201,168,76,0.28)`,
                   borderRadius: "20px", padding: "5px 14px", marginBottom: "28px",
                 }}
               >
@@ -1354,7 +1354,7 @@ export default function Page() {
               >
                 <Link href="/dashboard">
                   <motion.button
-                    whileHover={{ scale: 1.03, boxShadow: `0 0 36px rgba(37,99,235,0.45)` }}
+                    whileHover={{ scale: 1.03, boxShadow: `0 0 36px rgba(201,168,76,0.45)` }}
                     whileTap={{ scale: 0.98 }}
                     style={{
                       backgroundColor: BLUE, color: CREAM, border: "none",
@@ -1367,7 +1367,7 @@ export default function Page() {
                   </motion.button>
                 </Link>
                 <motion.button
-                  whileHover={{ scale: 1.02, backgroundColor: "rgba(37,99,235,0.07)" }}
+                  whileHover={{ scale: 1.02, backgroundColor: "rgba(201,168,76,0.07)" }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setDemoOpen(true)}
                   style={{
@@ -1659,7 +1659,7 @@ export default function Page() {
             </Reveal>
 
             <Reveal delay={0.2}>
-              <div style={{ backgroundColor: BG_CARD, border: `1px solid rgba(37,99,235,0.2)`, borderTop: `2px solid ${BLUE}`, borderRadius: "6px", padding: "28px 24px" }}>
+              <div style={{ backgroundColor: BG_CARD, border: `1px solid rgba(201,168,76,0.2)`, borderTop: `2px solid ${BLUE}`, borderRadius: "6px", padding: "28px 24px" }}>
                 <p style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", color: BLUE_LIGHT, marginBottom: "20px" }}>
                   With Spear
                 </p>
@@ -1751,8 +1751,8 @@ export default function Page() {
             <Reveal delay={0.1}>
               <div style={{
                 backgroundColor: BG_CARD,
-                border: `1px solid rgba(37,99,235,0.2)`,
-                borderTop: `2px solid rgba(37,99,235,0.5)`,
+                border: `1px solid rgba(201,168,76,0.2)`,
+                borderTop: `2px solid rgba(201,168,76,0.5)`,
                 padding: "36px 32px", borderRadius: "4px",
               }}>
                 <p style={{ fontSize: "12px", fontWeight: 700, color: CREAM, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: "28px" }}>
@@ -1826,7 +1826,7 @@ export default function Page() {
               </p>
 
               {/* Billing toggle */}
-              <div style={{ display: "inline-flex", alignItems: "center", gap: "12px", backgroundColor: BG_CARD, border: `1px solid rgba(37,99,235,0.2)`, borderRadius: "40px", padding: "5px 6px" }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "12px", backgroundColor: BG_CARD, border: `1px solid rgba(201,168,76,0.2)`, borderRadius: "40px", padding: "5px 6px" }}>
                 {(["Monthly", "Annual"] as const).map(label => {
                   const isActive = label === "Annual" ? annual : !annual;
                   return (
@@ -1897,9 +1897,9 @@ export default function Page() {
               display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center",
               gap: "28px", marginTop: "36px",
               padding: "20px 24px",
-              border: `1px solid rgba(37,99,235,0.1)`,
+              border: `1px solid rgba(201,168,76,0.2)`,
               borderRadius: "10px",
-              background: "rgba(8,15,30,0.6)",
+              background: "rgba(245,242,234,0.8)",
             }}>
               {/* Stripe badge */}
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -1910,34 +1910,34 @@ export default function Page() {
                 <span style={{ fontSize: "12px", color: WARM_GRAY, fontWeight: 600 }}>Payments secured by Stripe</span>
               </div>
 
-              <div style={{ width: "1px", height: "20px", background: "rgba(37,99,235,0.15)" }} />
+              <div style={{ width: "1px", height: "20px", background: "rgba(201,168,76,0.15)" }} />
 
               {/* SSL */}
               <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
                 <svg width="14" height="16" viewBox="0 0 14 16" fill="none">
-                  <path d="M7 0L1 2.5V7c0 3.6 2.6 6.9 6 7.8 3.4-.9 6-4.2 6-7.8V2.5L7 0z" fill="rgba(37,99,235,0.3)" stroke="rgba(37,99,235,0.6)" strokeWidth="0.8"/>
+                  <path d="M7 0L1 2.5V7c0 3.6 2.6 6.9 6 7.8 3.4-.9 6-4.2 6-7.8V2.5L7 0z" fill="rgba(201,168,76,0.3)" stroke="rgba(201,168,76,0.6)" strokeWidth="0.8"/>
                   <path d="M4.5 8l1.5 1.5L9.5 6" stroke={BLUE} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 <span style={{ fontSize: "12px", color: WARM_GRAY, fontWeight: 600 }}>256-bit SSL encryption</span>
               </div>
 
-              <div style={{ width: "1px", height: "20px", background: "rgba(37,99,235,0.15)" }} />
+              <div style={{ width: "1px", height: "20px", background: "rgba(201,168,76,0.15)" }} />
 
               {/* Cancel anytime */}
               <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <circle cx="7" cy="7" r="6" stroke="rgba(37,99,235,0.5)" strokeWidth="1"/>
+                  <circle cx="7" cy="7" r="6" stroke="rgba(201,168,76,0.5)" strokeWidth="1"/>
                   <path d="M4.5 7l2 2 3-3" stroke={BLUE} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 <span style={{ fontSize: "12px", color: WARM_GRAY, fontWeight: 600 }}>Cancel anytime — no contracts, no fees</span>
               </div>
 
-              <div style={{ width: "1px", height: "20px", background: "rgba(37,99,235,0.15)" }} />
+              <div style={{ width: "1px", height: "20px", background: "rgba(201,168,76,0.15)" }} />
 
               {/* Questions email */}
               <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
                 <svg width="14" height="12" viewBox="0 0 14 12" fill="none">
-                  <rect x="0.5" y="0.5" width="13" height="11" rx="1.5" stroke="rgba(37,99,235,0.5)" strokeWidth="1"/>
+                  <rect x="0.5" y="0.5" width="13" height="11" rx="1.5" stroke="rgba(201,168,76,0.5)" strokeWidth="1"/>
                   <path d="M1 1.5l6 4.5 6-4.5" stroke={BLUE} strokeWidth="1" strokeLinecap="round"/>
                 </svg>
                 <a href="mailto:Mj3mcginnis@gmail.com" style={{ fontSize: "12px", color: WARM_GRAY, fontWeight: 600, textDecoration: "none" }}>
@@ -1953,14 +1953,14 @@ export default function Page() {
       <section style={{
         padding: "110px 32px",
         background: `linear-gradient(135deg, #060D20 0%, #0B1A3E 50%, #060D20 100%)`,
-        borderTop: `1px solid rgba(37,99,235,0.18)`,
+        borderTop: `1px solid rgba(201,168,76,0.18)`,
         position: "relative", overflow: "hidden",
       }}>
         <div style={{
           position: "absolute", top: "50%", left: "50%",
           transform: "translate(-50%, -50%)",
           width: "900px", height: "500px",
-          background: "radial-gradient(ellipse, rgba(37,99,235,0.1) 0%, transparent 68%)",
+          background: "radial-gradient(ellipse, rgba(201,168,76,0.1) 0%, transparent 68%)",
           pointerEvents: "none",
         }} />
         <Reveal>
@@ -1994,7 +1994,7 @@ export default function Page() {
       </section>
 
       {/* ── FOOTER ───────────────────────────────────────── */}
-      <footer style={{ backgroundColor: BG, borderTop: `1px solid rgba(37,99,235,0.1)`, padding: "40px 32px" }}>
+      <footer style={{ backgroundColor: BG, borderTop: `1px solid rgba(201,168,76,0.1)`, padding: "40px 32px" }}>
         <div style={{ maxWidth: "1100px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "24px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "20px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -2008,7 +2008,7 @@ export default function Page() {
               <Link href="/Privacy" style={{ fontSize: "11px", color: WARM_GRAY, textDecoration: "none", letterSpacing: "0.12em", textTransform: "uppercase" }}>Privacy</Link>
             </div>
           </div>
-          <div style={{ height: 1, backgroundColor: `rgba(37,99,235,0.08)` }} />
+          <div style={{ height: 1, backgroundColor: `rgba(201,168,76,0.08)` }} />
           <p style={{ fontSize: "10px", color: WARM_GRAY, letterSpacing: "0.1em" }}>© 2026 Spear. All rights reserved.</p>
         </div>
       </footer>
