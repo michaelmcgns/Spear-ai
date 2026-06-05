@@ -7,8 +7,8 @@ import { motion, useInView, AnimatePresence, type Variants } from "framer-motion
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 
-const BG        = "#F5F0E8";
-const BG_CARD   = "#F5EDD8";
+const BG        = "#EDE8DC";
+const BG_CARD   = "#F5F0E4";
 const CREAM     = "#1C1C1A";
 const CREAM_DIM = "#7A7060";
 const BLUE      = "#8C6D2F";
@@ -1249,7 +1249,7 @@ export default function Page() {
         transition={{ duration: 0.8, ease: EASE }}
         style={{
           position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
-          backgroundColor: "rgba(245,240,232,0.95)",
+          backgroundColor: "rgba(237,232,220,0.95)",
           borderBottom: DIVIDER,
           backdropFilter: "blur(20px)",
         }}

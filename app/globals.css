@@ -10,8 +10,8 @@
   --color-blue:          #8C6D2F;
 
   /* Legacy tokens */
-  --bg:           #F5F0E8;
-  --bg-card:      #F5EDD8;
+  --bg:           #EDE8DC;
+  --bg-card:      #F5F0E4;
   --cream:        #F5F0E8;
   --cream-dim:    #7A7060;
   --gold:         #8C6D2F;
@@ -31,11 +31,11 @@
   /* Backgrounds → light parchment scale */
   --color-black:         #0E1810;
   --color-zinc-950:      #1A2C1E;
-  --color-zinc-900:      #F5EDD8;
-  --color-zinc-800:      #F5F0E8;
-  --color-zinc-700:      #EDE5D8;
-  --color-gray-900:      #FDFAF5;
-  --color-slate-900:     #FDFAF5;
+  --color-zinc-900:      #F5F0E4;
+  --color-zinc-800:      #EDE8DC;
+  --color-zinc-700:      #DDD5C0;
+  --color-gray-900:      #F5F0E4;
+  --color-slate-900:     #F5F0E4;
   /* Antique brass accents */
   --color-amber-300:     #A07E3F;
   --color-amber-400:     #8C6D2F;
@@ -201,11 +201,7 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background-image: url('/spear-logo.PNG');
-  background-repeat: no-repeat;
-  background-position: center center;
-  background-size: 600px auto;
-  opacity: 0.04;
+  background: transparent;
   pointer-events: none;
   z-index: 2;
 }
@@ -228,3 +224,8 @@ body {
   border: none;
   border-top: 1px solid var(--divider);
 }
+
+/* ── Surface border override ───────────────────────────────────────── */
+/* border-zinc-800 is shared with bg-zinc-800 (page bg); force card borders to #DDD5C0 */
+.border-zinc-800    { border-color: #DDD5C0; }
+.border-zinc-800\/60 { border-color: rgba(221,213,192,0.6); }
