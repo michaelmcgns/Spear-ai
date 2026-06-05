@@ -2576,6 +2576,18 @@ function DashboardPage() {
           </div>
 
           <nav className="flex-1 px-3 py-4 space-y-0.5">
+            {/* Live Call — navigates to full-screen live call page */}
+            <Link
+              href="/dashboard/live"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors border border-[#4A7C59]/30 bg-[#4A7C59]/10 text-[#C8D9CB] hover:bg-[#2C4A32] mb-1"
+            >
+              <Mic className="h-4 w-4 shrink-0 text-[#4A7C59]" />
+              Live Call
+              <span style={{ fontSize: "9px", marginLeft: "auto", padding: "2px 6px", borderRadius: 4, backgroundColor: "rgba(74,124,89,0.3)", color: "#4A7C59", fontWeight: 700, letterSpacing: "0.1em" }}>
+                LIVE
+              </span>
+            </Link>
+
             {NAV.map(({ id, label, Icon, feature }) => {
               const locked = !hasFeature(feature);
               return (
