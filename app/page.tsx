@@ -1952,35 +1952,35 @@ export default function Page() {
       {/* ── CTA BANNER ───────────────────────────────────── */}
       <section style={{
         padding: "110px 32px",
-        background: `linear-gradient(135deg, #060D20 0%, #0B1A3E 50%, #060D20 100%)`,
-        borderTop: `1px solid rgba(201,168,76,0.18)`,
+        backgroundColor: "#1A2C1E",
+        borderTop: `1px solid rgba(74,124,89,0.25)`,
         position: "relative", overflow: "hidden",
       }}>
         <div style={{
           position: "absolute", top: "50%", left: "50%",
           transform: "translate(-50%, -50%)",
           width: "900px", height: "500px",
-          background: "radial-gradient(ellipse, rgba(201,168,76,0.1) 0%, transparent 68%)",
+          background: "transparent",
           pointerEvents: "none",
         }} />
         <Reveal>
           <div style={{ position: "relative", zIndex: 10, maxWidth: "600px", margin: "0 auto", textAlign: "center" }}>
             <h2 style={{
               fontFamily: "var(--font-space)", fontSize: "clamp(28px, 5vw, 56px)",
-              fontWeight: 800, color: CREAM, lineHeight: 1.04,
+              fontWeight: 800, color: "#F5F0E8", lineHeight: 1.04,
               marginBottom: "20px", letterSpacing: "-0.03em",
             }}>
               Every call is a rep.<br />Start training smarter.
             </h2>
-            <p style={{ fontSize: "16px", color: CREAM_DIM, lineHeight: 1.75, marginBottom: "44px" }}>
+            <p style={{ fontSize: "16px", color: "#C8D9CB", lineHeight: 1.75, marginBottom: "44px" }}>
               The AI co-pilot built exclusively for life insurance agents.
             </p>
             <Link href="/dashboard">
               <motion.button
-                whileHover={{ scale: 1.04, boxShadow: `0 0 56px rgba(201,168,76,0.45)` }}
+                whileHover={{ scale: 1.04, boxShadow: `0 0 56px rgba(140,109,47,0.45)` }}
                 whileTap={{ scale: 0.97 }}
                 style={{
-                  backgroundColor: GOLD, color: "#060D20", border: "none",
+                  backgroundColor: "#8C6D2F", color: "#FAF5EC", border: "none",
                   padding: "18px 52px", fontSize: "16px", fontWeight: 800,
                   letterSpacing: "0.06em", cursor: "pointer", borderRadius: "6px",
                   fontFamily: "var(--font-space)",
