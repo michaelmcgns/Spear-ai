@@ -10,9 +10,9 @@
   --color-blue:          #8C6D2F;
 
   /* Legacy tokens */
-  --bg:           #EDE8DC;
-  --bg-card:      #F5F0E4;
-  --cream:        #F5F0E8;
+  --bg:           #E8E2D4;
+  --bg-card:      #F0EAD8;
+  --cream:        #F0EAD8;
   --cream-dim:    #7A7060;
   --gold:         #8C6D2F;
   --gold-light:   #A07E3F;
@@ -31,11 +31,11 @@
   /* Backgrounds → light parchment scale */
   --color-black:         #0E1810;
   --color-zinc-950:      #1A2C1E;
-  --color-zinc-900:      #F5F0E4;
-  --color-zinc-800:      #EDE8DC;
+  --color-zinc-900:      #F0EAD8;
+  --color-zinc-800:      #E8E2D4;
   --color-zinc-700:      #DDD5C0;
-  --color-gray-900:      #F5F0E4;
-  --color-slate-900:     #F5F0E4;
+  --color-gray-900:      #F0EAD8;
+  --color-slate-900:     #F0EAD8;
   /* Antique brass accents */
   --color-amber-300:     #A07E3F;
   --color-amber-400:     #8C6D2F;
@@ -225,7 +225,15 @@ body {
   border-top: 1px solid var(--divider);
 }
 
-/* ── Surface border override ───────────────────────────────────────── */
-/* border-zinc-800 is shared with bg-zinc-800 (page bg); force card borders to #DDD5C0 */
-.border-zinc-800    { border-color: #DDD5C0; }
+/* ── Surface color hard overrides ─────────────────────────────────── */
+/* Explicit rules beat @theme variables if the CSS variable doesn't cascade correctly */
+.bg-zinc-900       { background-color: #F0EAD8; }
+.bg-zinc-900\/80   { background-color: rgba(240,234,216,0.8); }
+.bg-zinc-900\/60   { background-color: rgba(240,234,216,0.6); }
+.bg-zinc-900\/40   { background-color: rgba(240,234,216,0.4); }
+.bg-zinc-800       { background-color: #E8E2D4; }
+.bg-zinc-800\/60   { background-color: rgba(232,226,212,0.6); }
+.bg-zinc-800\/40   { background-color: rgba(232,226,212,0.4); }
+.border-zinc-800   { border-color: #DDD5C0; }
 .border-zinc-800\/60 { border-color: rgba(221,213,192,0.6); }
+.divide-zinc-800\/60 > * + * { border-color: rgba(221,213,192,0.6); }
