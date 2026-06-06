@@ -1,724 +1,437 @@
-"use client";
+'use client'
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import Link from "next/link";
-import { ArrowLeft, Mic, MicOff, X } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { createClient } from '@supabase/supabase-js'
+import Link from 'next/link'
+import { ArrowLeft, Phone, PhoneOff, Mic, MicOff, X } from 'lucide-react'
 
-// ─── Web Speech API — webkit prefix support ───────────────────────────────────
-declare global {
-  interface Window {
-    webkitSpeechRecognition: typeof SpeechRecognition;
-  }
-}
+const sb = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+)
 
-// ─── Objection / response database ───────────────────────────────────────────
 const OBJECTION_DB = [
   {
-    triggers: [
-      "we already have coverage",
-      "already have life insurance",
-      "already covered",
-      "coverage through work",
-      "have insurance through",
-    ],
-    label: "Already Has Coverage",
-    response:
-      "That's great — most employer plans cover 1–2× salary. If you passed away tonight, how long would that last your family? Let's make sure the gap is actually covered.",
+    triggers: ['already have coverage', 'already have life insurance', 'have a policy', 'covered already'],
+    label: 'Already Has Coverage',
+    response: "I completely understand — and that's great you're already thinking about protection. The question isn't whether you have coverage, it's whether what you have is enough. Does your current policy cover your family's full income replacement if something happened to you tomorrow?",
   },
   {
-    triggers: [
-      "can't afford",
-      "cannot afford",
-      "not in the budget",
-      "tight on money",
-      "don't have the money",
-      "too much money",
-    ],
+    triggers: ["can't afford", 'cannot afford', 'too broke', 'no money', 'tight budget'],
     label: "Can't Afford It",
-    response:
-      "Compared to what? Most policies run $4–8 a day. What's peace of mind worth to your family if something happened tomorrow?",
+    response: "Most families I work with feel that way — until we figure out what they'd actually lose without coverage. Life insurance is often less than a Netflix subscription. What would it mean for your family if your income stopped?",
   },
   {
-    triggers: [
-      "talk to my spouse",
-      "check with my wife",
-      "check with my husband",
-      "run it by my partner",
-      "need to ask my",
-      "discuss with my spouse",
-    ],
-    label: "Needs Spouse Approval",
-    response:
-      "Of course — what would you need to feel comfortable presenting this to them? I can help you frame it so it's a five-minute conversation.",
+    triggers: ['talk to my spouse', 'ask my wife', 'ask my husband', 'check with my partner', 'need to discuss'],
+    label: 'Needs Spouse Approval',
+    response: "That makes total sense — this is a family decision. Can we set a quick 10-minute call with both of you? I can walk through the numbers once so you're on the same page.",
   },
   {
-    triggers: [
-      "too expensive",
-      "costs too much",
-      "that's too much",
-      "way too expensive",
-      "price is too high",
-      "monthly is too high",
-    ],
-    label: "Price Objection",
-    response:
-      "I understand. What specifically feels too expensive — the monthly amount, or the comparison to something else? Let's break it down together.",
+    triggers: ['too expensive', 'costs too much', 'price is too high', "that's a lot", 'seems expensive'],
+    label: 'Price Objection',
+    response: "The cost of NOT being covered — for your family — is exponentially higher. What's your biggest concern: the monthly amount, or what it covers?",
   },
   {
-    triggers: [
-      "let me think about it",
-      "need to think",
-      "think it over",
-      "think about it",
-      "sleep on it",
-    ],
-    label: "Needs Time to Decide",
-    response:
-      "What specifically did you want to think through — the coverage amount, the cost, or something else? Let's address it right now so you're not left wondering.",
+    triggers: ['let me think about it', 'need to think', 'not ready yet', 'want to sleep on it'],
+    label: 'Needs Time to Decide',
+    response: "Totally fair. Usually when someone wants to think on it, there's one specific question that's not answered yet. What is it for you?",
   },
   {
-    triggers: [
-      "not interested",
-      "i'm not interested",
-      "no thanks",
-      "not looking for",
-      "don't need life insurance",
-      "not looking to buy",
-    ],
-    label: "Not Interested",
-    response:
-      "Before we wrap up — if something happened to you tomorrow, how long would your family be financially stable without your income? I just want to make sure you've thought through that.",
+    triggers: ['not interested', "don't want it", "don't need it", 'not for me', 'no thanks'],
+    label: 'Not Interested',
+    response: "I hear you. Who in your life would be most financially impacted if you weren't around? That's usually what makes this relevant.",
   },
   {
-    triggers: [
-      "not the right time",
-      "have to wait",
-      "bad timing",
-      "wrong time",
-      "maybe next year",
-      "wait until",
-    ],
-    label: "Timing Objection",
-    response:
-      "What's driving the timing? The longer we wait, the more coverage costs. A healthy 35-year-old pays roughly half what a 45-year-old pays for the same benefit.",
+    triggers: ['not the right time', 'bad timing', 'wait until', 'come back later'],
+    label: 'Timing Objection',
+    response: "Rates are lower right now than they will be. What would need to be different for it to be the right time?",
   },
   {
-    triggers: [
-      "already talked to someone",
-      "spoke with another agent",
-      "another company",
-      "already have a quote",
-      "already shopping",
-    ],
-    label: "Already Shopped",
-    response:
-      "Great — what did they show you? I want to make sure you're comparing apples to apples before you make a final decision.",
+    triggers: ['already talked to someone', 'already have an agent', 'have a broker', 'working with someone'],
+    label: 'Already Shopped',
+    response: "Are you confident the plan you were shown was the best product at the best rate for your situation? I work with 40+ carriers — I'd love to show you a comparison in under 10 minutes.",
   },
   {
-    triggers: [
-      "send me information",
-      "email me the details",
-      "send me more info",
-      "leave your card",
-      "send something over",
-    ],
-    label: "Wants Info First",
-    response:
-      "What specifically would you want to see? I'd rather send you exactly what matters to your situation than a generic packet.",
+    triggers: ['send me information', 'send me something', 'email me', 'drop something in the mail'],
+    label: 'Wants Info First',
+    response: "Instead of sending something generic, let me ask you two questions first so I can make sure what I send is actually relevant to your situation.",
   },
   {
-    triggers: [
-      "we're fine",
-      "i'm fine",
-      "we're good",
-      "healthy and fine",
-      "nothing is going to happen",
-      "don't think we need",
-    ],
-    label: "No Perceived Need",
-    response:
-      "Good to hear. Out of curiosity — if something happened to you tomorrow, how long would your family be financially stable without your income?",
+    triggers: ["we're fine", "we're good", 'everything is fine', 'no need', "don't need anything"],
+    label: 'No Perceived Need',
+    response: "If your income stopped today, how long could your family maintain their current lifestyle? That's the question worth answering now rather than later.",
   },
-];
+]
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-interface TranscriptLine {
-  id: string;
-  text: string;
-  final: boolean;
-}
+type DeviceStatus = 'loading' | 'registering' | 'ready' | 'calling' | 'connected' | 'ended' | 'error'
+interface TranscriptLine { id: string; text: string; final: boolean }
+interface CaughtObjection { id: string; label: string; response: string; quote: string; time: string }
 
-interface CaughtObjection {
-  id: string;
-  label: string;
-  response: string;
-  quote: string;
-  time: string;
-}
+const fmt = (s: number) =>
+  `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function fmtElapsed(s: number) {
-  return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
-}
-
-function nowStamp() {
-  return new Date().toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
-
-let _idSeq = 0;
-function uid() {
-  return (++_idSeq).toString();
-}
-
-// ─── Component ────────────────────────────────────────────────────────────────
 export default function LiveCallPage() {
-  const [live, setLive]               = useState(false);
-  const [lines, setLines]             = useState<TranscriptLine[]>([]);
-  const [objections, setObjections]   = useState<CaughtObjection[]>([]);
-  const [flash, setFlash]             = useState<CaughtObjection | null>(null);
-  const [showSummary, setShowSummary] = useState(false);
-  const [supported, setSupported]     = useState<boolean | null>(null);
-  const [micError, setMicError]       = useState<string | null>(null);
-  const [elapsed, setElapsed]         = useState(0);
+  const [status, setStatus] = useState<DeviceStatus>('loading')
+  const [phone, setPhone] = useState('')
+  const [lines, setLines] = useState<TranscriptLine[]>([])
+  const [objections, setObjections] = useState<CaughtObjection[]>([])
+  const [flash, setFlash] = useState<CaughtObjection | null>(null)
+  const [showSummary, setShowSummary] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
+  const [muted, setMuted] = useState(false)
+  const [err, setErr] = useState('')
 
-  const recogRef    = useRef<InstanceType<typeof SpeechRecognition> | null>(null);
-  const scrollRef   = useRef<HTMLDivElement>(null);
-  const seenRef     = useRef<Set<string>>(new Set());
-  const timerRef    = useRef<ReturnType<typeof setInterval> | null>(null);
-  const flashRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const liveRef     = useRef(false);
+  const deviceRef = useRef<any>(null)
+  const callRef = useRef<any>(null)
+  const channelRef = useRef<any>(null)
+  const seenRef = useRef(new Set<string>())
+  const elapsedRef = useRef(0)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const flashRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cleanedRef = useRef(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
-  // ── Check browser support ──────────────────────────────────────────────────
+  // Init Twilio Device
   useEffect(() => {
-    const SR = typeof window !== "undefined"
-      ? (window.SpeechRecognition || window.webkitSpeechRecognition)
-      : null;
-    setSupported(!!SR);
-  }, []);
+    let device: any
+    async function init() {
+      try {
+        const { Device } = await import('@twilio/voice-sdk')
+        const res = await fetch('/api/calls/token')
+        const data = await res.json()
+        if (data.error) throw new Error(data.error)
 
-  // ── Auto-scroll transcript ─────────────────────────────────────────────────
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [lines]);
+        device = new Device(data.token, { logLevel: 1 })
+        deviceRef.current = device
+        device.on('registered', () => setStatus('ready'))
+        device.on('error', (e: any) => {
+          setErr(e.message || 'Device error')
+          setStatus('error')
+        })
+        setStatus('registering')
+        await device.register()
+      } catch (e: any) {
+        setErr(e.message || 'Failed to load call device')
+        setStatus('error')
+      }
+    }
+    init()
+    return () => { device?.destroy() }
+  }, [])
 
-  // ── Cleanup on unmount ─────────────────────────────────────────────────────
-  useEffect(() => {
-    return () => {
-      recogRef.current?.stop();
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (flashRef.current) clearTimeout(flashRef.current);
-    };
-  }, []);
+  const cleanup = useCallback((withSummary = true) => {
+    if (cleanedRef.current) return
+    cleanedRef.current = true
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+    if (flashRef.current) { clearTimeout(flashRef.current); flashRef.current = null }
+    channelRef.current?.unsubscribe()
+    channelRef.current = null
+    callRef.current = null
+    setMuted(false)
+    setFlash(null)
+    setStatus('ended')
+    if (withSummary) setShowSummary(true)
+  }, [])
 
-  // ── Objection detection ────────────────────────────────────────────────────
   const checkObjection = useCallback((text: string) => {
-    const lower = text.toLowerCase();
-    for (const obj of OBJECTION_DB) {
-      for (const trigger of obj.triggers) {
-        const key = obj.label + "|" + trigger;
-        if (lower.includes(trigger) && !seenRef.current.has(key)) {
-          seenRef.current.add(key);
-          const caught: CaughtObjection = {
-            id: uid(),
-            label: obj.label,
-            response: obj.response,
-            quote: `"${text.slice(0, 100)}${text.length > 100 ? "…" : ""}"`,
-            time: nowStamp(),
-          };
-          setObjections(prev => [caught, ...prev]);
-          setFlash(caught);
-          if (flashRef.current) clearTimeout(flashRef.current);
-          flashRef.current = setTimeout(() => setFlash(null), 7000);
-          return;
+    const lower = text.toLowerCase()
+    for (const entry of OBJECTION_DB) {
+      if (seenRef.current.has(entry.label)) continue
+      if (entry.triggers.some(t => lower.includes(t))) {
+        seenRef.current.add(entry.label)
+        const obj: CaughtObjection = {
+          id: crypto.randomUUID(),
+          label: entry.label,
+          response: entry.response,
+          quote: text,
+          time: fmt(elapsedRef.current),
         }
+        setObjections(prev => [...prev, obj])
+        setFlash(obj)
+        if (flashRef.current) clearTimeout(flashRef.current)
+        flashRef.current = setTimeout(() => setFlash(null), 7000)
+        break
       }
     }
-  }, []);
+  }, [])
 
-  // ── Speech recognition lifecycle ───────────────────────────────────────────
-  const startRecog = useCallback(() => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recog = new SR();
-    recog.continuous = true;
-    recog.interimResults = true;
-    recog.lang = "en-US";
-
-    recog.onresult = (e: SpeechRecognitionEvent) => {
-      let finalText = "";
-      let interimText = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const transcript = e.results[i][0].transcript;
-        if (e.results[i].isFinal) finalText += transcript;
-        else interimText += transcript;
+  const handleTranscript = useCallback((text: string, isFinal: boolean) => {
+    if (!text.trim()) return
+    setLines(prev => {
+      const last = prev[prev.length - 1]
+      if (last && !last.final) {
+        return [...prev.slice(0, -1), { id: last.id, text, final: isFinal }]
       }
+      return [...prev, { id: crypto.randomUUID(), text, final: isFinal }]
+    })
+    if (isFinal) checkObjection(text)
+    setTimeout(() => {
+      if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }, 50)
+  }, [checkObjection])
 
-      if (finalText.trim()) {
-        setLines(prev => {
-          const finals = prev.filter(l => l.final);
-          return [...finals, { id: uid(), text: finalText.trim(), final: true }];
-        });
-        checkObjection(finalText);
-      }
+  const startCall = useCallback(async () => {
+    if (status !== 'ready' || !deviceRef.current) return
+    const number = phone.trim()
+    if (!number) { setErr('Enter a phone number'); return }
 
-      if (interimText) {
-        setLines(prev => {
-          const finals = prev.filter(l => l.final);
-          return [...finals, { id: "interim", text: interimText, final: false }];
-        });
-      }
-    };
+    cleanedRef.current = false
+    const sid = crypto.randomUUID()
+    seenRef.current.clear()
+    elapsedRef.current = 0
+    setLines([])
+    setObjections([])
+    setFlash(null)
+    setShowSummary(false)
+    setElapsed(0)
+    setErr('')
+    setStatus('calling')
 
-    recog.onerror = (e: SpeechRecognitionErrorEvent) => {
-      if (e.error === "not-allowed") {
-        setMicError("Microphone access denied. Please allow mic access in browser settings and try again.");
-        liveRef.current = false;
-        setLive(false);
-        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-      }
-      // "no-speech" is expected during silence — ignore it
-    };
-
-    // Restart automatically on silence (SpeechRecognition auto-stops)
-    recog.onend = () => {
-      if (liveRef.current) {
-        try { recog.start(); } catch { /* already starting */ }
-      }
-    };
-
-    recogRef.current = recog;
     try {
-      recog.start();
-    } catch (err) {
-      setMicError("Failed to start microphone. Please check your browser permissions.");
-      liveRef.current = false;
-      setLive(false);
-    }
-  }, [checkObjection]);
+      const ch = sb
+        .channel(`call:${sid}`)
+        .on('broadcast', { event: 'transcript' }, ({ payload }: any) => {
+          if (payload?.text) handleTranscript(payload.text, payload.final === true)
+        })
+        .subscribe()
+      channelRef.current = ch
 
-  const startCall = useCallback(() => {
-    setMicError(null);
-    setLines([]);
-    setObjections([]);
-    seenRef.current.clear();
-    setFlash(null);
-    setShowSummary(false);
-    setElapsed(0);
-    liveRef.current = true;
-    setLive(true);
-    startRecog();
-    timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000);
-  }, [startRecog]);
+      const call = await deviceRef.current.connect({
+        params: { Phone: number, SessionId: sid },
+      })
+      callRef.current = call
+
+      call.on('accept', () => {
+        setStatus('connected')
+        if (timerRef.current) clearInterval(timerRef.current)
+        timerRef.current = setInterval(() => {
+          elapsedRef.current += 1
+          setElapsed(elapsedRef.current)
+        }, 1000)
+      })
+      call.on('disconnect', () => cleanup())
+      call.on('cancel', () => {
+        channelRef.current?.unsubscribe()
+        channelRef.current = null
+        setStatus('ready')
+      })
+      call.on('error', (e: any) => {
+        setErr(e.message || 'Call error')
+        cleanup(false)
+      })
+    } catch (e: any) {
+      setErr(e.message || 'Failed to start call')
+      channelRef.current?.unsubscribe()
+      channelRef.current = null
+      setStatus('ready')
+    }
+  }, [status, phone, handleTranscript, cleanup])
 
   const endCall = useCallback(() => {
-    liveRef.current = false;
-    setLive(false);
-    recogRef.current?.stop();
-    recogRef.current = null;
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    if (flashRef.current) { clearTimeout(flashRef.current); flashRef.current = null; }
-    setFlash(null);
-    // Drop any interim line before showing summary
-    setLines(prev => prev.filter(l => l.final));
-    setShowSummary(true);
-  }, []);
+    callRef.current?.disconnect()
+    cleanup()
+  }, [cleanup])
 
-  // ── Not supported fallback ─────────────────────────────────────────────────
-  if (supported === false) {
-    return (
-      <div style={{ minHeight: "100vh", backgroundColor: "var(--bg)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, padding: 40, fontFamily: "var(--font-space), system-ui, sans-serif" }}>
-        <div style={{ width: 48, height: 48, borderRadius: 12, backgroundColor: "rgba(139,58,58,0.1)", border: "1px solid rgba(139,58,58,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>
-          🎤
-        </div>
-        <div style={{ textAlign: "center", maxWidth: 400 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#1C1C1A", marginBottom: 8 }}>Browser Not Supported</h2>
-          <p style={{ fontSize: 14, color: "#7A7060", lineHeight: 1.7 }}>
-            Live transcription requires the Web Speech API, which is available in Chrome and Edge.
-            Please open this page in Chrome and try again.
-          </p>
-        </div>
-        <Link href="/dashboard" style={{ fontSize: 13, color: "#8C6D2F", textDecoration: "none" }}>
-          ← Back to Dashboard
-        </Link>
-      </div>
-    );
-  }
+  const toggleMute = useCallback(() => {
+    if (!callRef.current) return
+    const next = !muted
+    callRef.current.mute(next)
+    setMuted(next)
+  }, [muted])
 
-  if (supported === null) return null;
+  const inCall = status === 'calling' || status === 'connected'
 
-  // ── Main UI ────────────────────────────────────────────────────────────────
   return (
-    <div style={{
-      height: "100vh",
-      backgroundColor: "var(--bg)",
-      display: "flex",
-      flexDirection: "column",
-      fontFamily: "var(--font-space), system-ui, sans-serif",
-      overflow: "hidden",
-    }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#E8E2D4', fontFamily: 'var(--font-space, system-ui, sans-serif)', overflow: 'hidden' }}>
 
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <header style={{
-        backgroundColor: "#1A2C1E",
-        borderBottom: "1px solid #2C4A32",
-        padding: "0 24px",
-        height: 56,
-        flexShrink: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: 6, color: "#C8D9CB", fontSize: 13, textDecoration: "none", opacity: 0.7 }}>
-            <ArrowLeft size={14} />
-            Dashboard
+      {/* Header */}
+      <header style={{ backgroundColor: '#1A2C1E', height: 56, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Link href="/dashboard" style={{ color: '#C8D9CB', display: 'flex', alignItems: 'center', gap: 5, textDecoration: 'none', fontSize: 12 }}>
+            <ArrowLeft size={13} /> Dashboard
           </Link>
-          <span style={{ color: "#2C4A32" }}>|</span>
-          <span style={{ color: "#C8D9CB", fontWeight: 800, letterSpacing: "-0.3px", fontSize: 16 }}>SPEAR</span>
-          <span style={{ fontSize: 11, color: "#C8D9CB", opacity: 0.5, letterSpacing: "0.18em", textTransform: "uppercase" }}>Live</span>
+          <span style={{ color: '#4A7C59' }}>|</span>
+          <span style={{ color: '#C8D9CB', fontWeight: 700, fontSize: 14, letterSpacing: '0.06em' }}>SPEAR LIVE</span>
+          {inCall && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, backgroundColor: 'rgba(74,124,89,0.2)', border: '1px solid rgba(74,124,89,0.4)', fontSize: 10, fontWeight: 700, color: '#4A7C59', letterSpacing: '0.08em' }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#4A7C59', animation: 'livePulse 1.4s ease-in-out infinite' }} />
+              {status === 'connected' ? 'LIVE' : 'CONNECTING'}
+            </span>
+          )}
         </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          {live && (
-            <>
-              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <div style={{
-                  width: 8, height: 8, borderRadius: "50%",
-                  backgroundColor: "#4A7C59",
-                  boxShadow: "0 0 8px #4A7C59",
-                  animation: "livePulse 1.5s ease-in-out infinite",
-                }} />
-                <span style={{ fontSize: 10, color: "#4A7C59", fontWeight: 700, letterSpacing: "0.18em" }}>LIVE</span>
-              </div>
-              <span style={{ fontSize: 13, color: "#C8D9CB", opacity: 0.65, fontVariantNumeric: "tabular-nums" }}>
-                {fmtElapsed(elapsed)}
-              </span>
-            </>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {status === 'connected' && (
+            <span style={{ color: '#C8D9CB', fontFamily: 'monospace', fontSize: 13 }}>{fmt(elapsed)}</span>
+          )}
+          {inCall && (
+            <button onClick={toggleMute} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 7, backgroundColor: muted ? 'rgba(139,58,58,0.2)' : 'rgba(255,255,255,0.07)', border: `1px solid ${muted ? 'rgba(139,58,58,0.4)' : 'rgba(255,255,255,0.1)'}`, color: muted ? '#D08080' : '#C8D9CB', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {muted ? <MicOff size={12} /> : <Mic size={12} />}
+              {muted ? 'Unmute' : 'Mute'}
+            </button>
+          )}
+          {inCall && (
+            <button onClick={endCall} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 13px', borderRadius: 7, backgroundColor: 'rgba(139,58,58,0.2)', border: '1px solid rgba(139,58,58,0.45)', color: '#D08080', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <PhoneOff size={12} /> End Call
+            </button>
           )}
         </div>
       </header>
 
-      {/* ── Content ─────────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", padding: "20px 24px 0 24px" }}>
-
-        {/* Flash alert */}
-        {flash && (
-          <div style={{
-            backgroundColor: "rgba(140,109,47,0.10)",
-            border: "1px solid rgba(140,109,47,0.30)",
-            borderLeft: "3px solid #8C6D2F",
-            borderRadius: 8,
-            padding: "14px 16px",
-            marginBottom: 16,
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 12,
-            animation: "alertIn 0.2s ease",
-          }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <span style={{
-                  fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
-                  textTransform: "uppercase", color: "#8C6D2F",
-                  border: "1px solid #8C6D2F", borderRadius: 4, padding: "2px 7px",
-                }}>PHASE ALERT</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "#1C1C1A" }}>{flash.label}</span>
-                <span style={{ fontSize: 11, color: "#9A9080", marginLeft: "auto" }}>{flash.time}</span>
-              </div>
-              <p style={{ fontSize: 12, color: "#5A4A30", fontStyle: "italic", marginBottom: 10, lineHeight: 1.5 }}>
-                {flash.quote}
-              </p>
-              <div style={{ backgroundColor: "#F5ECD8", border: "1px solid #E8D8B0", borderRadius: 6, padding: "10px 12px" }}>
-                <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#8C6D2F", marginBottom: 5 }}>
-                  SUGGESTED RESPONSE
-                </p>
-                <p style={{ fontSize: 13, color: "#1C1C1A", lineHeight: 1.65 }}>{flash.response}</p>
-              </div>
+      {/* Idle / Ready / Error */}
+      {!inCall && status !== 'ended' && (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ backgroundColor: '#F0EAD8', border: '1px solid #DDD5C0', borderRadius: 16, padding: '40px 36px', maxWidth: 420, width: '100%', textAlign: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
+            <div style={{ width: 52, height: 52, borderRadius: '50%', backgroundColor: 'rgba(74,124,89,0.15)', border: '1px solid rgba(74,124,89,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+              <Phone size={20} style={{ color: '#4A7C59' }} />
             </div>
-            <button
-              onClick={() => setFlash(null)}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#9A9080", padding: 2, flexShrink: 0, marginTop: 2 }}
-            >
-              <X size={14} />
-            </button>
-          </div>
-        )}
-
-        {/* Split layout */}
-        <div style={{ flex: 1, display: "flex", gap: 16, overflow: "hidden", minHeight: 0 }}>
-
-          {/* Transcript panel */}
-          <div style={{
-            flex: 3,
-            backgroundColor: "#FDFAF5",
-            border: "1px solid #E8E0D0",
-            borderRadius: 12,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}>
-            <div style={{
-              padding: "11px 16px",
-              borderBottom: "1px solid #E8E0D0",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              flexShrink: 0,
-            }}>
-              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#7A7060" }}>
-                Transcript
-              </span>
-              {live && (
-                <span style={{ fontSize: 10, color: "#4A7C59", fontWeight: 600 }}>● Recording</span>
-              )}
-              {lines.filter(l => l.final).length > 0 && (
-                <span style={{ fontSize: 11, color: "#9A9080", marginLeft: "auto" }}>
-                  {lines.filter(l => l.final).length} line{lines.filter(l => l.final).length !== 1 ? "s" : ""}
-                </span>
-              )}
-            </div>
-            <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
-              {lines.length === 0 ? (
-                <p style={{ color: "#9A9080", fontSize: 13, fontStyle: "italic", textAlign: "center", marginTop: 48 }}>
-                  {live ? "Listening — speak to begin transcription" : "Press "Start Live Call" to begin"}
-                </p>
-              ) : (
-                lines.map((line, i) => (
-                  <p
-                    key={line.id + i}
-                    style={{
-                      fontSize: 14,
-                      lineHeight: 1.8,
-                      marginBottom: 6,
-                      color: line.final ? "#1C1C1A" : "#9A9080",
-                      fontStyle: line.final ? "normal" : "italic",
-                      fontFamily: "'Courier New', Courier, monospace",
-                    }}
-                  >
-                    {line.final && (
-                      <span style={{ color: "#C8B87A", fontSize: 10, marginRight: 8, userSelect: "none" }}>›</span>
-                    )}
-                    {line.text}
-                  </p>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Coaching panel */}
-          <div style={{
-            flex: 2,
-            backgroundColor: "#FDFAF5",
-            border: "1px solid #E8E0D0",
-            borderRadius: 12,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}>
-            <div style={{
-              padding: "11px 16px",
-              borderBottom: "1px solid #E8E0D0",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexShrink: 0,
-            }}>
-              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#7A7060" }}>
-                Objections Caught
-              </span>
-              {objections.length > 0 && (
-                <span style={{
-                  fontSize: 10, fontWeight: 700,
-                  backgroundColor: "rgba(140,109,47,0.12)", color: "#8C6D2F",
-                  borderRadius: 10, padding: "2px 8px",
-                }}>
-                  {objections.length}
-                </span>
-              )}
-            </div>
-
-            <div style={{ flex: 1, overflowY: "auto", padding: 12 }}>
-              {objections.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "40px 20px" }}>
-                  <div style={{ fontSize: 28, marginBottom: 12 }}>🎯</div>
-                  <p style={{ fontSize: 12, color: "#9A9080", fontStyle: "italic", lineHeight: 1.6 }}>
-                    No objections detected yet.
-                    {live ? " Keep talking — Spear is listening." : ""}
-                  </p>
-                </div>
-              ) : (
-                objections.map(obj => (
-                  <div
-                    key={obj.id}
-                    style={{ border: "1px solid #E8D8B0", borderRadius: 8, marginBottom: 10, overflow: "hidden" }}
-                  >
-                    {/* Alert header */}
-                    <div style={{
-                      backgroundColor: "rgba(140,109,47,0.08)",
-                      padding: "8px 12px",
-                      borderBottom: "1px solid #E8D8B0",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 6,
-                    }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{
-                          fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
-                          textTransform: "uppercase", color: "#8C6D2F",
-                          border: "1px solid rgba(140,109,47,0.4)", borderRadius: 3,
-                          padding: "1px 5px",
-                        }}>PHASE ALERT</span>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: "#1C1C1A" }}>{obj.label}</span>
-                      </div>
-                      <span style={{ fontSize: 10, color: "#9A9080", flexShrink: 0 }}>{obj.time}</span>
-                    </div>
-
-                    {/* Quote */}
-                    <div style={{ padding: "7px 12px", backgroundColor: "rgba(0,0,0,0.02)" }}>
-                      <p style={{ fontSize: 11, color: "#5A4A30", fontStyle: "italic", lineHeight: 1.5 }}>{obj.quote}</p>
-                    </div>
-
-                    {/* Suggested response */}
-                    <div style={{ backgroundColor: "#F5ECD8", padding: "8px 12px" }}>
-                      <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#8C6D2F", marginBottom: 4 }}>
-                        SUGGESTED RESPONSE
-                      </p>
-                      <p style={{ fontSize: 12, color: "#1C1C1A", lineHeight: 1.6 }}>{obj.response}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Controls */}
-        <div style={{ padding: "18px 0 20px", display: "flex", alignItems: "center", justifyContent: "center", gap: 16, flexShrink: 0 }}>
-          {micError && (
-            <div style={{
-              fontSize: 12, color: "#8B3A3A",
-              backgroundColor: "rgba(139,58,58,0.08)",
-              border: "1px solid rgba(139,58,58,0.2)",
-              borderRadius: 6, padding: "8px 14px",
-            }}>
-              {micError}
-            </div>
-          )}
-          {!live ? (
-            <button
-              onClick={startCall}
-              style={{
-                display: "flex", alignItems: "center", gap: 10,
-                backgroundColor: "#4A7C59", color: "#fff",
-                border: "none", borderRadius: 8,
-                padding: "12px 32px", fontSize: 14, fontWeight: 700,
-                cursor: "pointer", letterSpacing: "0.04em",
-                fontFamily: "var(--font-space), system-ui",
-                boxShadow: "0 2px 12px rgba(74,124,89,0.3)",
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.9"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
-            >
-              <Mic size={16} />
-              Start Live Call
-            </button>
-          ) : (
-            <button
-              onClick={endCall}
-              style={{
-                display: "flex", alignItems: "center", gap: 10,
-                backgroundColor: "#8B3A3A", color: "#fff",
-                border: "none", borderRadius: 8,
-                padding: "12px 32px", fontSize: 14, fontWeight: 700,
-                cursor: "pointer", letterSpacing: "0.04em",
-                fontFamily: "var(--font-space), system-ui",
-                boxShadow: "0 2px 12px rgba(139,58,58,0.3)",
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.9"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
-            >
-              <MicOff size={16} />
-              End Call
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ── Summary modal ────────────────────────────────────────────────── */}
-      {showSummary && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 50,
-          backgroundColor: "rgba(232,224,208,0.88)",
-          backdropFilter: "blur(8px)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          padding: 24,
-        }}>
-          <div style={{
-            backgroundColor: "#FDFAF5",
-            border: "1px solid #E8E0D0",
-            borderRadius: 16,
-            padding: "36px 32px",
-            maxWidth: 480, width: "100%",
-            boxShadow: "0 16px 48px rgba(0,0,0,0.12), 0 0 40px rgba(201,168,76,0.08)",
-          }}>
-            <h2 style={{ fontSize: 20, fontWeight: 800, color: "#1C1C1A", marginBottom: 4, letterSpacing: "-0.02em" }}>
-              Call Summary
-            </h2>
-            <p style={{ fontSize: 13, color: "#7A7060", marginBottom: 24 }}>
-              Duration: {fmtElapsed(elapsed)} · {objections.length} objection{objections.length !== 1 ? "s" : ""} caught
+            <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1C1C1A', margin: '0 0 8px' }}>Live Call</h2>
+            <p style={{ fontSize: 13, color: '#7A7060', margin: '0 0 24px', lineHeight: 1.6 }}>
+              Enter the prospect's number. Spear transcribes the conversation in real time and surfaces objection coaching as it happens.
             </p>
 
-            {objections.length === 0 ? (
-              <p style={{ fontSize: 13, color: "#7A7060", fontStyle: "italic", marginBottom: 24 }}>
-                No objections were detected during this call.
-              </p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 280, overflowY: "auto", marginBottom: 24 }}>
-                {[...objections].reverse().map((obj, i) => (
-                  <div key={obj.id} style={{
-                    backgroundColor: "rgba(140,109,47,0.06)",
-                    border: "1px solid rgba(140,109,47,0.18)",
-                    borderRadius: 8, padding: "10px 12px",
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "#1C1C1A" }}>{i + 1}. {obj.label}</span>
-                      <span style={{ fontSize: 10, color: "#9A9080" }}>{obj.time}</span>
+            {(status === 'loading' || status === 'registering') && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#7A7060', fontSize: 13 }}>
+                <span style={{ width: 14, height: 14, border: '2px solid #DDD5C0', borderTopColor: '#4A7C59', borderRadius: '50%', display: 'inline-block', animation: 'devSpin 0.7s linear infinite' }} />
+                Initializing phone device…
+              </div>
+            )}
+
+            {status === 'error' && (
+              <div style={{ backgroundColor: 'rgba(139,58,58,0.08)', border: '1px solid rgba(139,58,58,0.2)', borderRadius: 8, padding: '10px 14px', color: '#8B3A3A', fontSize: 13 }}>
+                {err || 'Device error — check browser console.'}
+              </div>
+            )}
+
+            {status === 'ready' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <input
+                  type="tel"
+                  placeholder="+1 (555) 000-0000"
+                  value={phone}
+                  onChange={e => { setPhone(e.target.value); setErr('') }}
+                  onKeyDown={e => { if (e.key === 'Enter') startCall() }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: 10, border: '1px solid #DDD5C0', backgroundColor: '#E8E2D4', color: '#1C1C1A', fontSize: 15, textAlign: 'center', outline: 'none', fontFamily: 'inherit' }}
+                />
+                {err && <p style={{ margin: 0, fontSize: 12, color: '#8B3A3A' }}>{err}</p>}
+                <button
+                  onClick={startCall}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '12px 0', borderRadius: 10, backgroundColor: '#1A2C1E', color: '#C8D9CB', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  <Phone size={15} /> Start Call
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* In-call / post-call transcript view */}
+      {(inCall || status === 'ended') && !showSummary && (
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+
+          {/* Transcript */}
+          <div style={{ flex: 3, display: 'flex', flexDirection: 'column', borderRight: '1px solid #DDD5C0', overflow: 'hidden' }}>
+            <div style={{ padding: '10px 16px', backgroundColor: '#F0EAD8', borderBottom: '1px solid #DDD5C0', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>TRANSCRIPT</span>
+              {status === 'calling' && <span style={{ fontSize: 11, color: '#4A7C59' }}>Dialing {phone}…</span>}
+            </div>
+
+            <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', backgroundColor: '#F0EAD8', display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {lines.length === 0 ? (
+                <p style={{ margin: 0, color: '#9A9080', fontSize: 13, fontStyle: 'italic' }}>
+                  {status === 'connected' ? 'Waiting for transcription…' : 'Connecting…'}
+                </p>
+              ) : lines.map(line => (
+                <p key={line.id} style={{ margin: 0, fontSize: 13, lineHeight: 1.7, fontFamily: 'monospace', color: line.final ? '#1C1C1A' : '#9A9080' }}>
+                  {line.text}{!line.final && <span style={{ opacity: 0.4 }}>_</span>}
+                </p>
+              ))}
+            </div>
+
+            {flash && (
+              <div style={{ margin: 10, padding: '11px 14px', borderRadius: 9, border: '1px solid #DDD5C0', borderLeft: '3px solid #8C6D2F', backgroundColor: '#F5ECD8', position: 'relative', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: '#8C6D2F', backgroundColor: 'rgba(140,109,47,0.12)', padding: '2px 7px', borderRadius: 4 }}>PHASE ALERT</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#1C1C1A' }}>{flash.label}</span>
+                </div>
+                <p style={{ margin: 0, fontSize: 12, color: '#7A7060', fontStyle: 'italic', lineHeight: 1.5, paddingRight: 20 }}>"{flash.quote}"</p>
+                <button onClick={() => setFlash(null)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#9A9080', display: 'flex', padding: 2 }}>
+                  <X size={12} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Coaching */}
+          <div style={{ flex: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden', backgroundColor: '#E8E2D4' }}>
+            <div style={{ padding: '10px 16px', backgroundColor: '#F0EAD8', borderBottom: '1px solid #DDD5C0', flexShrink: 0 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>COACHING</span>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {objections.length === 0 ? (
+                <p style={{ margin: 0, padding: '6px 4px', color: '#9A9080', fontSize: 13, fontStyle: 'italic' }}>
+                  Objection coaching appears here as the call progresses.
+                </p>
+              ) : objections.map(obj => (
+                <div key={obj.id} style={{ borderRadius: 10, border: '1px solid #DDD5C0', overflow: 'hidden', backgroundColor: '#F0EAD8' }}>
+                  <div style={{ padding: '9px 13px', backgroundColor: 'rgba(140,109,47,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#8C6D2F' }}>{obj.label}</span>
+                    <span style={{ fontSize: 10, color: '#9A9080' }}>{obj.time}</span>
+                  </div>
+                  <div style={{ padding: '10px 13px' }}>
+                    <p style={{ margin: '0 0 9px', fontSize: 12, color: '#7A7060', fontStyle: 'italic', lineHeight: 1.5 }}>"{obj.quote}"</p>
+                    <div style={{ backgroundColor: '#F5ECD8', border: '1px solid #E8D8B0', borderRadius: 7, padding: '9px 11px' }}>
+                      <p style={{ margin: '0 0 5px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: '#8C6D2F' }}>SUGGESTED RESPONSE</p>
+                      <p style={{ margin: 0, fontSize: 12, color: '#1C1C1A', lineHeight: 1.6 }}>{obj.response}</p>
                     </div>
-                    <p style={{ fontSize: 11, color: "#5A4A30", fontStyle: "italic", lineHeight: 1.5 }}>{obj.quote}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Summary modal */}
+      {showSummary && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(232,226,212,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 50 }}>
+          <div style={{ backgroundColor: '#F0EAD8', border: '1px solid #DDD5C0', borderRadius: 16, padding: '36px 32px', maxWidth: 500, width: '100%', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.08)' }}>
+            <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1C1C1A', margin: '0 0 5px' }}>Call Complete</h2>
+            <p style={{ fontSize: 13, color: '#7A7060', margin: '0 0 20px' }}>
+              Duration: {fmt(elapsed)} &nbsp;·&nbsp; {objections.length} objection{objections.length !== 1 ? 's' : ''} detected
+            </p>
+            {objections.length === 0 ? (
+              <p style={{ margin: 0, fontSize: 13, color: '#7A7060' }}>No objections detected this call.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {objections.map((obj, i) => (
+                  <div key={obj.id} style={{ borderRadius: 10, border: '1px solid #DDD5C0', overflow: 'hidden' }}>
+                    <div style={{ padding: '8px 14px', backgroundColor: 'rgba(140,109,47,0.07)', display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#8C6D2F' }}>{i + 1}. {obj.label}</span>
+                      <span style={{ fontSize: 11, color: '#9A9080' }}>@ {obj.time}</span>
+                    </div>
+                    <p style={{ margin: 0, padding: '8px 14px', fontSize: 12, color: '#7A7060', fontStyle: 'italic' }}>"{obj.quote}"</p>
                   </div>
                 ))}
               </div>
             )}
-
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
               <button
-                onClick={() => { setShowSummary(false); setLines([]); setObjections([]); setElapsed(0); }}
-                style={{
-                  flex: 1, padding: "11px 16px", borderRadius: 8,
-                  border: "1px solid #DDD5C0",
-                  backgroundColor: "transparent", color: "#1C1C1A",
-                  fontSize: 13, fontWeight: 600, cursor: "pointer",
-                  fontFamily: "var(--font-space), system-ui",
+                onClick={() => {
+                  setShowSummary(false)
+                  setStatus('ready')
+                  cleanedRef.current = false
+                  setLines([])
+                  setObjections([])
+                  setElapsed(0)
                 }}
+                style={{ flex: 1, padding: '10px 0', borderRadius: 10, backgroundColor: '#1A2C1E', color: '#C8D9CB', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
               >
                 New Call
               </button>
               <Link
                 href="/dashboard"
-                style={{
-                  flex: 1, padding: "11px 16px", borderRadius: 8,
-                  backgroundColor: "#2C4A32", color: "#C8D9CB",
-                  fontSize: 13, fontWeight: 600, cursor: "pointer",
-                  textDecoration: "none", textAlign: "center",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontFamily: "var(--font-space), system-ui",
-                }}
+                style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid #DDD5C0', color: '#7A7060', fontWeight: 600, fontSize: 13, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 Dashboard
               </Link>
@@ -728,15 +441,9 @@ export default function LiveCallPage() {
       )}
 
       <style>{`
-        @keyframes livePulse {
-          0%, 100% { opacity: 1; box-shadow: 0 0 8px #4A7C59; }
-          50%       { opacity: 0.4; box-shadow: 0 0 3px #4A7C59; }
-        }
-        @keyframes alertIn {
-          from { opacity: 0; transform: translateY(-6px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+        @keyframes devSpin { to{transform:rotate(360deg)} }
       `}</style>
     </div>
-  );
+  )
 }
