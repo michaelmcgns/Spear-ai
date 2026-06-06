@@ -51,11 +51,13 @@ const fmt = (s: number) =>
   `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 
 type Status = 'ready' | 'listening' | 'ended' | 'error'
+type Speaker = 'agent' | 'prospect'
 
 interface TranscriptLine {
   id: string
   text: string
   time: string
+  speaker: Speaker
 }
 
 interface DetectedObjection {
@@ -71,6 +73,7 @@ export default function LiveCallPage() {
   const [status, setStatus] = useState<Status>('ready')
   const [lines, setLines] = useState<TranscriptLine[]>([])
   const [interim, setInterim] = useState('')
+  const [speaker, setSpeaker] = useState<Speaker>('agent')
   const [objections, setObjections] = useState<DetectedObjection[]>([])
   const [latestObjection, setLatestObjection] = useState<DetectedObjection | null>(null)
   const [elapsed, setElapsed] = useState(0)
@@ -80,6 +83,7 @@ export default function LiveCallPage() {
 
   const recognitionRef = useRef<any>(null)
   const statusRef = useRef<Status>('ready')
+  const speakerRef = useRef<Speaker>('agent')
   const elapsedRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const flashRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -90,6 +94,11 @@ export default function LiveCallPage() {
   const setStatusSynced = useCallback((s: Status) => {
     statusRef.current = s
     setStatus(s)
+  }, [])
+
+  const setSpeakerSynced = useCallback((s: Speaker) => {
+    speakerRef.current = s
+    setSpeaker(s)
   }, [])
 
   const checkObjection = useCallback((text: string, time: string) => {
@@ -132,6 +141,7 @@ export default function LiveCallPage() {
     if (typeof window === 'undefined') return
     setErr('')
     setStatusSynced('listening')
+    setSpeakerSynced('agent')
     seenRef.current.clear()
     elapsedRef.current = 0
     setLines([])
@@ -165,14 +175,15 @@ export default function LiveCallPage() {
 
       recognition.onresult = (event: any) => {
         const time = fmt(elapsedRef.current)
+        const currentSpeaker = speakerRef.current
         let newInterim = ''
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript
           if (event.results[i].isFinal) {
             const text = transcript.trim()
             if (text) {
-              setLines(prev => [...prev, { id: crypto.randomUUID(), text, time }])
-              checkObjection(text, time)
+              setLines(prev => [...prev, { id: crypto.randomUUID(), text, time, speaker: currentSpeaker }])
+              if (currentSpeaker === 'prospect') checkObjection(text, time)
               setTimeout(() => {
                 if (scrollRef.current)
                   scrollRef.current.scrollTop = scrollRef.current.scrollHeight
@@ -218,7 +229,7 @@ export default function LiveCallPage() {
       streamRef.current = null
       if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     }
-  }, [checkObjection, stopCall, setStatusSynced])
+  }, [checkObjection, stopCall, setStatusSynced, setSpeakerSynced])
 
   const endCall = useCallback(() => stopCall(true), [stopCall])
 
@@ -312,8 +323,22 @@ export default function LiveCallPage() {
 
           {/* Transcript */}
           <div style={{ flex: 3, display: 'flex', flexDirection: 'column', borderRight: '1px solid #DDD5BB', overflow: 'hidden' }}>
-            <div style={{ padding: '10px 16px', backgroundColor: '#FDFAF5', borderBottom: '1px solid #DDD5BB', flexShrink: 0 }}>
+            <div style={{ padding: '8px 12px', backgroundColor: '#FDFAF5', borderBottom: '1px solid #DDD5BB', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>TRANSCRIPT</span>
+              <div style={{ display: 'flex', gap: 4, backgroundColor: '#EDE8DC', borderRadius: 8, padding: 3 }}>
+                <button
+                  onClick={() => setSpeakerSynced('agent')}
+                  style={{ padding: '7px 16px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', transition: 'all 0.12s', backgroundColor: speaker === 'agent' ? '#1A2C1E' : 'transparent', color: speaker === 'agent' ? '#C8D9CB' : '#7A7060' }}
+                >
+                  Agent
+                </button>
+                <button
+                  onClick={() => setSpeakerSynced('prospect')}
+                  style={{ padding: '7px 16px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', transition: 'all 0.12s', backgroundColor: speaker === 'prospect' ? '#1A2C1E' : 'transparent', color: speaker === 'prospect' ? '#C8D9CB' : '#7A7060' }}
+                >
+                  Prospect
+                </button>
+              </div>
             </div>
             <div
               ref={scrollRef}
@@ -328,12 +353,18 @@ export default function LiveCallPage() {
                   {lines.map(line => (
                     <div key={line.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                       <span style={{ fontSize: 10, color: '#B0A898', fontFamily: 'monospace', flexShrink: 0, marginTop: 3 }}>{line.time}</span>
+                      <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', flexShrink: 0, marginTop: 4, color: line.speaker === 'agent' ? '#4A7C59' : '#8C6D2F' }}>
+                        {line.speaker === 'agent' ? 'YOU' : 'PROSPECT'}
+                      </span>
                       <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: '#2C2A1E' }}>{line.text}</p>
                     </div>
                   ))}
                   {interim && (
                     <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                       <span style={{ fontSize: 10, color: '#B0A898', fontFamily: 'monospace', flexShrink: 0, marginTop: 3 }}>{fmt(elapsed)}</span>
+                      <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', flexShrink: 0, marginTop: 4, color: speaker === 'agent' ? '#4A7C59' : '#8C6D2F' }}>
+                        {speaker === 'agent' ? 'YOU' : 'PROSPECT'}
+                      </span>
                       <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: '#9A9080', fontStyle: 'italic' }}>
                         {interim}<span style={{ opacity: 0.4 }}>_</span>
                       </p>
