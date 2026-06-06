@@ -1294,7 +1294,7 @@ export default function Page() {
         <div style={{
           position: "absolute", top: "15%", left: "5%",
           width: "700px", height: "700px", borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(26,44,30,0.05) 0%, transparent 68%)",
+          background: "transparent",
           pointerEvents: "none",
         }} />
 

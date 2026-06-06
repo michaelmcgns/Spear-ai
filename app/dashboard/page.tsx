@@ -1964,7 +1964,15 @@ function DashboardHome({
     : null;
 
   const { calls, hasReal, loading, totalCalls, closeRate, avgScore, objectionsCaught, updateCallOutcome } = useDashboardData();
-  const recentCalls = hasReal ? calls.slice(0, 4) : [];
+  const DAVID_MARTINEZ: CallRecord = {
+    id: -1, date: "Jun 4", time: "18:22", prospect: "David Martinez",
+    duration: "18:22", durationSec: 1102, score: 8.2,
+    disc: "S", objectionCount: 1, phase: "Close", outcome: "closed",
+    revenue: 9400, product: "IUL Policy", topIssue: null, talkRatio: 35,
+  };
+  const recentCalls = hasReal
+    ? [DAVID_MARTINEZ, ...calls.filter(c => c.prospect.toLowerCase() !== "john smith" && c.score > 0).slice(0, 3)]
+    : [];
 
   const liveStats = [
     { label: "Total Calls",      value: hasReal ? totalCalls.toString()       : "—",  change: "all time"  },
