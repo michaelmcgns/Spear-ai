@@ -828,7 +828,7 @@ function AnalyticsTab() {
           { label: "Objections",     value: totalObjections.toString(),  sub: "caught in calls",          Icon: Target,       color: "text-amber-400"  },
           { label: "Avg Call Score", value: avgScore,                    sub: "call quality",             Icon: Star,         color: "text-purple-400" },
         ].map(({ label, value, sub, Icon, color }) => (
-          <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-5" style={{ borderBottom: "2px solid #D4C9A8" }}>
+          <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-7" style={{ borderBottom: "2px solid #D4C9A8" }}>
             <div className="flex items-center justify-between mb-2">
               <p style={{ fontSize: 11, fontWeight: 500, color: "#7A7060", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</p>
               <Icon className={`h-4 w-4 ${color}`} />
@@ -1986,7 +1986,7 @@ function DashboardHome({
       {/* Stats */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {liveStats.map(s => (
-          <div key={s.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-5" style={{ borderBottom: "2px solid #D4C9A8" }}>
+          <div key={s.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-7" style={{ borderBottom: "2px solid #D4C9A8" }}>
             <p style={{ fontSize: 11, fontWeight: 500, color: "#7A7060", textTransform: "uppercase", letterSpacing: "0.08em" }}>{s.label}</p>
             {loading
               ? <div className="mt-2 h-7 w-16 rounded bg-zinc-800 animate-pulse" />
@@ -1999,7 +1999,7 @@ function DashboardHome({
 
       {/* Upload + Recent */}
       <div className="grid lg:grid-cols-5 gap-5">
-        <div className="lg:col-span-3 rounded-xl border border-zinc-800 bg-zinc-900 p-6" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+        <div className="lg:col-span-3 rounded-xl bg-zinc-900" style={{ padding: "28px 32px", border: "1px solid #C8BFB0", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-sm font-semibold text-white">Analyze a Call</h2>
             <span className="text-xs text-zinc-600">MP3 · MP4 · M4A · WAV · up to {MAX_CALL_UPLOAD_MB} MB</span>
@@ -2037,7 +2037,7 @@ function DashboardHome({
             onDragOver={handleDragOver}
             onDragLeave={() => setIsDragging(false)}
             onDrop={(e) => { e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
-            className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 transition-colors cursor-pointer ${isDragging ? "border-[#8C6D2F] bg-[#FAF5EC]" : isAnalyzing ? "border-[#C8BFB0] cursor-not-allowed opacity-70" : "border-[#C8BFB0] hover:border-[#8C6D2F] hover:bg-[#FAF5EC]"}`}
+            className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-7 transition-colors cursor-pointer ${isDragging ? "border-[#8C6D2F] bg-[#FAF5EC]" : isAnalyzing ? "border-[#C8BFB0] cursor-not-allowed opacity-70" : "border-[#C8BFB0] hover:border-[#8C6D2F] hover:bg-[#FAF5EC]"}`}
           >
             {isAnalyzing ? (
               <div className="flex flex-col items-center gap-3">
@@ -2066,7 +2066,7 @@ function DashboardHome({
           )}
         </div>
 
-        <div className="lg:col-span-2 rounded-xl border border-zinc-800 bg-zinc-900 p-6" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+        <div className="lg:col-span-2 rounded-xl bg-zinc-900" style={{ padding: "28px 32px", border: "1px solid #C8BFB0", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-sm font-semibold text-white">Recent Calls</h2>
           </div>
@@ -2093,7 +2093,7 @@ function DashboardHome({
                 </p>
               </div>
             ) : recentCalls.map(call => (
-              <div key={call.id} className="flex items-center justify-between py-2 border-b border-zinc-800/60 last:border-0">
+              <div key={call.id} className="flex items-center justify-between py-2 border-b border-[#D4C9A8] last:border-0">
                 <div>
                   <p className="text-xs font-medium text-zinc-200">{call.prospect}</p>
                   <p className="text-[10px] text-zinc-600">{call.date} · {call.duration}</p>
@@ -2611,7 +2611,7 @@ function DashboardPage() {
 
           {/* Product Focus Selector */}
           <div className="px-3 pb-3 border-t border-[#2C4A32] pt-3">
-            <p className="text-[10px] font-semibold text-[#7A7060] uppercase tracking-wider mb-1.5 px-1">Product Focus</p>
+            <p className="text-[10px] font-semibold text-[#7A9E82] uppercase tracking-wider mb-1.5 px-1" style={{ letterSpacing: "0.1em" }}>Product Focus</p>
             <div className="relative">
               <select
                 value={productFocus}

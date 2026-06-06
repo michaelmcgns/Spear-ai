@@ -39,7 +39,7 @@ export function ComplianceStatus({ state }: Props) {
 
   return (
     <div className="px-1 space-y-2">
-      <p className="text-[9px] uppercase tracking-widest font-semibold mb-2.5" style={{ color: "rgba(200,217,203,0.45)", letterSpacing: "0.12em" }}>Compliance</p>
+      <p className="text-[10px] uppercase font-semibold mb-2.5" style={{ color: "#7A9E82", letterSpacing: "0.1em" }}>Compliance</p>
       {(Object.keys(LABELS) as Array<keyof ComplianceState>).map((key) => {
         const status = merged[key];
         const cfg = STATUS_CONFIG[status];

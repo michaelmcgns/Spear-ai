@@ -122,7 +122,7 @@ function LiveCallCard() {
       {/* Glow halo */}
       <div style={{
         position: "absolute", inset: -2, borderRadius: "16px",
-        background: "linear-gradient(135deg, rgba(140,109,47,0.25), rgba(140,109,47,0.10))",
+        background: "transparent",
         filter: "blur(20px)", opacity: 0.7, pointerEvents: "none",
       }} />
 
@@ -1250,7 +1250,7 @@ export default function Page() {
         style={{
           position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
           backgroundColor: "rgba(232,223,200,0.95)",
-          borderBottom: DIVIDER,
+          borderBottom: "1px solid #D4C9A8",
           backdropFilter: "blur(20px)",
         }}
       >
@@ -1299,7 +1299,7 @@ export default function Page() {
         }} />
 
         <div style={{ position: "relative", zIndex: 10, maxWidth: "1200px", margin: "0 auto", padding: "80px 32px", width: "100%" }}>
-          <div className="flex flex-col lg:flex-row" style={{ alignItems: "center", gap: "60px" }}>
+          <div className="flex flex-col lg:flex-row" style={{ alignItems: "flex-start", gap: "60px" }}>
 
             {/* Left */}
             <div style={{ flex: 1, maxWidth: "580px" }}>
@@ -1310,8 +1310,8 @@ export default function Page() {
                 style={{
                   display: "inline-flex", alignItems: "center", gap: "8px",
                   backgroundColor: "#E8F0EB",
-                  border: "1px solid rgba(74,124,89,0.30)",
-                  borderRadius: "20px", padding: "5px 14px", marginBottom: "28px",
+                  border: "1px solid #C8D9CB",
+                  borderRadius: "20px", padding: "8px 16px", marginBottom: "28px",
                 }}
               >
                 <motion.div
@@ -1395,7 +1395,7 @@ export default function Page() {
             <motion.div
               initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.55, duration: 1.1, ease: EASE }}
-              style={{ flex: "0 0 auto", display: "flex", justifyContent: "center", width: "100%" }}
+              style={{ flex: "0 0 auto", display: "flex", justifyContent: "center", width: "100%", paddingTop: "56px" }}
               className="lg:w-auto"
             >
               <LiveCallCard />
