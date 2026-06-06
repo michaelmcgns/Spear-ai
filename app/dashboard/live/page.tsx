@@ -18,25 +18,14 @@ type CallFocus =
   | 'medicare_advantage'
   | 'annuities'
 
-interface CoachEntry {
-  id:        string
-  cardType:  CardType
-  triggers:  string[]
-  label:     string
-  cardTitle: string
-  response:  string
-  nextMove:  string
-}
 interface TranscriptLine {
   id: string; text: string; time: string; speaker: Speaker; isKeyMoment: boolean
 }
 interface DetectedCard {
   id:        string
-  entryId:   string
   cardType:  CardType
-  label:     string
   cardTitle: string
-  trigger:   string
+  psychRead: string  // AI psychology analysis of buyer's mindset
   response:  string
   nextMove:  string
   quote:     string
@@ -65,325 +54,11 @@ const FOCUS_BADGE: Record<CallFocus, string> = {
   annuities:           'ANNUITIES',
 }
 
-// ─── Fuzzy matching engine ────────────────────────────────────────────────────
-//
-// Matching rules (in priority order):
-//  1. If the normalized trigger appears as a substring → direct match (score = phrase length)
-//  2. Otherwise extract content words (len > 2, not in STOP) and check coverage:
-//     if ≥ 65% of content words appear in the text → keyword match (score = count matched)
-// Highest score across all triggers & entries wins. No match if score = 0.
+// ─── Coaching is now fully AI-driven — see /api/live-coach ──────────────────
+// Each prospect utterance is sent to Claude which returns a psychological read
+// of the buyer's mindset and contextual coaching. No static scripts.
 
-const STOP = new Set(['a','an','the','and','but','for','nor','yet','some','any','from','with','this','that','than','when','then','what','who'])
-
-function norm(s: string): string {
-  return s.toLowerCase()
-    .replace(/[''`]/g, '')        // flatten apostrophes so "don't" → "dont"
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function triggerScore(normText: string, trigger: string): number {
-  const nTrig = norm(trigger)
-  if (normText.includes(nTrig)) return nTrig.length   // direct — length rewards specificity
-
-  const words = nTrig.split(' ').filter(w => w.length > 2 && !STOP.has(w))
-  if (words.length < 2) return 0
-  const hit = words.filter(w => normText.includes(w)).length
-  return hit / words.length >= 0.65 ? hit : 0
-}
-
-// ─── NEPQ-based universal coaching library ────────────────────────────────────
-
-const OBJECTION_DB: CoachEntry[] = [
-  {
-    id: 'confusion',
-    cardType: 'objection',
-    triggers: [
-      'no idea', 'what is this', 'what are you calling about',
-      'dont understand', 'what does that mean', 'never heard of',
-      'what is mortgage protection', 'what is final expense',
-      'dont know what you', 'what are you talking about',
-      'not sure what you mean', 'what kind of insurance',
-    ],
-    label: 'Confusion',
-    cardTitle: 'OBJECTION — CONFUSION',
-    response: "That's completely fair — let me be clearer. I'm calling about a protection benefit specifically tied to your [home/policy]. Most people in your area have never been contacted about it. It takes 90 seconds to explain — can I do that?",
-    nextMove: "Reset the opener in ONE sentence. Then ask one yes/no question to re-engage.",
-  },
-  {
-    id: 'not_interested',
-    cardType: 'objection',
-    triggers: [
-      'not interested', 'dont want it', 'dont need it', 'no thank you',
-      'im good', 'were fine', 'dont want any insurance',
-      'dont believe in life insurance', 'no thanks', 'dont need insurance',
-      'not looking for insurance', 'im all set', 'not for me',
-    ],
-    label: 'Not Interested',
-    cardTitle: 'OBJECTION — NOT INTERESTED',
-    response: "I hear you — and I'm not here to sell you anything today. Can I ask you something though? If something happened to you tomorrow, who in your life would be most financially impacted? That's really all this comes down to.",
-    nextMove: "NEPQ problem-awareness question. Make it about a specific person, not a concept.",
-  },
-  {
-    id: 'already_covered',
-    cardType: 'objection',
-    triggers: [
-      'already have insurance', 'already have coverage', 'already have a policy',
-      'have life insurance', 'covered through work', 'have it through my job',
-      'union covers', 'have aarp', 'through the va', 'work covers me',
-      'company provides insurance', 'have coverage at work', 'already covered',
-      'employer covers', 'have group life', 'benefit through my employer',
-    ],
-    label: 'Already Has Coverage',
-    cardTitle: 'OBJECTION — ALREADY COVERED',
-    response: "That's great — most people I talk to do. Quick question: how much coverage do you currently have? [pause] The reason I ask is most employer plans only cover 1–2x your salary. Financial advisors recommend 7–10x. If you passed away tonight, how long would what you have last your family?",
-    nextMove: "Gap sell. Find the exact number they have vs what they need. Never attack their current policy.",
-  },
-  {
-    id: 'too_expensive',
-    cardType: 'objection',
-    triggers: [
-      'too expensive', 'cant afford', 'costs too much', 'dont have the money',
-      'on a fixed income', 'tight on money', 'budget is tight',
-      'cant do it right now', 'money is tight', 'not in my budget',
-      'too much money', 'cant swing it', 'financially not possible',
-      'strapped right now', 'fixed income',
-    ],
-    label: 'Too Expensive / Can\'t Afford',
-    cardTitle: 'OBJECTION — PRICE / AFFORDABILITY',
-    response: "I completely understand — and I'd never suggest anything outside your budget. Can I ask — what would feel comfortable? Most of the people I help spend less than a dollar a day. But more importantly, if you couldn't afford it, who in your life would be stuck with the financial burden if something happened?",
-    nextMove: "Anchor to daily cost, not monthly. Then redirect to the consequence question.",
-  },
-  {
-    id: 'need_to_think',
-    cardType: 'objection',
-    triggers: [
-      'need to think about it', 'let me think', 'ill think about it',
-      'think it over', 'not sure yet', 'need more time',
-      'give me some time', 'want to think', 'have to think',
-      'think about it', 'need to consider', 'let me sleep on it',
-    ],
-    label: 'Need to Think About It',
-    cardTitle: 'OBJECTION — STALL / THINK ABOUT IT',
-    response: "That makes total sense — what part specifically did you want to think through? Is it the cost, whether you actually need it, or something else? I ask because most people I talk to who say that have a specific concern I might be able to address right now.",
-    nextMove: "NEPQ: isolate the REAL objection. \"Think about it\" is never the real objection — find what's underneath it.",
-  },
-  {
-    id: 'need_spouse',
-    cardType: 'objection',
-    triggers: [
-      'need to talk to my wife', 'need to talk to my husband',
-      'have to ask my spouse', 'run it by my partner',
-      'cant decide without', 'my wife handles finances',
-      'my husband handles that', 'check with my wife',
-      'check with my husband', 'spouse needs to know',
-      'wife would have to agree', 'husband would have to agree',
-      'ask my partner', 'talk to my spouse first',
-    ],
-    label: 'Need to Talk to Spouse',
-    cardTitle: 'OBJECTION — NEEDS SPOUSE',
-    response: "Absolutely — this should be a joint decision. Is your [spouse] available right now? I'd love to talk to both of you together so no one has to play telephone with the details. It only takes a few minutes.",
-    nextMove: "Get the spouse on the call NOW. If not available, set a specific callback time with both on the line.",
-  },
-  {
-    id: 'send_info',
-    cardType: 'objection',
-    triggers: [
-      'send me something', 'send me information', 'email me',
-      'mail me something', 'put something in the mail',
-      'send a brochure', 'send me a link', 'send me details',
-      'can you send', 'ill look it over', 'send it to me',
-      'drop something in the mail', 'email me the info',
-    ],
-    label: 'Send Me Information',
-    cardTitle: 'OBJECTION — SEND INFO',
-    response: "I can absolutely do that. I want to make sure I send you the right thing — can I ask two quick questions first so I don't waste your time with irrelevant info? [pause] How much coverage do you currently have, and who are you trying to protect?",
-    nextMove: "Never just say yes and hang up. Use it as an opener for 2 qualifying questions.",
-  },
-  {
-    id: 'bad_timing',
-    cardType: 'objection',
-    triggers: [
-      'bad time', 'im busy', 'call me back', 'call back later',
-      'call me later', 'at work right now', 'driving right now',
-      'in the middle of something', 'not a good time',
-      'busy right now', 'not a great time', 'caught me',
-      'cant talk right now', 'running out the door', 'on my way',
-    ],
-    label: 'Bad Timing',
-    cardTitle: 'OBJECTION — BAD TIMING',
-    response: "I completely understand — I only need 90 seconds. The reason I'm calling is there's a benefit specifically available to you that has a limited enrollment window. Can I get just 90 seconds?",
-    nextMove: "Ask for 90 seconds specifically. If they still say no: \"Is 6pm tonight better or tomorrow morning?\"",
-  },
-  {
-    id: 'strong_rejection',
-    cardType: 'objection',
-    triggers: [
-      'leave me alone', 'lose my number', 'stop calling',
-      'dont call again', 'take me off your list', 'i said no',
-      'im hanging up', 'remove me from', 'never call again',
-      'do not call', 'put me on your do not call',
-      'get off my phone', 'stop bothering me',
-    ],
-    label: 'Strong Rejection',
-    cardTitle: 'OBJECTION — STRONG REJECTION',
-    response: "I will absolutely respect that and won't call again. Before I go — I just want to make sure you know the benefit exists. Your home at [address] qualifies for a protection benefit your family can claim. I'm not asking you to do anything — I just want you to know it's there. Take care.",
-    nextMove: "Plant the seed and exit gracefully. Do not push. This call is a long-term play.",
-  },
-  {
-    id: 'bank_covers',
-    cardType: 'objection',
-    triggers: [
-      'the bank covers', 'my mortgage has insurance', 'pmi covers',
-      'the lender has', 'bank already does that', 'my mortgage covers',
-      'lender covers', 'mortgage insurance', 'pmi', 'bank handles that',
-      'my lender', 'already have mortgage insurance',
-    ],
-    label: 'The Bank / PMI Covers It',
-    cardTitle: 'OBJECTION — PMI CONFUSION',
-    response: "That's a really common misconception — and I'm glad you brought it up. PMI protects the bank if you default, not your family if you die. If something happened to you tomorrow, PMI pays the bank — not your family. This benefit pays your family directly so they keep the home. That's the difference.",
-    nextMove: "Clarify PMI vs mortgage protection clearly. Ask: \"Did you know there was a difference?\"",
-  },
-  {
-    id: 'no_dependents',
-    cardType: 'objection',
-    triggers: [
-      'live alone', 'no kids', 'just me', 'nobody depends on me',
-      'im single', 'kids are grown', 'kids are out of the house',
-      'divorced', 'no family', 'no one depends on me',
-      'nobody to leave it to', 'dont have anyone', 'kids are adults',
-    ],
-    label: 'No Dependents',
-    cardTitle: 'OBJECTION — NO DEPENDENTS',
-    response: "I understand — and this still matters for one reason: if something happened to you, who would be responsible for your final expenses and any remaining debt on your home? Even if no one depends on your income, someone has to handle what you leave behind.",
-    nextMove: "Shift from income protection to estate/debt protection angle.",
-  },
-  {
-    id: 'health_concerns',
-    cardType: 'objection',
-    triggers: [
-      'not in good health', 'have health issues', 'im diabetic',
-      'heart problems', 'been sick', 'had cancer', 'might not qualify',
-      'not sure i can get coverage', 'health problems',
-      'pre existing condition', 'previous condition',
-      'been denied before', 'denied for insurance', 'have a condition',
-      'taking medications', 'medical history',
-    ],
-    label: 'Health Concerns',
-    cardTitle: 'OBJECTION — HEALTH CONCERNS',
-    response: "I appreciate you sharing that — and that's actually the most important reason to look at this now, not later. Several of the plans I work with have guaranteed acceptance with no medical exam. Your health doesn't disqualify you. Can I ask how old you are?",
-    nextMove: "Move to guaranteed issue / simplified issue products. Age and tobacco use matter more than health.",
-  },
-  {
-    id: 'too_old',
-    cardType: 'objection',
-    triggers: [
-      'too old', 'im 80', 'probably too old', 'at my age',
-      'dont have long', 'im 75', 'im 85', 'im 78', 'im 82',
-      'getting up there in age', 'pretty old', 'older now',
-      'my age probably', 'given my age',
-    ],
-    label: 'Too Old',
-    cardTitle: 'OBJECTION — TOO OLD',
-    response: "Actually, many of the plans I work with go up to age 85 with no medical exam. And at your age, final expense coverage is often the most important thing — it means your family doesn't have to come out of pocket for funeral costs which average $12,000–$15,000. Can I ask — does your family have that set aside?",
-    nextMove: "Anchor on the $12,000–$15,000 funeral cost as a concrete, specific number.",
-  },
-  {
-    id: 'scam_concern',
-    cardType: 'objection',
-    triggers: [
-      'sounds like a scam', 'how do i know this is real', 'is this legit',
-      'how did you get my number', 'dont give out my information',
-      'what company are you with', 'who do you work for',
-      'is this a scam', 'are you legitimate', 'how do i verify',
-      'sounds sketchy', 'not sure this is real', 'prove it',
-      'what is your license', 'are you licensed',
-    ],
-    label: 'Scam / Legitimacy Concern',
-    cardTitle: 'OBJECTION — CREDIBILITY / SCAM CONCERN',
-    response: "That's a completely fair question — and honestly I'd be suspicious too. My name is [name], I'm a licensed insurance agent in [state] with [company]. You can look me up on your state's department of insurance website right now while we talk. What else can I answer?",
-    nextMove: "Lead with your license number. Offer to verify on the spot. Transparency closes skeptics.",
-  },
-  {
-    id: 'religious',
-    cardType: 'objection',
-    triggers: [
-      'need to pray about it', 'have to pray on it', 'god will provide',
-      'i trust god', 'faith will take care', 'leave it in gods hands',
-      'lord will provide', 'trust the lord', 'pray about this',
-      'put it in gods hands', 'let god handle it',
-    ],
-    label: 'Religious / Need to Pray',
-    cardTitle: 'OBJECTION — FAITH / PRAYER',
-    response: "I respect that completely — and I believe the same. Can I share a perspective? Most faith traditions also teach that we're stewards of what we're given — including protecting our families. This is one way to honor that. What would it look like if your family had financial peace no matter what happened?",
-    nextMove: "Use their values as the bridge, not a counter-argument. Frame protection as stewardship.",
-  },
-  {
-    id: 'has_agent',
-    cardType: 'objection',
-    triggers: [
-      'already have an agent', 'already working with someone',
-      'my agent handles', 'have a guy for that', 'my financial advisor',
-      'use my own agent', 'work with an advisor', 'have a broker',
-      'have a financial planner', 'dont need another agent',
-      'my current agent', 'someone i already work with',
-    ],
-    label: 'Already Has an Agent',
-    cardTitle: 'OBJECTION — ALREADY HAS AGENT',
-    response: "That's great — you should absolutely keep working with them. Can I ask when you last reviewed your coverage with them? The reason I ask is most agents set it and forget it, and your needs change. When's the last time they called YOU to check in?",
-    nextMove: "Expose the service gap. Position yourself as the agent who actually follows up.",
-  },
-]
-
-const BUYING_SIGNALS: CoachEntry[] = [
-  {
-    id: 'price_question',
-    cardType: 'buying_signal',
-    triggers: [
-      'how much does it cost', 'how much would that be', 'whats the price',
-      'how much is it', 'what would my payment be', 'how much a month',
-      'what does it cost', 'how much per month', 'what are the rates',
-      'what would that run me', 'how much would i pay',
-    ],
-    label: 'Price Question',
-    cardTitle: 'KEY OPPORTUNITY — PRICE QUESTION',
-    response: "Great question — before I give you a number, let me ask: how much coverage are you looking at? [pause] And are you looking to protect just yourself or include your spouse?",
-    nextMove: "Never lead with price. Qualify coverage amount and family situation FIRST.",
-  },
-  {
-    id: 'engaged',
-    cardType: 'buying_signal',
-    triggers: [
-      'sounds good', 'im interested', 'tell me more', 'i like that',
-      'that makes sense', 'okay im listening', 'thats interesting',
-      'i like what you said', 'tell me about it', 'keep going',
-      'explain that', 'go on', 'interesting', 'i hear you',
-    ],
-    label: 'Prospect Engaged',
-    cardTitle: 'KEY OPPORTUNITY — PROSPECT ENGAGED',
-    response: "Great — so let me ask you this: what would it mean to your family if your home was completely paid off if something happened to you?",
-    nextMove: "Deepen emotional commitment before moving to application. Ask the consequence question.",
-  },
-  {
-    id: 'closing',
-    cardType: 'closing',
-    triggers: [
-      'where do i start', 'how do i sign up', 'what do i do next',
-      'when would it start', 'let me get my card', 'ready to sign',
-      'how do we proceed', 'id like to do this', 'ill take it',
-      'lets do it', 'how do i apply', 'sign me up',
-      'what do you need from me', 'how long does it take to apply',
-    ],
-    label: 'Closing Signal',
-    cardTitle: 'CLOSING SIGNAL — MOVE TO APPLICATION',
-    response: "Perfect — it takes about 10 minutes. I just need to ask you a few health questions and get some basic information. What's your date of birth?",
-    nextMove: "Start the application NOW. Do not schedule a callback. Close on this call.",
-  },
-]
-
-// Combined for iteration — buying signals checked first so they beat objections on overlap
-const COACH_DB: CoachEntry[] = [...BUYING_SIGNALS, ...OBJECTION_DB]
+// ─── (legacy static DB removed) ─────────────────────────────────────────────
 
 // ─── Sentiment / phase / key-moment data ─────────────────────────────────────
 
@@ -463,8 +138,12 @@ export default function LiveCallPage() {
   const [showSummary,    setShowSummary]    = useState(false)
   const [score,          setScore]          = useState(7.0)
   const [sentimentScore, setSentimentScore] = useState(0)
+  const [switchRec,      setSwitchRec]      = useState<{ toProduct: CallFocus; message: string } | null>(null)
+  const [limitedMode,    setLimitedMode]    = useState(false)
 
-  const recognitionRef   = useRef<any>(null)
+  const wsRef            = useRef<WebSocket | null>(null)      // Deepgram WebSocket connection
+  const recorderRef      = useRef<MediaRecorder | null>(null)  // MediaRecorder streaming audio to Deepgram
+  const recognitionRef   = useRef<any>(null)                   // Web Speech API fallback
   const statusRef        = useRef<Status>('ready')
   const speakerRef       = useRef<Speaker>('agent')
   const focusRef         = useRef<CallFocus>('mortgage_protection')
@@ -472,7 +151,8 @@ export default function LiveCallPage() {
   const timerRef         = useRef<ReturnType<typeof setInterval> | null>(null)
   const scoreIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const flashRef         = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const lastFiredRef     = useRef<string | null>(null)   // id of last entry fired; prevents consecutive repeats
+  const switchIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // lastFiredRef removed — Claude decides per-utterance whether coaching is warranted
   const scrollRef        = useRef<HTMLDivElement>(null)
   const streamRef        = useRef<MediaStream | null>(null)
   const liveRef          = useRef({ lines: [] as TranscriptLine[], cardCount: 0, sentimentScore: 0 })
@@ -502,58 +182,82 @@ export default function LiveCallPage() {
   const setCallFocusSynced = useCallback((f: CallFocus) => {
     focusRef.current = f
     setCallFocus(f)
-    lastFiredRef.current = null   // reset consecutive block so focus-switch allows re-fire
+    setSwitchRec(null)
+    setSwitchRec(null)            // dismiss pivot card when agent acts on the recommendation
   }, [])
 
-  // ── Core detection — runs within 1s of every finalized prospect line ────────
-  const checkLine = useCallback((text: string, time: string) => {
-    const normText = norm(text)
-    let bestEntry: CoachEntry | null = null
-    let bestScore = 0
-    let bestTrigger = ''
+  // ── AI coaching — called on every finalized prospect utterance ───────────────
+  // Calls /api/live-coach which uses Claude to read buyer psychology and return
+  // contextual coaching. Fires a card only when coaching is warranted.
+  const coachLine = useCallback(async (text: string, time: string) => {
+    if (text.trim().length < 6) return  // ignore very short utterances
 
-    for (const entry of COACH_DB) {
-      for (const trigger of entry.triggers) {
-        const s = triggerScore(normText, trigger)
-        if (s > bestScore) {
-          bestScore = s
-          bestEntry = entry
-          bestTrigger = trigger
-        }
+    // Build context from the last 8 lines so Claude understands conversation flow
+    const contextLines = liveRef.current.lines
+      .slice(-8)
+      .map(l => `${l.speaker === 'agent' ? 'AGENT' : 'PROSPECT'}: ${l.text}`)
+      .join('\n')
+
+    try {
+      const res = await fetch('/api/live-coach', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          utterance:  text,
+          context:    contextLines,
+          callFocus:  focusRef.current,
+        }),
+      })
+      if (!res.ok) return
+
+      const data = await res.json()
+      if (data.skip || !data.cardType || !data.response) return
+
+      // Handle product switch recommendation from Claude
+      if (data.switchProduct && data.switchProduct !== focusRef.current) {
+        setSwitchRec({ toProduct: data.switchProduct, message: data.switchReason || 'Product switch recommended based on prospect signals.' })
       }
-    }
 
-    if (!bestEntry || bestScore === 0) return
-    if (lastFiredRef.current === bestEntry.id) return  // never same card twice in a row
-
-    lastFiredRef.current = bestEntry.id
-    const card: DetectedCard = {
-      id:        crypto.randomUUID(),
-      entryId:   bestEntry.id,
-      cardType:  bestEntry.cardType,
-      label:     bestEntry.label,
-      cardTitle: bestEntry.cardTitle,
-      trigger:   bestTrigger,
-      response:  bestEntry.response,
-      nextMove:  bestEntry.nextMove,
-      quote:     text,
-      time,
+      const card: DetectedCard = {
+        id:        crypto.randomUUID(),
+        cardType:  data.cardType  as CardType,
+        cardTitle: data.cardTitle || data.cardType,
+        psychRead: data.psychRead || '',
+        response:  data.response,
+        nextMove:  data.nextMove  || '',
+        quote:     text,
+        time,
+      }
+      setCards(prev => [card, ...prev])
+      setLatestCard(card)
+      if (flashRef.current) clearTimeout(flashRef.current)
+      flashRef.current = setTimeout(() => setLatestCard(null), 12000)
+    } catch {
+      // Silently fail — coaching is enhancement, not core
     }
-    setCards(prev => [card, ...prev])
-    setLatestCard(card)
-    if (flashRef.current) clearTimeout(flashRef.current)
-    flashRef.current = setTimeout(() => setLatestCard(null), 9000)
   }, [])
 
   const stopCall = useCallback((withSummary = true) => {
-    if (timerRef.current)         { clearInterval(timerRef.current);         timerRef.current = null }
-    if (scoreIntervalRef.current) { clearInterval(scoreIntervalRef.current); scoreIntervalRef.current = null }
-    if (flashRef.current)         { clearTimeout(flashRef.current);          flashRef.current = null }
+    if (timerRef.current)          { clearInterval(timerRef.current);          timerRef.current = null }
+    if (scoreIntervalRef.current)  { clearInterval(scoreIntervalRef.current);  scoreIntervalRef.current = null }
+    if (switchIntervalRef.current) { clearInterval(switchIntervalRef.current); switchIntervalRef.current = null }
+    if (flashRef.current)          { clearTimeout(flashRef.current);           flashRef.current = null }
+    // Stop MediaRecorder
+    try { if (recorderRef.current?.state !== 'inactive') recorderRef.current?.stop() } catch {}
+    recorderRef.current = null
+    // Close Deepgram WebSocket gracefully
+    try {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'CloseStream' }))
+      }
+      wsRef.current?.close()
+    } catch {}
+    wsRef.current = null
     try { recognitionRef.current?.stop() } catch {}
     recognitionRef.current = null
     streamRef.current?.getTracks().forEach(t => t.stop())
     streamRef.current = null
-    setMuted(false); setInterim(''); setLatestCard(null)
+    setMuted(false); setInterim(''); setLatestCard(null); setSwitchRec(null)
     setStatusSynced('ended')
     if (withSummary) setShowSummary(true)
   }, [setStatusSynced])
@@ -563,17 +267,17 @@ export default function LiveCallPage() {
     setErr('')
     setStatusSynced('listening')
     setSpeakerSynced('agent')
-    lastFiredRef.current = null
+    setSwitchRec(null)
     elapsedRef.current = 0
     setLines([]); setCards([]); setInterim(''); setLatestCard(null)
     setShowSummary(false); setElapsed(0); setMuted(false)
-    setScore(7.0); setSentimentScore(0)
+    setScore(7.0); setSentimentScore(0); setLimitedMode(false)
 
     try {
-      const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-      if (!SR) throw new Error('no-support')
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // ── Mic access ────────────────────────────────────────────────────────────
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      })
       streamRef.current = stream
 
       if (timerRef.current) clearInterval(timerRef.current)
@@ -581,6 +285,8 @@ export default function LiveCallPage() {
         elapsedRef.current += 1
         setElapsed(elapsedRef.current)
       }, 1000)
+
+      // Product switch recommendations now come inline from Claude per utterance (see coachLine)
 
       if (scoreIntervalRef.current) clearInterval(scoreIntervalRef.current)
       scoreIntervalRef.current = setInterval(() => {
@@ -604,57 +310,122 @@ export default function LiveCallPage() {
         setScore(Math.max(0, Math.min(10, Math.round(s * 10) / 10)))
       }, 15000)
 
-      const recognition = new SR()
-      recognition.continuous = true
-      recognition.interimResults = true
-      recognition.lang = 'en-US'
-
-      recognition.onresult = (event: any) => {
-        const time = fmt(elapsedRef.current)
+      // ── Shared transcript commit helper ──────────────────────────────────────
+      const commitFinal = (text: string) => {
+        const t = text.trim()
+        if (!t) return
+        const time           = fmt(elapsedRef.current)
         const currentSpeaker = speakerRef.current
-        let newInterim = ''
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript
-          if (event.results[i].isFinal) {
-            const text = transcript.trim()
-            if (!text) continue
-            const lower = text.toLowerCase()
-            const isKeyMoment = currentSpeaker === 'prospect' &&
-              KEY_MOMENT_TRIGGERS.some(k => lower.includes(k))
-            setLines(prev => [...prev, { id: crypto.randomUUID(), text, time, speaker: currentSpeaker, isKeyMoment }])
-            if (currentSpeaker === 'prospect') checkLine(text, time)
-            setTimeout(() => {
-              if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-            }, 50)
-          } else {
-            newInterim += transcript
+        const lower          = t.toLowerCase()
+        const isKeyMoment    = currentSpeaker === 'prospect' &&
+          KEY_MOMENT_TRIGGERS.some(k => lower.includes(k))
+        setLines(prev => [...prev, { id: crypto.randomUUID(), text: t, time, speaker: currentSpeaker, isKeyMoment }])
+        if (currentSpeaker === 'prospect') coachLine(t, time)
+        setTimeout(() => {
+          if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+        }, 50)
+      }
+
+      // ── Try Deepgram (server-issued temp key — API key never reaches browser) ─
+      let dgOk = false
+      try {
+        const tokenRes = await fetch('/api/calls/deepgram-token')
+        if (!tokenRes.ok) throw new Error('token-fetch-failed')
+        const { key } = await tokenRes.json()
+        if (!key) throw new Error('no-key')
+
+        const params = new URLSearchParams({
+          model:            'nova-2',
+          language:         'en-US',
+          smart_format:     'true',
+          interim_results:  'true',
+          utterance_end_ms: '1000',
+          endpointing:      '300',
+          filler_words:     'false',
+          punctuate:        'true',
+        })
+
+        const ws = new WebSocket(
+          `wss://api.deepgram.com/v1/listen?${params.toString()}`,
+          ['token', key]
+        )
+        wsRef.current = ws
+
+        // Wait up to 5s for the connection to open
+        await new Promise<void>((resolve, reject) => {
+          const t = setTimeout(() => reject(new Error('ws-timeout')), 5000)
+          ws.onopen  = () => { clearTimeout(t); resolve() }
+          ws.onerror = () => { clearTimeout(t); reject(new Error('ws-error')) }
+        })
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data as string)
+            if (data.type === 'Results') {
+              const transcript: string = data.channel?.alternatives?.[0]?.transcript ?? ''
+              if (!data.is_final) { setInterim(transcript); return }
+              setInterim('')
+              commitFinal(transcript)
+            }
+            if (data.type === 'UtteranceEnd') setInterim('')
+          } catch {}
+        }
+
+        ws.onerror  = (e) => console.warn('[Deepgram] ws error', e)
+        ws.onclose  = (event) => {
+          if (statusRef.current === 'listening' && event.code !== 1000) {
+            console.warn('[Deepgram] WebSocket closed unexpectedly:', event.code)
           }
         }
-        setInterim(newInterim)
-      }
 
-      recognition.onerror = (event: any) => {
-        if (event.error === 'aborted' || event.error === 'no-speech') return
-        if (event.error === 'not-allowed') {
-          setErr('Microphone access denied. Allow microphone access in your browser settings.')
-          stopCall(false); setStatusSynced('error')
-        } else {
-          console.warn('[SpeechRecognition] error:', event.error)
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : ''
+        const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) ws.send(e.data)
         }
+        recorder.start(250)
+        recorderRef.current = recorder
+        dgOk = true
+
+      } catch (dgErr) {
+        console.warn('[Deepgram] unavailable, falling back to Web Speech API:', dgErr)
+        try { wsRef.current?.close() } catch {}
+        wsRef.current = null
       }
 
-      recognition.onend = () => {
-        if (statusRef.current === 'listening') {
-          try { recognition.start() } catch {}
+      // ── Web Speech API fallback ───────────────────────────────────────────────
+      if (!dgOk) {
+        setLimitedMode(true)
+        const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+        if (!SR) {
+          setErr('Deepgram unavailable and speech recognition not supported in this browser. Please use Chrome or configure a Deepgram API key.')
+          stopCall(false); setStatusSynced('error'); return
         }
+        const recognition = new SR()
+        recognition.continuous = true; recognition.interimResults = true; recognition.lang = 'en-US'
+        recognition.onresult = (event: any) => {
+          let newInterim = ''
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const t = event.results[i][0].transcript
+            if (event.results[i].isFinal) { commitFinal(t); setInterim('') }
+            else newInterim += t
+          }
+          if (newInterim) setInterim(newInterim)
+        }
+        recognition.onerror = (event: any) => {
+          if (event.error === 'aborted' || event.error === 'no-speech') return
+          if (event.error === 'not-allowed') { setErr('Microphone access denied.'); stopCall(false); setStatusSynced('error') }
+          else console.warn('[SpeechRecognition]', event.error)
+        }
+        recognition.onend = () => { if (statusRef.current === 'listening') try { recognition.start() } catch {} }
+        recognition.start()
+        recognitionRef.current = recognition
       }
 
-      recognition.start()
-      recognitionRef.current = recognition
     } catch (e: any) {
-      if (e.message === 'no-support') {
-        setErr('Speech recognition is not supported in this browser. Please use Google Chrome.')
-      } else if (e.name === 'NotAllowedError' || (e.message ?? '').toLowerCase().includes('denied')) {
+      if (e.name === 'NotAllowedError' || (e.message ?? '').toLowerCase().includes('denied')) {
         setErr('Microphone access denied. Allow microphone access and try again.')
       } else {
         setErr(e.message || 'Failed to start. Check microphone permissions and try again.')
@@ -665,20 +436,26 @@ export default function LiveCallPage() {
       if (timerRef.current)         { clearInterval(timerRef.current);         timerRef.current = null }
       if (scoreIntervalRef.current) { clearInterval(scoreIntervalRef.current); scoreIntervalRef.current = null }
     }
-  }, [checkLine, stopCall, setStatusSynced, setSpeakerSynced])
+  }, [coachLine, stopCall, setStatusSynced, setSpeakerSynced])
 
   const endCall    = useCallback(() => stopCall(true), [stopCall])
   const toggleMute = useCallback(() => {
     if (!streamRef.current) return
     const next = !muted
     streamRef.current.getAudioTracks().forEach(t => { t.enabled = !next })
+    if (recorderRef.current) {
+      try { next ? recorderRef.current.pause() : recorderRef.current.resume() } catch {}
+    }
     setMuted(next)
   }, [muted])
 
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-      if (scoreIntervalRef.current) clearInterval(scoreIntervalRef.current)
+      if (timerRef.current)          clearInterval(timerRef.current)
+      if (scoreIntervalRef.current)  clearInterval(scoreIntervalRef.current)
+      if (switchIntervalRef.current) clearInterval(switchIntervalRef.current)
+      try { if (recorderRef.current?.state !== 'inactive') recorderRef.current?.stop() } catch {}
+      try { wsRef.current?.close() } catch {}
       try { recognitionRef.current?.stop() } catch {}
       streamRef.current?.getTracks().forEach(t => t.stop())
     }
@@ -708,9 +485,15 @@ export default function LiveCallPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
           <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: cs.badgeColor, backgroundColor: cs.badgeBg, padding: '2px 8px', borderRadius: 4 }}>{card.cardTitle}</span>
         </div>
-        <p style={{ margin: '0 0 8px', fontSize: 12, color: '#7A7060', fontStyle: 'italic', lineHeight: 1.5 }}>&ldquo;{card.quote}&rdquo;</p>
+        <p style={{ margin: '0 0 7px', fontSize: 12, color: '#7A7060', fontStyle: 'italic', lineHeight: 1.5 }}>&ldquo;{card.quote}&rdquo;</p>
+        {card.psychRead && (
+          <div style={{ backgroundColor: 'rgba(140,109,47,0.07)', border: '1px solid rgba(140,109,47,0.2)', borderRadius: 6, padding: '7px 10px', marginBottom: 7 }}>
+            <p style={{ margin: '0 0 3px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: '#8C6D2F' }}>🧠 BUYER PSYCHOLOGY</p>
+            <p style={{ margin: 0, fontSize: 12, color: '#5A4A30', lineHeight: 1.6 }}>{card.psychRead}</p>
+          </div>
+        )}
         <div style={{ backgroundColor: cs.innerBg, border: '1px solid #DDD5BB', borderRadius: 7, padding: '9px 11px', marginBottom: 7 }}>
-          <p style={{ margin: '0 0 4px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: cs.responseLabelColor }}>SUGGESTED RESPONSE</p>
+          <p style={{ margin: '0 0 4px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: cs.responseLabelColor }}>COACHING</p>
           <p style={{ margin: 0, fontSize: 12, color: '#2C2A1E', lineHeight: 1.6 }}>{card.response}</p>
         </div>
         <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', color: cs.accent }}>
@@ -743,6 +526,11 @@ export default function LiveCallPage() {
             <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, backgroundColor: 'rgba(192,57,43,0.15)', border: '1px solid rgba(192,57,43,0.35)', fontSize: 10, fontWeight: 700, color: '#E07060', letterSpacing: '0.08em' }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#E07060', animation: 'livePulse 1.4s ease-in-out infinite', display: 'inline-block' }} />
               LIVE
+            </span>
+          )}
+          {isLive && limitedMode && (
+            <span style={{ padding: '3px 9px', borderRadius: 20, backgroundColor: 'rgba(140,109,47,0.15)', border: '1px solid rgba(140,109,47,0.3)', fontSize: 9, fontWeight: 700, color: '#8C6D2F', letterSpacing: '0.07em' }}>
+              LIMITED MODE
             </span>
           )}
         </div>
@@ -804,7 +592,7 @@ export default function LiveCallPage() {
               </div>
             )}
             <p style={{ fontSize: 11, color: '#9A9080', margin: '0 0 14px', textAlign: 'center' }}>
-              Requires Google Chrome &nbsp;·&nbsp; Microphone access needed
+              Deepgram AI transcription &nbsp;·&nbsp; Chrome fallback available
             </p>
             <button
               onClick={startCall}
@@ -917,6 +705,28 @@ export default function LiveCallPage() {
 
           {/* Right: coaching panel */}
           <div style={{ flex: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden', backgroundColor: '#F5F0E8' }}>
+
+            {/* Pivot recommendation — non-scrolling, always visible at top */}
+            {switchRec && focusRef.current !== switchRec.toProduct && (
+              <div style={{ margin: '8px 10px 0', borderRadius: 10, border: '1px solid rgba(140,109,47,0.4)', borderLeft: '3px solid #8C6D2F', backgroundColor: '#F5ECD8', flexShrink: 0 }}>
+                <div style={{ padding: '8px 10px 7px', borderBottom: '1px solid rgba(140,109,47,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: '#8C6D2F', backgroundColor: 'rgba(140,109,47,0.14)', padding: '2px 8px', borderRadius: 4, flexShrink: 0 }}>PIVOT OPPORTUNITY</span>
+                  <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                    <button
+                      onClick={() => setCallFocusSynced(switchRec.toProduct)}
+                      style={{ fontSize: 10, fontWeight: 700, color: '#5A3E00', backgroundColor: 'rgba(140,109,47,0.18)', border: '1px solid rgba(140,109,47,0.35)', borderRadius: 5, padding: '3px 9px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+                    >
+                      Switch → {FOCUS_OPTIONS.find(o => o.value === switchRec.toProduct)?.label}
+                    </button>
+                    <button onClick={() => setSwitchRec(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9A9080', display: 'flex', padding: 2, flexShrink: 0 }}>
+                      <X size={12} />
+                    </button>
+                  </div>
+                </div>
+                <p style={{ margin: 0, padding: '8px 12px', fontSize: 11, color: '#4A3A0E', lineHeight: 1.6 }}>{switchRec.message}</p>
+              </div>
+            )}
+
             <div style={{ flex: 1, overflowY: 'auto', padding: '0 0 12px' }}>
 
               {/* Cards header */}
@@ -946,13 +756,19 @@ export default function LiveCallPage() {
                   return (
                     <div key={card.id} style={{ borderRadius: 10, border: `1px solid ${cs.border}`, overflow: 'hidden', backgroundColor: cs.bg }}>
                       <div style={{ padding: '7px 12px', backgroundColor: cs.badgeBg, borderBottom: `1px solid ${cs.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: cs.labelColor }}>{card.label}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: cs.labelColor }}>{card.cardTitle}</span>
                         <span style={{ fontSize: 10, color: '#9A9080' }}>{card.time}</span>
                       </div>
                       <div style={{ padding: '9px 12px' }}>
                         <p style={{ margin: '0 0 7px', fontSize: 12, color: '#7A7060', fontStyle: 'italic', lineHeight: 1.5 }}>&ldquo;{card.quote}&rdquo;</p>
+                        {card.psychRead && (
+                          <div style={{ backgroundColor: 'rgba(140,109,47,0.07)', border: '1px solid rgba(140,109,47,0.2)', borderRadius: 6, padding: '6px 9px', marginBottom: 7 }}>
+                            <p style={{ margin: '0 0 2px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: '#8C6D2F' }}>🧠 BUYER PSYCHOLOGY</p>
+                            <p style={{ margin: 0, fontSize: 11, color: '#5A4A30', lineHeight: 1.6 }}>{card.psychRead}</p>
+                          </div>
+                        )}
                         <div style={{ backgroundColor: cs.innerBg, border: '1px solid #DDD5BB', borderRadius: 7, padding: '7px 10px', marginBottom: 7 }}>
-                          <p style={{ margin: '0 0 3px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: cs.responseLabelColor }}>SUGGESTED RESPONSE</p>
+                          <p style={{ margin: '0 0 3px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: cs.responseLabelColor }}>COACHING</p>
                           <p style={{ margin: 0, fontSize: 12, color: '#2C2A1E', lineHeight: 1.6 }}>{card.response}</p>
                         </div>
                         <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', color: cs.accent }}>
@@ -1054,7 +870,7 @@ export default function LiveCallPage() {
                   return (
                     <div key={card.id} style={{ borderRadius: 9, border: `1px solid ${cs.border}`, overflow: 'hidden' }}>
                       <div style={{ padding: '7px 13px', backgroundColor: cs.badgeBg, display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: cs.labelColor }}>{i + 1}. {card.label}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: cs.labelColor }}>{i + 1}. {card.cardTitle}</span>
                         <span style={{ fontSize: 11, color: '#9A9080' }}>@ {card.time}</span>
                       </div>
                       <p style={{ margin: 0, padding: '7px 13px', fontSize: 12, color: '#7A7060', fontStyle: 'italic' }}>&ldquo;{card.quote}&rdquo;</p>
