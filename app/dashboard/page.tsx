@@ -830,10 +830,10 @@ function AnalyticsTab() {
         ].map(({ label, value, sub, Icon, color }) => (
           <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-5" style={{ borderBottom: "2px solid #D4C9A8" }}>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] text-zinc-500 uppercase tracking-wider">{label}</p>
+              <p style={{ fontSize: 11, fontWeight: 500, color: "#7A7060", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</p>
               <Icon className={`h-4 w-4 ${color}`} />
             </div>
-            <p className="text-2xl font-bold text-white">{value}</p>
+            <p style={{ fontSize: 32, fontWeight: 600, color: "#1C1C1A" }}>{value}</p>
             <p className="text-xs text-zinc-600 mt-1">{sub}</p>
           </div>
         ))}
@@ -1977,7 +1977,7 @@ function DashboardHome({
     <div className="space-y-5">
       {/* Greeting */}
       <div>
-        <h1 className="text-xl font-semibold text-white">
+        <h1 style={{ fontSize: 28, fontWeight: 600, color: "#1C1C1A", lineHeight: 1.2 }}>
           {greeting}{agentName ? `, ${agentName}` : ""}.
         </h1>
         <p className="text-xs text-zinc-500 mt-0.5">Here&apos;s how your calls are looking.</p>
@@ -1987,10 +1987,10 @@ function DashboardHome({
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {liveStats.map(s => (
           <div key={s.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-5" style={{ borderBottom: "2px solid #D4C9A8" }}>
-            <p className="text-[11px] text-zinc-500 uppercase tracking-wider">{s.label}</p>
+            <p style={{ fontSize: 11, fontWeight: 500, color: "#7A7060", textTransform: "uppercase", letterSpacing: "0.08em" }}>{s.label}</p>
             {loading
               ? <div className="mt-2 h-7 w-16 rounded bg-zinc-800 animate-pulse" />
-              : <p className="mt-2 text-2xl font-semibold text-white tracking-tight">{s.value}</p>
+              : <p className="mt-2 tracking-tight" style={{ fontSize: 32, fontWeight: 600, color: "#1C1C1A" }}>{s.value}</p>
             }
             <p className="mt-1 text-xs text-zinc-600">{s.change}</p>
           </div>
@@ -2663,7 +2663,7 @@ function DashboardPage() {
             {/* Header */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
               <div>
-                <h1 className="text-xl font-semibold text-white">{tabTitle[activeTab]}</h1>
+                <h1 style={{ fontSize: 22, fontWeight: 600, color: "#1C1C1A" }}>{tabTitle[activeTab]}</h1>
                 <p className="text-sm text-zinc-500 mt-0.5">
                   {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                 </p>
