@@ -10,9 +10,9 @@
   --color-blue:          #8C6D2F;
 
   /* Legacy tokens */
-  --bg:           #E8E2D4;
-  --bg-card:      #F0EAD8;
-  --cream:        #F0EAD8;
+  --bg:           #E8DFC8;
+  --bg-card:      #EDE4CC;
+  --cream:        #EDE4CC;
   --cream-dim:    #7A7060;
   --gold:         #8C6D2F;
   --gold-light:   #A07E3F;
@@ -31,11 +31,11 @@
   /* Backgrounds → light parchment scale */
   --color-black:         #0E1810;
   --color-zinc-950:      #1A2C1E;
-  --color-zinc-900:      #F0EAD8;
-  --color-zinc-800:      #E8E2D4;
-  --color-zinc-700:      #DDD5C0;
-  --color-gray-900:      #F0EAD8;
-  --color-slate-900:     #F0EAD8;
+  --color-zinc-900:      #EDE4CC;
+  --color-zinc-800:      #E8DFC8;
+  --color-zinc-700:      #D4C9A8;
+  --color-gray-900:      #EDE4CC;
+  --color-slate-900:     #EDE4CC;
   /* Antique brass accents */
   --color-amber-300:     #A07E3F;
   --color-amber-400:     #8C6D2F;
@@ -227,13 +227,13 @@ body {
 
 /* ── Surface color hard overrides ─────────────────────────────────── */
 /* Explicit rules beat @theme variables if the CSS variable doesn't cascade correctly */
-.bg-zinc-900       { background-color: #F0EAD8; }
-.bg-zinc-900\/80   { background-color: rgba(240,234,216,0.8); }
-.bg-zinc-900\/60   { background-color: rgba(240,234,216,0.6); }
-.bg-zinc-900\/40   { background-color: rgba(240,234,216,0.4); }
-.bg-zinc-800       { background-color: #E8E2D4; }
-.bg-zinc-800\/60   { background-color: rgba(232,226,212,0.6); }
-.bg-zinc-800\/40   { background-color: rgba(232,226,212,0.4); }
-.border-zinc-800   { border-color: #DDD5C0; }
-.border-zinc-800\/60 { border-color: rgba(221,213,192,0.6); }
-.divide-zinc-800\/60 > * + * { border-color: rgba(221,213,192,0.6); }
+.bg-zinc-900       { background-color: #EDE4CC; }
+.bg-zinc-900\/80   { background-color: rgba(237,228,204,0.8); }
+.bg-zinc-900\/60   { background-color: rgba(237,228,204,0.6); }
+.bg-zinc-900\/40   { background-color: rgba(237,228,204,0.4); }
+.bg-zinc-800       { background-color: #E8DFC8; }
+.bg-zinc-800\/60   { background-color: rgba(232,223,200,0.6); }
+.bg-zinc-800\/40   { background-color: rgba(232,223,200,0.4); }
+.border-zinc-800   { border-color: #D4C9A8; }
+.border-zinc-800\/60 { border-color: rgba(212,201,168,0.6); }
+.divide-zinc-800\/60 > * + * { border-color: rgba(212,201,168,0.6); }

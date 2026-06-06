@@ -37,8 +37,8 @@ function WelcomeModal({ onClose }: { onClose: () => void }) {
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{
-        background: "#F0EAD8",
-        border: "1px solid #DDD5C0",
+        background: "#EDE4CC",
+        border: "1px solid #D4C9A8",
         borderRadius: "16px",
         padding: "40px 36px",
         maxWidth: "460px",
