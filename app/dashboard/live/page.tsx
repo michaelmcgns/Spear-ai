@@ -1,14 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Phone, PhoneOff, Mic, MicOff, X } from 'lucide-react'
-
-const sb = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
-)
 
 const OBJECTION_DB = [
   {
@@ -63,7 +57,7 @@ const OBJECTION_DB = [
   },
 ]
 
-type DeviceStatus = 'loading' | 'registering' | 'ready' | 'calling' | 'connected' | 'ended' | 'error'
+type Status = 'ready' | 'calling' | 'connected' | 'ended' | 'error'
 interface TranscriptLine { id: string; text: string; final: boolean }
 interface CaughtObjection { id: string; label: string; response: string; quote: string; time: string }
 
@@ -71,7 +65,7 @@ const fmt = (s: number) =>
   `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 
 export default function LiveCallPage() {
-  const [status, setStatus] = useState<DeviceStatus>('loading')
+  const [status, setStatus] = useState<Status>('ready')
   const [phone, setPhone] = useState('')
   const [lines, setLines] = useState<TranscriptLine[]>([])
   const [objections, setObjections] = useState<CaughtObjection[]>([])
@@ -81,6 +75,7 @@ export default function LiveCallPage() {
   const [muted, setMuted] = useState(false)
   const [err, setErr] = useState('')
 
+  // All browser-only refs — never touch on SSR
   const deviceRef = useRef<any>(null)
   const callRef = useRef<any>(null)
   const channelRef = useRef<any>(null)
@@ -91,40 +86,12 @@ export default function LiveCallPage() {
   const cleanedRef = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Init Twilio Device
-  useEffect(() => {
-    let device: any
-    async function init() {
-      try {
-        const { Device } = await import('@twilio/voice-sdk')
-        const res = await fetch('/api/calls/token')
-        const data = await res.json()
-        if (data.error) throw new Error(data.error)
-
-        device = new Device(data.token, { logLevel: 1 })
-        deviceRef.current = device
-        device.on('registered', () => setStatus('ready'))
-        device.on('error', (e: any) => {
-          setErr(e.message || 'Device error')
-          setStatus('error')
-        })
-        setStatus('registering')
-        await device.register()
-      } catch (e: any) {
-        setErr(e.message || 'Failed to load call device')
-        setStatus('error')
-      }
-    }
-    init()
-    return () => { device?.destroy() }
-  }, [])
-
   const cleanup = useCallback((withSummary = true) => {
     if (cleanedRef.current) return
     cleanedRef.current = true
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     if (flashRef.current) { clearTimeout(flashRef.current); flashRef.current = null }
-    channelRef.current?.unsubscribe()
+    try { channelRef.current?.unsubscribe() } catch (_) {}
     channelRef.current = null
     callRef.current = null
     setMuted(false)
@@ -170,10 +137,11 @@ export default function LiveCallPage() {
     }, 50)
   }, [checkObjection])
 
+  // Everything browser-specific runs only when user clicks Start Call
   const startCall = useCallback(async () => {
-    if (status !== 'ready' || !deviceRef.current) return
     const number = phone.trim()
     if (!number) { setErr('Enter a phone number'); return }
+    if (typeof window === 'undefined') return
 
     cleanedRef.current = false
     const sid = crypto.randomUUID()
@@ -188,6 +156,12 @@ export default function LiveCallPage() {
     setStatus('calling')
 
     try {
+      // 1. Subscribe to Supabase Realtime for this session's transcripts
+      const { createClient } = await import('@supabase/supabase-js')
+      const sb = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+      )
       const ch = sb
         .channel(`call:${sid}`)
         .on('broadcast', { event: 'transcript' }, ({ payload }: any) => {
@@ -196,6 +170,19 @@ export default function LiveCallPage() {
         .subscribe()
       channelRef.current = ch
 
+      // 2. Init Twilio Device on first call (lazy — never runs on server)
+      if (!deviceRef.current) {
+        const { Device } = await import('@twilio/voice-sdk')
+        const tokenRes = await fetch('/api/calls/token')
+        const tokenData = await tokenRes.json()
+        if (tokenData.error) throw new Error(tokenData.error)
+
+        const device = new Device(tokenData.token, { logLevel: 1 })
+        await device.register()
+        deviceRef.current = device
+      }
+
+      // 3. Dial
       const call = await deviceRef.current.connect({
         params: { Phone: number, SessionId: sid },
       })
@@ -211,7 +198,7 @@ export default function LiveCallPage() {
       })
       call.on('disconnect', () => cleanup())
       call.on('cancel', () => {
-        channelRef.current?.unsubscribe()
+        try { channelRef.current?.unsubscribe() } catch (_) {}
         channelRef.current = null
         setStatus('ready')
       })
@@ -220,15 +207,15 @@ export default function LiveCallPage() {
         cleanup(false)
       })
     } catch (e: any) {
-      setErr(e.message || 'Failed to start call')
-      channelRef.current?.unsubscribe()
+      try { channelRef.current?.unsubscribe() } catch (_) {}
       channelRef.current = null
-      setStatus('ready')
+      setErr(e.message || 'Failed to start call')
+      setStatus('error')
     }
-  }, [status, phone, handleTranscript, cleanup])
+  }, [phone, handleTranscript, cleanup])
 
   const endCall = useCallback(() => {
-    callRef.current?.disconnect()
+    try { callRef.current?.disconnect() } catch (_) {}
     cleanup()
   }, [cleanup])
 
@@ -242,7 +229,7 @@ export default function LiveCallPage() {
   const inCall = status === 'calling' || status === 'connected'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#E8E2D4', fontFamily: 'var(--font-space, system-ui, sans-serif)', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#E8DFC8', fontFamily: 'var(--font-space, system-ui, sans-serif)', overflow: 'hidden' }}>
 
       {/* Header */}
       <header style={{ backgroundColor: '#1A2C1E', height: 56, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px' }}>
@@ -280,63 +267,53 @@ export default function LiveCallPage() {
       {/* Idle / Ready / Error */}
       {!inCall && status !== 'ended' && (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div style={{ backgroundColor: '#F0EAD8', border: '1px solid #DDD5C0', borderRadius: 16, padding: '40px 36px', maxWidth: 420, width: '100%', textAlign: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
+          <div style={{ backgroundColor: '#EDE4CC', border: '1px solid #D4C9A8', borderRadius: 16, padding: '40px 36px', maxWidth: 420, width: '100%', textAlign: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
             <div style={{ width: 52, height: 52, borderRadius: '50%', backgroundColor: 'rgba(74,124,89,0.15)', border: '1px solid rgba(74,124,89,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
               <Phone size={20} style={{ color: '#4A7C59' }} />
             </div>
             <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1C1C1A', margin: '0 0 8px' }}>Live Call</h2>
             <p style={{ fontSize: 13, color: '#7A7060', margin: '0 0 24px', lineHeight: 1.6 }}>
-              Enter the prospect's number. Spear transcribes the conversation in real time and surfaces objection coaching as it happens.
+              Enter the prospect&#39;s number. Spear transcribes the conversation in real time and surfaces objection coaching as it happens.
             </p>
 
-            {(status === 'loading' || status === 'registering') && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#7A7060', fontSize: 13 }}>
-                <span style={{ width: 14, height: 14, border: '2px solid #DDD5C0', borderTopColor: '#4A7C59', borderRadius: '50%', display: 'inline-block', animation: 'devSpin 0.7s linear infinite' }} />
-                Initializing phone device…
-              </div>
-            )}
-
             {status === 'error' && (
-              <div style={{ backgroundColor: 'rgba(139,58,58,0.08)', border: '1px solid rgba(139,58,58,0.2)', borderRadius: 8, padding: '10px 14px', color: '#8B3A3A', fontSize: 13 }}>
-                {err || 'Device error — check browser console.'}
+              <div style={{ backgroundColor: 'rgba(139,58,58,0.08)', border: '1px solid rgba(139,58,58,0.2)', borderRadius: 8, padding: '10px 14px', color: '#8B3A3A', fontSize: 13, marginBottom: 12 }}>
+                {err || 'Something went wrong. Try again.'}
               </div>
             )}
 
-            {status === 'ready' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <input
-                  type="tel"
-                  placeholder="+1 (555) 000-0000"
-                  value={phone}
-                  onChange={e => { setPhone(e.target.value); setErr('') }}
-                  onKeyDown={e => { if (e.key === 'Enter') startCall() }}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: 10, border: '1px solid #DDD5C0', backgroundColor: '#E8E2D4', color: '#1C1C1A', fontSize: 15, textAlign: 'center', outline: 'none', fontFamily: 'inherit' }}
-                />
-                {err && <p style={{ margin: 0, fontSize: 12, color: '#8B3A3A' }}>{err}</p>}
-                <button
-                  onClick={startCall}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '12px 0', borderRadius: 10, backgroundColor: '#1A2C1E', color: '#C8D9CB', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
-                >
-                  <Phone size={15} /> Start Call
-                </button>
-              </div>
-            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <input
+                type="tel"
+                placeholder="+1 (555) 000-0000"
+                value={phone}
+                onChange={e => { setPhone(e.target.value); setErr(''); if (status === 'error') setStatus('ready') }}
+                onKeyDown={e => { if (e.key === 'Enter') startCall() }}
+                style={{ width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: 10, border: '1px solid #D4C9A8', backgroundColor: '#E8DFC8', color: '#1C1C1A', fontSize: 15, textAlign: 'center', outline: 'none', fontFamily: 'inherit' }}
+              />
+              {err && status !== 'error' && <p style={{ margin: 0, fontSize: 12, color: '#8B3A3A' }}>{err}</p>}
+              <button
+                onClick={startCall}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '12px 0', borderRadius: 10, backgroundColor: '#1A2C1E', color: '#C8D9CB', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                <Phone size={15} /> Start Call
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* In-call / post-call transcript view */}
+      {/* In-call / post-call */}
       {(inCall || status === 'ended') && !showSummary && (
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
           {/* Transcript */}
-          <div style={{ flex: 3, display: 'flex', flexDirection: 'column', borderRight: '1px solid #DDD5C0', overflow: 'hidden' }}>
-            <div style={{ padding: '10px 16px', backgroundColor: '#F0EAD8', borderBottom: '1px solid #DDD5C0', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <div style={{ flex: 3, display: 'flex', flexDirection: 'column', borderRight: '1px solid #D4C9A8', overflow: 'hidden' }}>
+            <div style={{ padding: '10px 16px', backgroundColor: '#EDE4CC', borderBottom: '1px solid #D4C9A8', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
               <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>TRANSCRIPT</span>
               {status === 'calling' && <span style={{ fontSize: 11, color: '#4A7C59' }}>Dialing {phone}…</span>}
             </div>
-
-            <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', backgroundColor: '#F0EAD8', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '14px 16px', backgroundColor: '#EDE4CC', display: 'flex', flexDirection: 'column', gap: 3 }}>
               {lines.length === 0 ? (
                 <p style={{ margin: 0, color: '#9A9080', fontSize: 13, fontStyle: 'italic' }}>
                   {status === 'connected' ? 'Waiting for transcription…' : 'Connecting…'}
@@ -349,12 +326,12 @@ export default function LiveCallPage() {
             </div>
 
             {flash && (
-              <div style={{ margin: 10, padding: '11px 14px', borderRadius: 9, border: '1px solid #DDD5C0', borderLeft: '3px solid #8C6D2F', backgroundColor: '#F5ECD8', position: 'relative', flexShrink: 0 }}>
+              <div style={{ margin: 10, padding: '11px 14px', borderRadius: 9, border: '1px solid #D4C9A8', borderLeft: '3px solid #8C6D2F', backgroundColor: '#F5ECD8', position: 'relative', flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
                   <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: '#8C6D2F', backgroundColor: 'rgba(140,109,47,0.12)', padding: '2px 7px', borderRadius: 4 }}>PHASE ALERT</span>
                   <span style={{ fontSize: 12, fontWeight: 600, color: '#1C1C1A' }}>{flash.label}</span>
                 </div>
-                <p style={{ margin: 0, fontSize: 12, color: '#7A7060', fontStyle: 'italic', lineHeight: 1.5, paddingRight: 20 }}>"{flash.quote}"</p>
+                <p style={{ margin: 0, fontSize: 12, color: '#7A7060', fontStyle: 'italic', lineHeight: 1.5, paddingRight: 20 }}>&#34;{flash.quote}&#34;</p>
                 <button onClick={() => setFlash(null)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#9A9080', display: 'flex', padding: 2 }}>
                   <X size={12} />
                 </button>
@@ -363,8 +340,8 @@ export default function LiveCallPage() {
           </div>
 
           {/* Coaching */}
-          <div style={{ flex: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden', backgroundColor: '#E8E2D4' }}>
-            <div style={{ padding: '10px 16px', backgroundColor: '#F0EAD8', borderBottom: '1px solid #DDD5C0', flexShrink: 0 }}>
+          <div style={{ flex: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden', backgroundColor: '#E8DFC8' }}>
+            <div style={{ padding: '10px 16px', backgroundColor: '#EDE4CC', borderBottom: '1px solid #D4C9A8', flexShrink: 0 }}>
               <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>COACHING</span>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -373,13 +350,13 @@ export default function LiveCallPage() {
                   Objection coaching appears here as the call progresses.
                 </p>
               ) : objections.map(obj => (
-                <div key={obj.id} style={{ borderRadius: 10, border: '1px solid #DDD5C0', overflow: 'hidden', backgroundColor: '#F0EAD8' }}>
+                <div key={obj.id} style={{ borderRadius: 10, border: '1px solid #D4C9A8', overflow: 'hidden', backgroundColor: '#EDE4CC' }}>
                   <div style={{ padding: '9px 13px', backgroundColor: 'rgba(140,109,47,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: '#8C6D2F' }}>{obj.label}</span>
                     <span style={{ fontSize: 10, color: '#9A9080' }}>{obj.time}</span>
                   </div>
                   <div style={{ padding: '10px 13px' }}>
-                    <p style={{ margin: '0 0 9px', fontSize: 12, color: '#7A7060', fontStyle: 'italic', lineHeight: 1.5 }}>"{obj.quote}"</p>
+                    <p style={{ margin: '0 0 9px', fontSize: 12, color: '#7A7060', fontStyle: 'italic', lineHeight: 1.5 }}>&#34;{obj.quote}&#34;</p>
                     <div style={{ backgroundColor: '#F5ECD8', border: '1px solid #E8D8B0', borderRadius: 7, padding: '9px 11px' }}>
                       <p style={{ margin: '0 0 5px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: '#8C6D2F' }}>SUGGESTED RESPONSE</p>
                       <p style={{ margin: 0, fontSize: 12, color: '#1C1C1A', lineHeight: 1.6 }}>{obj.response}</p>
@@ -392,10 +369,10 @@ export default function LiveCallPage() {
         </div>
       )}
 
-      {/* Summary modal */}
+      {/* Summary */}
       {showSummary && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(232,226,212,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 50 }}>
-          <div style={{ backgroundColor: '#F0EAD8', border: '1px solid #DDD5C0', borderRadius: 16, padding: '36px 32px', maxWidth: 500, width: '100%', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.08)' }}>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(232,223,200,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, zIndex: 50 }}>
+          <div style={{ backgroundColor: '#EDE4CC', border: '1px solid #D4C9A8', borderRadius: 16, padding: '36px 32px', maxWidth: 500, width: '100%', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.08)' }}>
             <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1C1C1A', margin: '0 0 5px' }}>Call Complete</h2>
             <p style={{ fontSize: 13, color: '#7A7060', margin: '0 0 20px' }}>
               Duration: {fmt(elapsed)} &nbsp;·&nbsp; {objections.length} objection{objections.length !== 1 ? 's' : ''} detected
@@ -405,12 +382,12 @@ export default function LiveCallPage() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {objections.map((obj, i) => (
-                  <div key={obj.id} style={{ borderRadius: 10, border: '1px solid #DDD5C0', overflow: 'hidden' }}>
+                  <div key={obj.id} style={{ borderRadius: 10, border: '1px solid #D4C9A8', overflow: 'hidden' }}>
                     <div style={{ padding: '8px 14px', backgroundColor: 'rgba(140,109,47,0.07)', display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: '#8C6D2F' }}>{i + 1}. {obj.label}</span>
                       <span style={{ fontSize: 11, color: '#9A9080' }}>@ {obj.time}</span>
                     </div>
-                    <p style={{ margin: 0, padding: '8px 14px', fontSize: 12, color: '#7A7060', fontStyle: 'italic' }}>"{obj.quote}"</p>
+                    <p style={{ margin: 0, padding: '8px 14px', fontSize: 12, color: '#7A7060', fontStyle: 'italic' }}>&#34;{obj.quote}&#34;</p>
                   </div>
                 ))}
               </div>
@@ -431,7 +408,7 @@ export default function LiveCallPage() {
               </button>
               <Link
                 href="/dashboard"
-                style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid #DDD5C0', color: '#7A7060', fontWeight: 600, fontSize: 13, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid #D4C9A8', color: '#7A7060', fontWeight: 600, fontSize: 13, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 Dashboard
               </Link>
@@ -442,7 +419,6 @@ export default function LiveCallPage() {
 
       <style>{`
         @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:.35} }
-        @keyframes devSpin { to{transform:rotate(360deg)} }
       `}</style>
     </div>
   )
