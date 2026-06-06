@@ -8,6 +8,7 @@ import { ArrowLeft, Mic, MicOff, PhoneOff, X } from 'lucide-react'
 
 type Status    = 'ready' | 'listening' | 'ended' | 'error'
 type Speaker   = 'agent' | 'prospect'
+type CardType  = 'objection' | 'buying_signal' | 'closing'
 type CallFocus =
   | 'mortgage_protection'
   | 'term_life'
@@ -17,20 +18,32 @@ type CallFocus =
   | 'medicare_advantage'
   | 'annuities'
 
-interface ObjEntry {
-  triggers: string[]
-  label:    string
-  response: string
-  nextMove: string
+interface CoachEntry {
+  id:        string
+  cardType:  CardType
+  triggers:  string[]
+  label:     string
+  cardTitle: string
+  response:  string
+  nextMove:  string
 }
 interface TranscriptLine {
   id: string; text: string; time: string; speaker: Speaker; isKeyMoment: boolean
 }
-interface DetectedObjection {
-  id: string; label: string; trigger: string; response: string; nextMove: string; quote: string; time: string
+interface DetectedCard {
+  id:        string
+  entryId:   string
+  cardType:  CardType
+  label:     string
+  cardTitle: string
+  trigger:   string
+  response:  string
+  nextMove:  string
+  quote:     string
+  time:      string
 }
 
-// ─── Focus metadata ───────────────────────────────────────────────────────────
+// ─── Focus metadata (UI only — detection is universal NEPQ library) ───────────
 
 const FOCUS_OPTIONS: { value: CallFocus; label: string }[] = [
   { value: 'mortgage_protection',  label: 'Mortgage Protection' },
@@ -52,385 +65,332 @@ const FOCUS_BADGE: Record<CallFocus, string> = {
   annuities:           'ANNUITIES',
 }
 
-// ─── Objection library (per product) ─────────────────────────────────────────
+// ─── Fuzzy matching engine ────────────────────────────────────────────────────
+//
+// Matching rules (in priority order):
+//  1. If the normalized trigger appears as a substring → direct match (score = phrase length)
+//  2. Otherwise extract content words (len > 2, not in STOP) and check coverage:
+//     if ≥ 65% of content words appear in the text → keyword match (score = count matched)
+// Highest score across all triggers & entries wins. No match if score = 0.
 
-const PRODUCT_OBJECTIONS: Record<CallFocus, ObjEntry[]> = {
+const STOP = new Set(['a','an','the','and','but','for','nor','yet','some','any','from','with','this','that','than','when','then','what','who'])
 
-  mortgage_protection: [
-    {
-      triggers: ['no idea what you', "don't know what you're talking about", 'what is this', 'what are you talking about'],
-      label: 'Confusion',
-      response: "That's completely fair — I should have been clearer. I'm calling about the mortgage protection benefit tied to your home at [address]. It's a government-backed program. Did you know this was available to you?",
-      nextMove: "Re-establish what you're calling about in one sentence. Get a yes/no.",
-    },
-    {
-      triggers: ['i got to go', 'i have to go', "i'm busy", 'bad time', 'call me back', 'not a good time', 'call back later', 'not right now', 'busy right now'],
-      label: 'Time Objection',
-      response: "I completely understand — I only need 90 seconds. The reason I'm calling is there's a benefit tied specifically to your home that most homeowners never claim. Can I get just 90 seconds?",
-      nextMove: "Ask for 90 seconds specifically. Never ask for \"a few minutes.\"",
-    },
-    {
-      triggers: ['leave me alone', 'lose my number', 'stop calling', "don't call again", 'remove me'],
-      label: 'Strong Rejection',
-      response: "I hear you and I will absolutely respect that. Before I go — the only reason I called is there's a death benefit tied to your mortgage that pays off your home if something happens to you. I just want to make sure your family knows it exists. That's it.",
-      nextMove: "Plant the seed and exit gracefully. Do not push further.",
-    },
-    {
-      triggers: ['not interested', "don't want it", "don't need it", "i'm good", "we're fine", 'no thanks', 'not for me'],
-      label: 'Not Interested',
-      response: "I hear you. Most people I talk to say the same thing before they understand what this actually is. Can I ask — who in your life would be most financially impacted if you weren't around? That's really what this comes down to.",
-      nextMove: "Find the emotional why. Make it about people, not product.",
-    },
-    {
-      triggers: ['already have life insurance', 'already have a policy', 'have coverage through work', 'already have coverage', 'already covered'],
-      label: 'Already Covered',
-      response: "That's great — most employer plans only cover 1–2x your salary. If you passed away tonight, how long would that last your family? This is specifically designed to cover what your current policy doesn't.",
-      nextMove: "Gap sell. Find out their current coverage amount vs what they actually need.",
-    },
-    {
-      triggers: ['too expensive', "can't afford it", 'cannot afford', 'how much does it cost', "what's the price", 'how much is it', 'costs too much'],
-      label: 'Price Objection',
-      response: "Most people I talk to spend less than $1 a day on this. But before we even get to price — can I ask what it would mean to your family if your home was paid off if something happened to you?",
-      nextMove: "Anchor to value before revealing price. Always.",
-    },
-    {
-      triggers: ['need to think about it', 'let me think', "i'll think about it", 'need to talk to my spouse', 'talk to my wife', 'talk to my husband', 'check with my partner'],
-      label: 'Stall Objection',
-      response: "That makes complete sense — this is an important decision. What specifically would you need to think through? Is it the cost, the coverage, or something else?",
-      nextMove: "Isolate the real objection. \"Think about it\" always means something else.",
-    },
-    {
-      triggers: ['why do you sound like ai', 'are you a robot', 'is this automated', 'is this a recording'],
-      label: 'Trust / Authenticity',
-      response: "Ha — I get that a lot, I appreciate you saying that. I'm a real person, my name is [name]. The reason I sound scripted is I talk to a lot of homeowners every day. What's your first name?",
-      nextMove: "Get their name immediately. Personalize everything from here.",
-    },
-    {
-      triggers: ["nobody it's just me", 'i live alone', 'no family', 'no kids', 'divorced', 'just me'],
-      label: 'No Dependents',
-      response: "I completely understand. Even if there's no family to protect right now, this also covers your estate — so your home doesn't go into probate or leave debt behind. Does that matter to you?",
-      nextMove: "Shift from family protection to estate/debt protection angle.",
-    },
-  ],
-
-  term_life: [
-    {
-      triggers: ['no idea what you', "don't know what you're talking about", 'what is this', 'what are you talking about'],
-      label: 'Confusion',
-      response: "Fair enough — let me be direct. I'm calling about term life insurance. It's pure income protection — if something happened to you, your family gets a tax-free lump sum to replace your income. Has anyone walked you through this before?",
-      nextMove: "One sentence on what term life does. Confirm they understand before moving on.",
-    },
-    {
-      triggers: ['i got to go', 'i have to go', "i'm busy", 'bad time', 'call me back', 'not a good time', 'call back later', 'not right now'],
-      label: 'Time Objection',
-      response: "I get it — I just have one quick question. If your income stopped tomorrow, how long could your family cover the mortgage and bills without it? That's the number this is built around. 90 seconds?",
-      nextMove: "Ask for 90 seconds. Frame the one question they should think about.",
-    },
-    {
-      triggers: ['leave me alone', 'lose my number', 'stop calling', "don't call again", 'remove me'],
-      label: 'Strong Rejection',
-      response: "Absolutely, I'll respect that. One thing before I go — the average 20-year term for a healthy person your age is less than $1/day. If that changes, the door is always open. Take care.",
-      nextMove: "Plant the seed with the price point, then exit. No pressure.",
-    },
-    {
-      triggers: ['not interested', "don't want it", "don't need it", "i'm good", "we're fine", 'no thanks'],
-      label: 'Not Interested',
-      response: "Most people say that — until they think about what happens to their family's income if they're gone. How long until your mortgage is paid off or your youngest is out of the house? That window is exactly what this covers.",
-      nextMove: "Anchor to the specific time window they need to bridge. Make it concrete.",
-    },
-    {
-      triggers: ['already have life insurance', 'already have a policy', 'have coverage through work', 'already have coverage'],
-      label: 'Already Covered',
-      response: "Most work policies are 1–2x salary and they disappear the day you leave that job. A 20-year term locks in your rate today and follows you anywhere. How much does your work policy actually pay out?",
-      nextMove: "Find the gap. Get their current work coverage amount vs their real income replacement need.",
-    },
-    {
-      triggers: ['too expensive', "can't afford it", 'how much does it cost', "what's the price", 'how much is it'],
-      label: 'Price Objection',
-      response: "A 20-year, $500k term policy for a healthy person your age is typically $25–$40/month. That's income replacement for 20 years. What would your family's monthly expenses look like if your income was gone?",
-      nextMove: "Give a real number. Anchor to what it costs NOT to have it.",
-    },
-    {
-      triggers: ['need to think about it', 'let me think', "i'll think about it", 'need to talk to my spouse', 'talk to my wife', 'talk to my husband'],
-      label: 'Stall Objection',
-      response: "Completely fair — what specifically do you need to think through? Is it whether you need more than what work provides, or something about the cost?",
-      nextMove: "Narrow it to one question. \"Think about it\" always hides a specific blocker.",
-    },
-    {
-      triggers: ['why do you sound like ai', 'are you a robot', 'is this automated', 'is this a recording'],
-      label: 'Trust / Authenticity',
-      response: "Ha — totally fair, I appreciate you asking. Real person here. I talk to a lot of families every day, which is why I sound polished. What's your first name?",
-      nextMove: "Get their name. Everything personalizes from here.",
-    },
-  ],
-
-  final_expense: [
-    {
-      triggers: ['no idea what you', "don't know what you're talking about", 'what is this', 'what are you talking about'],
-      label: 'Confusion',
-      response: "Let me explain — I'm calling about final expense coverage. It's a small whole life policy designed specifically to cover funeral and burial costs so your family doesn't have to come out of pocket. The average funeral today is $12,000–$15,000. Were you aware of this option?",
-      nextMove: "One sentence. Ask if they knew it existed. Most don't.",
-    },
-    {
-      triggers: ['i got to go', 'i have to go', "i'm busy", 'bad time', 'call me back', 'not a good time', 'not right now'],
-      label: 'Time Objection',
-      response: "I understand — I just need 60 seconds. The average funeral costs $12,000–$15,000. Most families have to go into debt or crowdfund to cover it. I just want to make sure that burden doesn't land on yours. Can I get 60 seconds?",
-      nextMove: "Lead with the $12,000–$15,000 number. That's the hook.",
-    },
-    {
-      triggers: ['leave me alone', 'lose my number', 'stop calling', "don't call again", 'remove me'],
-      label: 'Strong Rejection',
-      response: "I hear you — I'll respect that. One thing before I go: the average funeral is $12,000–$15,000. This program makes sure your family doesn't carry that. Rates start under $50/month and are locked in forever. Just wanted you to know it exists.",
-      nextMove: "Leave them with the two numbers: $12,000 cost and <$50/month solution. Exit.",
-    },
-    {
-      triggers: ['not interested', "don't want it", "don't need it", "i'm good", "we're fine", 'no thanks'],
-      label: 'Not Interested',
-      response: "I understand. Nobody likes thinking about this. But think about the people who love you — when you're gone, someone has to make those arrangements and pay for them. This makes sure that doesn't become their burden. Does that matter to you?",
-      nextMove: "Make it about not burdening the people who care about them. That's the emotional close.",
-    },
-    {
-      triggers: ['already have life insurance', 'already have a policy', 'already have coverage'],
-      label: 'Already Covered',
-      response: "That's great — does your current policy specifically name funeral and burial costs? Most life insurance is structured for income replacement, not final expenses. This fills that specific gap so your family isn't dipping into the life insurance just to cover the funeral.",
-      nextMove: "Ask them to confirm their policy covers funeral costs specifically. Most don't.",
-    },
-    {
-      triggers: ['too expensive', "can't afford it", 'how much does it cost', "what's the price", 'how much is it'],
-      label: 'Price Objection',
-      response: "Most plans run $40–$80 a month depending on age — and that rate is locked in forever, it never goes up. Would you rather know that cost is handled, or leave a $12,000–$15,000 bill for your family to figure out?",
-      nextMove: "Rate-never-goes-up is the close. Contrast the monthly premium against the funeral cost.",
-    },
-    {
-      triggers: ['health', 'sick', 'medical condition', 'pre-existing', 'diabetes', 'heart', 'cancer', 'denied before'],
-      label: 'Health Concern',
-      response: "This is guaranteed issue — no medical exam, no health questions. If you're between 50 and 85, you qualify. Period. Health doesn't matter here.",
-      nextMove: "Remove the health barrier entirely. They already qualify. Move to cost.",
-    },
-    {
-      triggers: ["nobody it's just me", 'i live alone', 'no family', 'no kids', 'divorced', 'just me'],
-      label: 'No Dependents',
-      response: "Even without close family, someone will be responsible for your arrangements — a sibling, a friend, or in the worst case, the state decides. This ensures the people who care about you don't carry that weight or make those decisions under financial pressure.",
-      nextMove: "Shift from protecting family to not burdening anyone who cares about them.",
-    },
-    {
-      triggers: ['need to think about it', 'let me think', "i'll think about it", 'need to talk to my spouse', 'talk to my wife'],
-      label: 'Stall Objection',
-      response: "Of course — what specifically do you need to think about? Is it the monthly cost, or whether you already have something that covers this?",
-      nextMove: "Isolate what's actually holding them back. The stall usually hides a coverage question.",
-    },
-  ],
-
-  iul: [
-    {
-      triggers: ['no idea what you', "don't know what you're talking about", 'what is this', 'what are you talking about'],
-      label: 'Confusion',
-      response: "Fair — IUL stands for Indexed Universal Life. In plain terms: it's a life insurance policy that's overfunded to build tax-free cash value tied to a market index. When the market goes up, you earn. When it drops, you can't lose principal. Were you aware this could be used as a tax-free retirement vehicle?",
-      nextMove: "Confirm they understand the floor/cap concept before going further.",
-    },
-    {
-      triggers: ['i got to go', 'i have to go', "i'm busy", 'bad time', 'call me back', 'not a good time', 'not right now'],
-      label: 'Time Objection',
-      response: "Understood — quick question before you go: are you currently putting money into a 401k or IRA? If so, every dollar you withdraw in retirement is fully taxable. The IUL is how people solve that. Worth 90 seconds?",
-      nextMove: "Frame the 401k tax problem as the hook. That gets attention.",
-    },
-    {
-      triggers: ['not interested', "don't want it", "don't need it", "i'm good", "we're fine", 'no thanks'],
-      label: 'Not Interested',
-      response: "Completely understand. Most people I talk to are putting money into a 401k that's fully taxable on withdrawal. An IUL gives you the same tax-free growth as a Roth but with no contribution limits and zero market risk on the downside. Would you be open to a 5-minute comparison?",
-      nextMove: "Compare to what they already know. 401k vs IUL is the frame that lands.",
-    },
-    {
-      triggers: ['already have life insurance', 'already have a policy', 'already investing', 'have a 401k', 'have a roth'],
-      label: 'Already Covered',
-      response: "This isn't competing with your 401k or existing policy — it's the layer high earners add once they've maxed those out. The question is: do you want some of your retirement income to be 100% tax-free regardless of what tax rates look like in 20 years?",
-      nextMove: "Position it as an additional layer, not a replacement. Tax-free in retirement is the angle.",
-    },
-    {
-      triggers: ['too expensive', "can't afford it", 'how much does it cost', "what's the price", 'how much is it'],
-      label: 'Price Objection',
-      response: "The money going in isn't a cost — you're redirecting dollars you already have into an asset that grows tax-free and builds cash value. What are you currently putting aside for retirement each month?",
-      nextMove: "Reframe premium as redirection of savings, not an expense. Find their monthly savings number.",
-    },
-    {
-      triggers: ['risky', 'sounds complicated', "i don't understand", 'confusing', 'sounds too good', 'what is the catch'],
-      label: 'Skepticism',
-      response: "The concept is simple: your cash value is linked to an index like the S&P 500. When it goes up, you get credited. When it goes down, your floor is zero — you never lose principal. The 'catch' is surrender periods and fees, which I'll walk you through completely. No surprises.",
-      nextMove: "Address the floor/cap concept with a concrete example. Transparency builds trust here.",
-    },
-    {
-      triggers: ['need to think about it', 'let me think', 'need to talk to my spouse', 'talk to my wife', 'talk to my husband'],
-      label: 'Stall Objection',
-      response: "Makes sense — what part would you need to think through? Is it how the tax-free piece works, or how it compares to what you're already doing for retirement?",
-      nextMove: "Narrow it to the specific concept that's unclear. Offer an illustration.",
-    },
-    {
-      triggers: ['why do you sound like ai', 'are you a robot', 'is this automated', 'is this a recording'],
-      label: 'Trust / Authenticity',
-      response: "Ha — fair question. Real person here, I promise. I talk to a lot of people every day about retirement strategy, which is why I sound polished. What's your first name — I want to make this specific to your situation.",
-      nextMove: "Get their name. Personalize immediately.",
-    },
-  ],
-
-  medicare_supplement: [
-    {
-      triggers: ['no idea what you', "don't know what you're talking about", 'what is this', 'what are you talking about'],
-      label: 'Confusion',
-      response: "Let me be clear — a Medicare Supplement, or Medigap, covers the 20% that Medicare Part B doesn't pay. Most people don't realize Medicare has gaps until they get a bill. Do you currently have anything covering that remaining 20%?",
-      nextMove: "Ask directly if they have gap coverage. Most don't know they need it.",
-    },
-    {
-      triggers: ['i got to go', 'i have to go', "i'm busy", 'bad time', 'call me back', 'not a good time', 'not right now'],
-      label: 'Time Objection',
-      response: "I get it — 60 seconds. Medicare alone can leave you with thousands in out-of-pocket costs in a bad year. A Supplement caps that exposure completely. Is that something worth a 60-second conversation?",
-      nextMove: "Lead with out-of-pocket risk. The deductible alone is over $1,600.",
-    },
-    {
-      triggers: ['leave me alone', 'lose my number', 'stop calling', "don't call again", 'remove me'],
-      label: 'Strong Rejection',
-      response: "Absolutely, I'll respect that. One thing before I go: Medicare's Part B deductible alone is over $1,600 this year and can leave unlimited 20% gaps. A Supplement eliminates that risk. If that ever becomes relevant, feel free to reach out.",
-      nextMove: "Leave them with the $1,600 deductible fact. Exit gracefully.",
-    },
-    {
-      triggers: ['not interested', "don't want it", "don't need it", "i'm good", "we're fine", 'no thanks'],
-      label: 'Not Interested',
-      response: "I understand. Most people on just Medicare feel fine — until they have a hospital stay or a specialist visit and get a bill for thousands in the 20% Medicare didn't cover. A Supplement gives you one predictable monthly cost instead of surprise bills. Does predictability matter to you?",
-      nextMove: "Anchor to the unpredictability of co-insurance. One bad year can cost tens of thousands.",
-    },
-    {
-      triggers: ['already have a supplement', 'already have coverage', 'have a medigap', 'already have a plan'],
-      label: 'Already Covered',
-      response: "What plan are you on? Plans change every year and many people are overpaying for the same coverage. I may be able to get you identical benefits at a lower monthly rate. Would a 5-minute comparison be worth it?",
-      nextMove: "Offer a rate comparison. Most people with Supplements are overpaying — that's the hook.",
-    },
-    {
-      triggers: ['too expensive', "can't afford it", 'how much does it cost', "what's the price", 'how much is it'],
-      label: 'Price Objection',
-      response: "Supplements typically run $100–$180/month. Compare that to one hospital stay where just the deductible is over $1,600 — and that's before the 20% co-insurance. Which feels more manageable: a predictable $100/month or unpredictable thousands when something happens?",
-      nextMove: "Contrast the monthly premium against one concrete out-of-pocket scenario.",
-    },
-    {
-      triggers: ['my doctor', 'in network', 'network', 'specialist', 'keep my doctor'],
-      label: 'Doctor Network Concern',
-      response: "That's actually the biggest advantage of a Supplement over Advantage — with a Supplement, you can see any doctor in the country who accepts Medicare. No network, no referrals, no prior authorizations.",
-      nextMove: "Emphasize freedom: any doctor, anywhere, no network restrictions. That's the win.",
-    },
-    {
-      triggers: ['need to think about it', 'let me think', 'need to talk to my spouse', 'talk to my wife'],
-      label: 'Stall Objection',
-      response: "Of course. What specifically do you need to look into — is it comparing what you have now, or making sure your doctors are covered?",
-      nextMove: "Narrow to one specific question holding them back. Offer to answer it right now.",
-    },
-  ],
-
-  medicare_advantage: [
-    {
-      triggers: ['no idea what you', "don't know what you're talking about", 'what is this', 'what are you talking about'],
-      label: 'Confusion',
-      response: "Medicare Advantage is an all-in-one plan that replaces original Medicare and typically includes dental, vision, hearing — and often has a $0 premium. Most people switching from original Medicare are surprised by the extra benefits. Are you currently on original Medicare Parts A and B?",
-      nextMove: "Confirm they're on original Medicare first. That's the eligibility question.",
-    },
-    {
-      triggers: ['i got to go', 'i have to go', "i'm busy", 'bad time', 'call me back', 'not a good time', 'not right now'],
-      label: 'Time Objection',
-      response: "Understood. Quick question: does your current plan include dental and vision? Most original Medicare doesn't. Many Advantage plans in your area cover both at $0 premium. Worth 60 seconds?",
-      nextMove: "Lead with the dental/vision gap in original Medicare. That usually gets attention.",
-    },
-    {
-      triggers: ['leave me alone', 'lose my number', 'stop calling', "don't call again", 'remove me'],
-      label: 'Strong Rejection',
-      response: "I hear you, I'll respect that. Quick note: Medicare Advantage plans change every year, and new options come in for open enrollment. If you're on original Medicare, plans with $0 premium and dental/vision are available in most areas. Just want you to know the option exists.",
-      nextMove: "Leave them with $0 premium and open enrollment. Exit cleanly.",
-    },
-    {
-      triggers: ['not interested', "don't want it", "don't need it", "i'm good", "we're fine", 'no thanks'],
-      label: 'Not Interested',
-      response: "Totally fair — most people don't know what they're missing until we do a side-by-side. Many plans in your area have $0 premiums and include dental, vision, and hearing that Medicare doesn't cover at all. Would it hurt to just see what's available?",
-      nextMove: "Zero-pressure side-by-side comparison. The $0 premium usually opens the door.",
-    },
-    {
-      triggers: ['already have a plan', 'already have coverage', 'have an advantage plan', 'already enrolled'],
-      label: 'Already Covered',
-      response: "What plan are you on? Plans change benefits and star ratings every year, and new options come into your area. We can do a quick comparison for this year's enrollment to make sure you have the best available. Takes about 5 minutes.",
-      nextMove: "Annual plan comparison is the annual hook. Every year is a fresh conversation.",
-    },
-    {
-      triggers: ['too expensive', "can't afford it", 'how much does it cost', "what's the price", 'how much is it'],
-      label: 'Price Objection',
-      response: "Many plans in your area are $0 monthly premium. The real cost question for Advantage is copays when you use it. What did you pay out of pocket for medical last year? I can show you plans that may cost less overall.",
-      nextMove: "Shift from premium to total out-of-pocket. Calculate their annual cost comparison.",
-    },
-    {
-      triggers: ['my doctor', 'keep my doctor', 'same doctors', 'network', 'specialist', 'in network'],
-      label: 'Doctor Network Concern',
-      response: "That's the right first question. Tell me your primary doctor's name and I'll check which plans include them before we go any further. No point looking at plans your doctor isn't in.",
-      nextMove: "Check their doctor first. If they're in-network, it's a much easier close.",
-    },
-    {
-      triggers: ['need to think about it', 'let me think', 'need to talk to my spouse', 'talk to my wife'],
-      label: 'Stall Objection',
-      response: "Makes sense — what would you need to feel confident? Is it confirming your doctors are covered, or understanding what the plan costs when you actually use it?",
-      nextMove: "One specific question is holding them back. Surface it and answer it now.",
-    },
-  ],
-
-  annuities: [
-    {
-      triggers: ['no idea what you', "don't know what you're talking about", 'what is this', 'what are you talking about'],
-      label: 'Confusion',
-      response: "Fair — an annuity is a contract where you move a lump sum, usually from savings or a 401k rollover, and it grows at a guaranteed rate. When you're ready, it converts to guaranteed income you can't outlive. The core idea: protect principal and create income. Does that make sense as a starting point?",
-      nextMove: "Confirm understanding before going further. Most people confuse annuities with something complex.",
-    },
-    {
-      triggers: ['i got to go', 'i have to go', "i'm busy", 'bad time', 'call me back', 'not a good time', 'not right now'],
-      label: 'Time Objection',
-      response: "I'll be quick — two questions. One: are you worried about outliving your money? Two: what are your savings earning right now? Fixed annuity rates are at 5–6% guaranteed. If either of those matters, it's worth 90 seconds.",
-      nextMove: "Lead with the two fears: running out of money, and low savings rates.",
-    },
-    {
-      triggers: ['leave me alone', 'lose my number', 'stop calling', "don't call again", 'remove me'],
-      label: 'Strong Rejection',
-      response: "Absolutely, I'll respect that. One thing: if your savings are sitting in CDs or a savings account earning under 2%, fixed annuity rates are at 5–6% with the same principal protection. If rates drop again, it's worth knowing the option exists.",
-      nextMove: "Leave them with the rate comparison. Seed only, then exit.",
-    },
-    {
-      triggers: ['not interested', "don't want it", "don't need it", "i'm good", "we're fine", 'no thanks'],
-      label: 'Not Interested',
-      response: "Understood. Most people I talk to have two retirement fears: running out of money and losing principal in a market crash. An annuity solves both. Which one concerns you more right now?",
-      nextMove: "Find their primary fear: longevity risk or market risk. That determines your angle.",
-    },
-    {
-      triggers: ['already have savings', 'have a 401k', 'have investments', 'already set', 'financial advisor'],
-      label: 'Already Covered',
-      response: "Great. What are you currently earning on your savings or CDs? Fixed annuity rates right now are 5–6%, guaranteed, with principal protection similar to FDIC. If you're earning less than that, we should talk about it.",
-      nextMove: "Rate comparison wins immediately if they're in low-yield savings. Get their current rate.",
-    },
-    {
-      triggers: ['too expensive', "can't afford it", 'how much does it cost', "what's the price", 'how much is it'],
-      label: 'Price Objection',
-      response: "You're not spending money — you're moving money you already have to a place where it earns more and is protected. What are you currently doing with your savings? I want to show you a straight comparison.",
-      nextMove: "This isn't a cost — it's repositioning existing assets. Get their current savings amount.",
-    },
-    {
-      triggers: ['market', 'stocks', 'lose money', 'crash', 'recession', 'risky', 'investment risk'],
-      label: 'Market Risk Concern',
-      response: "That's exactly why annuities exist. With a fixed or fixed-indexed annuity, you cannot lose principal due to market performance. The floor is zero — when the market crashes, you stay flat. You never go backwards.",
-      nextMove: "Hard close on the principal protection guarantee. That's the reason most people buy.",
-    },
-    {
-      triggers: ['need to think about it', 'let me think', "i'll think about it", 'need to talk to my spouse', 'talk to my wife'],
-      label: 'Stall Objection',
-      response: "Of course — what's the one thing you'd need to get comfortable? Is it the rate, the liquidity, or understanding how the income phase works?",
-      nextMove: "Annuity stalls are usually about liquidity fear. Surface it and address surrender periods directly.",
-    },
-  ],
+function norm(s: string): string {
+  return s.toLowerCase()
+    .replace(/[''`]/g, '')        // flatten apostrophes so "don't" → "dont"
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
-// ─── Shared coaching data ─────────────────────────────────────────────────────
+function triggerScore(normText: string, trigger: string): number {
+  const nTrig = norm(trigger)
+  if (normText.includes(nTrig)) return nTrig.length   // direct — length rewards specificity
+
+  const words = nTrig.split(' ').filter(w => w.length > 2 && !STOP.has(w))
+  if (words.length < 2) return 0
+  const hit = words.filter(w => normText.includes(w)).length
+  return hit / words.length >= 0.65 ? hit : 0
+}
+
+// ─── NEPQ-based universal coaching library ────────────────────────────────────
+
+const OBJECTION_DB: CoachEntry[] = [
+  {
+    id: 'confusion',
+    cardType: 'objection',
+    triggers: [
+      'no idea', 'what is this', 'what are you calling about',
+      'dont understand', 'what does that mean', 'never heard of',
+      'what is mortgage protection', 'what is final expense',
+      'dont know what you', 'what are you talking about',
+      'not sure what you mean', 'what kind of insurance',
+    ],
+    label: 'Confusion',
+    cardTitle: 'OBJECTION — CONFUSION',
+    response: "That's completely fair — let me be clearer. I'm calling about a protection benefit specifically tied to your [home/policy]. Most people in your area have never been contacted about it. It takes 90 seconds to explain — can I do that?",
+    nextMove: "Reset the opener in ONE sentence. Then ask one yes/no question to re-engage.",
+  },
+  {
+    id: 'not_interested',
+    cardType: 'objection',
+    triggers: [
+      'not interested', 'dont want it', 'dont need it', 'no thank you',
+      'im good', 'were fine', 'dont want any insurance',
+      'dont believe in life insurance', 'no thanks', 'dont need insurance',
+      'not looking for insurance', 'im all set', 'not for me',
+    ],
+    label: 'Not Interested',
+    cardTitle: 'OBJECTION — NOT INTERESTED',
+    response: "I hear you — and I'm not here to sell you anything today. Can I ask you something though? If something happened to you tomorrow, who in your life would be most financially impacted? That's really all this comes down to.",
+    nextMove: "NEPQ problem-awareness question. Make it about a specific person, not a concept.",
+  },
+  {
+    id: 'already_covered',
+    cardType: 'objection',
+    triggers: [
+      'already have insurance', 'already have coverage', 'already have a policy',
+      'have life insurance', 'covered through work', 'have it through my job',
+      'union covers', 'have aarp', 'through the va', 'work covers me',
+      'company provides insurance', 'have coverage at work', 'already covered',
+      'employer covers', 'have group life', 'benefit through my employer',
+    ],
+    label: 'Already Has Coverage',
+    cardTitle: 'OBJECTION — ALREADY COVERED',
+    response: "That's great — most people I talk to do. Quick question: how much coverage do you currently have? [pause] The reason I ask is most employer plans only cover 1–2x your salary. Financial advisors recommend 7–10x. If you passed away tonight, how long would what you have last your family?",
+    nextMove: "Gap sell. Find the exact number they have vs what they need. Never attack their current policy.",
+  },
+  {
+    id: 'too_expensive',
+    cardType: 'objection',
+    triggers: [
+      'too expensive', 'cant afford', 'costs too much', 'dont have the money',
+      'on a fixed income', 'tight on money', 'budget is tight',
+      'cant do it right now', 'money is tight', 'not in my budget',
+      'too much money', 'cant swing it', 'financially not possible',
+      'strapped right now', 'fixed income',
+    ],
+    label: 'Too Expensive / Can\'t Afford',
+    cardTitle: 'OBJECTION — PRICE / AFFORDABILITY',
+    response: "I completely understand — and I'd never suggest anything outside your budget. Can I ask — what would feel comfortable? Most of the people I help spend less than a dollar a day. But more importantly, if you couldn't afford it, who in your life would be stuck with the financial burden if something happened?",
+    nextMove: "Anchor to daily cost, not monthly. Then redirect to the consequence question.",
+  },
+  {
+    id: 'need_to_think',
+    cardType: 'objection',
+    triggers: [
+      'need to think about it', 'let me think', 'ill think about it',
+      'think it over', 'not sure yet', 'need more time',
+      'give me some time', 'want to think', 'have to think',
+      'think about it', 'need to consider', 'let me sleep on it',
+    ],
+    label: 'Need to Think About It',
+    cardTitle: 'OBJECTION — STALL / THINK ABOUT IT',
+    response: "That makes total sense — what part specifically did you want to think through? Is it the cost, whether you actually need it, or something else? I ask because most people I talk to who say that have a specific concern I might be able to address right now.",
+    nextMove: "NEPQ: isolate the REAL objection. \"Think about it\" is never the real objection — find what's underneath it.",
+  },
+  {
+    id: 'need_spouse',
+    cardType: 'objection',
+    triggers: [
+      'need to talk to my wife', 'need to talk to my husband',
+      'have to ask my spouse', 'run it by my partner',
+      'cant decide without', 'my wife handles finances',
+      'my husband handles that', 'check with my wife',
+      'check with my husband', 'spouse needs to know',
+      'wife would have to agree', 'husband would have to agree',
+      'ask my partner', 'talk to my spouse first',
+    ],
+    label: 'Need to Talk to Spouse',
+    cardTitle: 'OBJECTION — NEEDS SPOUSE',
+    response: "Absolutely — this should be a joint decision. Is your [spouse] available right now? I'd love to talk to both of you together so no one has to play telephone with the details. It only takes a few minutes.",
+    nextMove: "Get the spouse on the call NOW. If not available, set a specific callback time with both on the line.",
+  },
+  {
+    id: 'send_info',
+    cardType: 'objection',
+    triggers: [
+      'send me something', 'send me information', 'email me',
+      'mail me something', 'put something in the mail',
+      'send a brochure', 'send me a link', 'send me details',
+      'can you send', 'ill look it over', 'send it to me',
+      'drop something in the mail', 'email me the info',
+    ],
+    label: 'Send Me Information',
+    cardTitle: 'OBJECTION — SEND INFO',
+    response: "I can absolutely do that. I want to make sure I send you the right thing — can I ask two quick questions first so I don't waste your time with irrelevant info? [pause] How much coverage do you currently have, and who are you trying to protect?",
+    nextMove: "Never just say yes and hang up. Use it as an opener for 2 qualifying questions.",
+  },
+  {
+    id: 'bad_timing',
+    cardType: 'objection',
+    triggers: [
+      'bad time', 'im busy', 'call me back', 'call back later',
+      'call me later', 'at work right now', 'driving right now',
+      'in the middle of something', 'not a good time',
+      'busy right now', 'not a great time', 'caught me',
+      'cant talk right now', 'running out the door', 'on my way',
+    ],
+    label: 'Bad Timing',
+    cardTitle: 'OBJECTION — BAD TIMING',
+    response: "I completely understand — I only need 90 seconds. The reason I'm calling is there's a benefit specifically available to you that has a limited enrollment window. Can I get just 90 seconds?",
+    nextMove: "Ask for 90 seconds specifically. If they still say no: \"Is 6pm tonight better or tomorrow morning?\"",
+  },
+  {
+    id: 'strong_rejection',
+    cardType: 'objection',
+    triggers: [
+      'leave me alone', 'lose my number', 'stop calling',
+      'dont call again', 'take me off your list', 'i said no',
+      'im hanging up', 'remove me from', 'never call again',
+      'do not call', 'put me on your do not call',
+      'get off my phone', 'stop bothering me',
+    ],
+    label: 'Strong Rejection',
+    cardTitle: 'OBJECTION — STRONG REJECTION',
+    response: "I will absolutely respect that and won't call again. Before I go — I just want to make sure you know the benefit exists. Your home at [address] qualifies for a protection benefit your family can claim. I'm not asking you to do anything — I just want you to know it's there. Take care.",
+    nextMove: "Plant the seed and exit gracefully. Do not push. This call is a long-term play.",
+  },
+  {
+    id: 'bank_covers',
+    cardType: 'objection',
+    triggers: [
+      'the bank covers', 'my mortgage has insurance', 'pmi covers',
+      'the lender has', 'bank already does that', 'my mortgage covers',
+      'lender covers', 'mortgage insurance', 'pmi', 'bank handles that',
+      'my lender', 'already have mortgage insurance',
+    ],
+    label: 'The Bank / PMI Covers It',
+    cardTitle: 'OBJECTION — PMI CONFUSION',
+    response: "That's a really common misconception — and I'm glad you brought it up. PMI protects the bank if you default, not your family if you die. If something happened to you tomorrow, PMI pays the bank — not your family. This benefit pays your family directly so they keep the home. That's the difference.",
+    nextMove: "Clarify PMI vs mortgage protection clearly. Ask: \"Did you know there was a difference?\"",
+  },
+  {
+    id: 'no_dependents',
+    cardType: 'objection',
+    triggers: [
+      'live alone', 'no kids', 'just me', 'nobody depends on me',
+      'im single', 'kids are grown', 'kids are out of the house',
+      'divorced', 'no family', 'no one depends on me',
+      'nobody to leave it to', 'dont have anyone', 'kids are adults',
+    ],
+    label: 'No Dependents',
+    cardTitle: 'OBJECTION — NO DEPENDENTS',
+    response: "I understand — and this still matters for one reason: if something happened to you, who would be responsible for your final expenses and any remaining debt on your home? Even if no one depends on your income, someone has to handle what you leave behind.",
+    nextMove: "Shift from income protection to estate/debt protection angle.",
+  },
+  {
+    id: 'health_concerns',
+    cardType: 'objection',
+    triggers: [
+      'not in good health', 'have health issues', 'im diabetic',
+      'heart problems', 'been sick', 'had cancer', 'might not qualify',
+      'not sure i can get coverage', 'health problems',
+      'pre existing condition', 'previous condition',
+      'been denied before', 'denied for insurance', 'have a condition',
+      'taking medications', 'medical history',
+    ],
+    label: 'Health Concerns',
+    cardTitle: 'OBJECTION — HEALTH CONCERNS',
+    response: "I appreciate you sharing that — and that's actually the most important reason to look at this now, not later. Several of the plans I work with have guaranteed acceptance with no medical exam. Your health doesn't disqualify you. Can I ask how old you are?",
+    nextMove: "Move to guaranteed issue / simplified issue products. Age and tobacco use matter more than health.",
+  },
+  {
+    id: 'too_old',
+    cardType: 'objection',
+    triggers: [
+      'too old', 'im 80', 'probably too old', 'at my age',
+      'dont have long', 'im 75', 'im 85', 'im 78', 'im 82',
+      'getting up there in age', 'pretty old', 'older now',
+      'my age probably', 'given my age',
+    ],
+    label: 'Too Old',
+    cardTitle: 'OBJECTION — TOO OLD',
+    response: "Actually, many of the plans I work with go up to age 85 with no medical exam. And at your age, final expense coverage is often the most important thing — it means your family doesn't have to come out of pocket for funeral costs which average $12,000–$15,000. Can I ask — does your family have that set aside?",
+    nextMove: "Anchor on the $12,000–$15,000 funeral cost as a concrete, specific number.",
+  },
+  {
+    id: 'scam_concern',
+    cardType: 'objection',
+    triggers: [
+      'sounds like a scam', 'how do i know this is real', 'is this legit',
+      'how did you get my number', 'dont give out my information',
+      'what company are you with', 'who do you work for',
+      'is this a scam', 'are you legitimate', 'how do i verify',
+      'sounds sketchy', 'not sure this is real', 'prove it',
+      'what is your license', 'are you licensed',
+    ],
+    label: 'Scam / Legitimacy Concern',
+    cardTitle: 'OBJECTION — CREDIBILITY / SCAM CONCERN',
+    response: "That's a completely fair question — and honestly I'd be suspicious too. My name is [name], I'm a licensed insurance agent in [state] with [company]. You can look me up on your state's department of insurance website right now while we talk. What else can I answer?",
+    nextMove: "Lead with your license number. Offer to verify on the spot. Transparency closes skeptics.",
+  },
+  {
+    id: 'religious',
+    cardType: 'objection',
+    triggers: [
+      'need to pray about it', 'have to pray on it', 'god will provide',
+      'i trust god', 'faith will take care', 'leave it in gods hands',
+      'lord will provide', 'trust the lord', 'pray about this',
+      'put it in gods hands', 'let god handle it',
+    ],
+    label: 'Religious / Need to Pray',
+    cardTitle: 'OBJECTION — FAITH / PRAYER',
+    response: "I respect that completely — and I believe the same. Can I share a perspective? Most faith traditions also teach that we're stewards of what we're given — including protecting our families. This is one way to honor that. What would it look like if your family had financial peace no matter what happened?",
+    nextMove: "Use their values as the bridge, not a counter-argument. Frame protection as stewardship.",
+  },
+  {
+    id: 'has_agent',
+    cardType: 'objection',
+    triggers: [
+      'already have an agent', 'already working with someone',
+      'my agent handles', 'have a guy for that', 'my financial advisor',
+      'use my own agent', 'work with an advisor', 'have a broker',
+      'have a financial planner', 'dont need another agent',
+      'my current agent', 'someone i already work with',
+    ],
+    label: 'Already Has an Agent',
+    cardTitle: 'OBJECTION — ALREADY HAS AGENT',
+    response: "That's great — you should absolutely keep working with them. Can I ask when you last reviewed your coverage with them? The reason I ask is most agents set it and forget it, and your needs change. When's the last time they called YOU to check in?",
+    nextMove: "Expose the service gap. Position yourself as the agent who actually follows up.",
+  },
+]
+
+const BUYING_SIGNALS: CoachEntry[] = [
+  {
+    id: 'price_question',
+    cardType: 'buying_signal',
+    triggers: [
+      'how much does it cost', 'how much would that be', 'whats the price',
+      'how much is it', 'what would my payment be', 'how much a month',
+      'what does it cost', 'how much per month', 'what are the rates',
+      'what would that run me', 'how much would i pay',
+    ],
+    label: 'Price Question',
+    cardTitle: 'KEY OPPORTUNITY — PRICE QUESTION',
+    response: "Great question — before I give you a number, let me ask: how much coverage are you looking at? [pause] And are you looking to protect just yourself or include your spouse?",
+    nextMove: "Never lead with price. Qualify coverage amount and family situation FIRST.",
+  },
+  {
+    id: 'engaged',
+    cardType: 'buying_signal',
+    triggers: [
+      'sounds good', 'im interested', 'tell me more', 'i like that',
+      'that makes sense', 'okay im listening', 'thats interesting',
+      'i like what you said', 'tell me about it', 'keep going',
+      'explain that', 'go on', 'interesting', 'i hear you',
+    ],
+    label: 'Prospect Engaged',
+    cardTitle: 'KEY OPPORTUNITY — PROSPECT ENGAGED',
+    response: "Great — so let me ask you this: what would it mean to your family if your home was completely paid off if something happened to you?",
+    nextMove: "Deepen emotional commitment before moving to application. Ask the consequence question.",
+  },
+  {
+    id: 'closing',
+    cardType: 'closing',
+    triggers: [
+      'where do i start', 'how do i sign up', 'what do i do next',
+      'when would it start', 'let me get my card', 'ready to sign',
+      'how do we proceed', 'id like to do this', 'ill take it',
+      'lets do it', 'how do i apply', 'sign me up',
+      'what do you need from me', 'how long does it take to apply',
+    ],
+    label: 'Closing Signal',
+    cardTitle: 'CLOSING SIGNAL — MOVE TO APPLICATION',
+    response: "Perfect — it takes about 10 minutes. I just need to ask you a few health questions and get some basic information. What's your date of birth?",
+    nextMove: "Start the application NOW. Do not schedule a callback. Close on this call.",
+  },
+]
+
+// Combined for iteration — buying signals checked first so they beat objections on overlap
+const COACH_DB: CoachEntry[] = [...BUYING_SIGNALS, ...OBJECTION_DB]
+
+// ─── Sentiment / phase / key-moment data ─────────────────────────────────────
 
 const KEY_MOMENT_TRIGGERS = [
   'how much', 'what does it cost', 'tell me more', 'interested', 'sounds good',
-  'how does it work', 'what are the benefits', 'what would i get', 'how long does it take',
+  'how does it work', 'what are the benefits', 'what would i get',
+  'how long does it take', 'when would it start', 'how do i sign up',
 ]
 
 const NEGATIVE_WORDS = [
@@ -467,22 +427,42 @@ function computeSentiment(score: number): { label: string; color: string; pct: n
   return { label: 'Neutral', color: '#8C6D2F', pct: 50 }
 }
 
+// Card type → style tokens
+function cardStyle(ct: CardType) {
+  if (ct === 'closing') return {
+    bg: '#F0FFF8', border: 'rgba(42,122,90,0.3)', accent: '#2A7A5A',
+    badgeBg: 'rgba(42,122,90,0.12)', badgeColor: '#2A7A5A', labelColor: '#2A7A5A',
+    innerBg: '#E8F7F0', responseLabelColor: '#2A7A5A',
+  }
+  if (ct === 'buying_signal') return {
+    bg: '#F2FBF4', border: 'rgba(74,124,89,0.28)', accent: '#4A7C59',
+    badgeBg: 'rgba(74,124,89,0.12)', badgeColor: '#4A7C59', labelColor: '#4A7C59',
+    innerBg: '#E8F5EC', responseLabelColor: '#4A7C59',
+  }
+  // objection
+  return {
+    bg: '#FFF5F4', border: 'rgba(192,57,43,0.25)', accent: '#C0392B',
+    badgeBg: 'rgba(192,57,43,0.1)', badgeColor: '#C0392B', labelColor: '#C0392B',
+    innerBg: '#FDFAF5', responseLabelColor: '#8C6D2F',
+  }
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function LiveCallPage() {
-  const [status,          setStatus]          = useState<Status>('ready')
-  const [callFocus,       setCallFocus]       = useState<CallFocus>('mortgage_protection')
-  const [lines,           setLines]           = useState<TranscriptLine[]>([])
-  const [interim,         setInterim]         = useState('')
-  const [speaker,         setSpeaker]         = useState<Speaker>('agent')
-  const [objections,      setObjections]      = useState<DetectedObjection[]>([])
-  const [latestObjection, setLatestObjection] = useState<DetectedObjection | null>(null)
-  const [elapsed,         setElapsed]         = useState(0)
-  const [muted,           setMuted]           = useState(false)
-  const [err,             setErr]             = useState('')
-  const [showSummary,     setShowSummary]     = useState(false)
-  const [score,           setScore]           = useState(7.0)
-  const [sentimentScore,  setSentimentScore]  = useState(0)
+  const [status,         setStatus]         = useState<Status>('ready')
+  const [callFocus,      setCallFocus]      = useState<CallFocus>('mortgage_protection')
+  const [lines,          setLines]          = useState<TranscriptLine[]>([])
+  const [interim,        setInterim]        = useState('')
+  const [speaker,        setSpeaker]        = useState<Speaker>('agent')
+  const [cards,          setCards]          = useState<DetectedCard[]>([])
+  const [latestCard,     setLatestCard]     = useState<DetectedCard | null>(null)
+  const [elapsed,        setElapsed]        = useState(0)
+  const [muted,          setMuted]          = useState(false)
+  const [err,            setErr]            = useState('')
+  const [showSummary,    setShowSummary]    = useState(false)
+  const [score,          setScore]          = useState(7.0)
+  const [sentimentScore, setSentimentScore] = useState(0)
 
   const recognitionRef   = useRef<any>(null)
   const statusRef        = useRef<Status>('ready')
@@ -492,14 +472,14 @@ export default function LiveCallPage() {
   const timerRef         = useRef<ReturnType<typeof setInterval> | null>(null)
   const scoreIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const flashRef         = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const seenRef          = useRef(new Set<string>())
+  const lastFiredRef     = useRef<string | null>(null)   // id of last entry fired; prevents consecutive repeats
   const scrollRef        = useRef<HTMLDivElement>(null)
   const streamRef        = useRef<MediaStream | null>(null)
-  const liveRef          = useRef({ lines: [] as TranscriptLine[], objCount: 0, sentimentScore: 0 })
+  const liveRef          = useRef({ lines: [] as TranscriptLine[], cardCount: 0, sentimentScore: 0 })
 
   useEffect(() => {
-    liveRef.current = { lines, objCount: objections.length, sentimentScore }
-  }, [lines, objections, sentimentScore])
+    liveRef.current = { lines, cardCount: cards.length, sentimentScore }
+  }, [lines, cards, sentimentScore])
 
   useEffect(() => {
     const prospectLines = lines.filter(l => l.speaker === 'prospect').slice(-5)
@@ -519,30 +499,50 @@ export default function LiveCallPage() {
     speakerRef.current = s; setSpeaker(s)
   }, [])
 
-  // Changing focus mid-call resets seen objections so new product's angles can fire
   const setCallFocusSynced = useCallback((f: CallFocus) => {
     focusRef.current = f
     setCallFocus(f)
-    seenRef.current.clear()
+    lastFiredRef.current = null   // reset consecutive block so focus-switch allows re-fire
   }, [])
 
-  const checkObjection = useCallback((text: string, time: string) => {
-    const db = PRODUCT_OBJECTIONS[focusRef.current]
-    const lower = text.toLowerCase()
-    for (const entry of db) {
-      const matched = entry.triggers.find(t => lower.includes(t))
-      if (!matched || seenRef.current.has(entry.label)) continue
-      seenRef.current.add(entry.label)
-      const obj: DetectedObjection = {
-        id: crypto.randomUUID(), label: entry.label, trigger: matched,
-        response: entry.response, nextMove: entry.nextMove, quote: text, time,
+  // ── Core detection — runs within 1s of every finalized prospect line ────────
+  const checkLine = useCallback((text: string, time: string) => {
+    const normText = norm(text)
+    let bestEntry: CoachEntry | null = null
+    let bestScore = 0
+    let bestTrigger = ''
+
+    for (const entry of COACH_DB) {
+      for (const trigger of entry.triggers) {
+        const s = triggerScore(normText, trigger)
+        if (s > bestScore) {
+          bestScore = s
+          bestEntry = entry
+          bestTrigger = trigger
+        }
       }
-      setObjections(prev => [obj, ...prev])
-      setLatestObjection(obj)
-      if (flashRef.current) clearTimeout(flashRef.current)
-      flashRef.current = setTimeout(() => setLatestObjection(null), 9000)
-      break
     }
+
+    if (!bestEntry || bestScore === 0) return
+    if (lastFiredRef.current === bestEntry.id) return  // never same card twice in a row
+
+    lastFiredRef.current = bestEntry.id
+    const card: DetectedCard = {
+      id:        crypto.randomUUID(),
+      entryId:   bestEntry.id,
+      cardType:  bestEntry.cardType,
+      label:     bestEntry.label,
+      cardTitle: bestEntry.cardTitle,
+      trigger:   bestTrigger,
+      response:  bestEntry.response,
+      nextMove:  bestEntry.nextMove,
+      quote:     text,
+      time,
+    }
+    setCards(prev => [card, ...prev])
+    setLatestCard(card)
+    if (flashRef.current) clearTimeout(flashRef.current)
+    flashRef.current = setTimeout(() => setLatestCard(null), 9000)
   }, [])
 
   const stopCall = useCallback((withSummary = true) => {
@@ -553,7 +553,7 @@ export default function LiveCallPage() {
     recognitionRef.current = null
     streamRef.current?.getTracks().forEach(t => t.stop())
     streamRef.current = null
-    setMuted(false); setInterim(''); setLatestObjection(null)
+    setMuted(false); setInterim(''); setLatestCard(null)
     setStatusSynced('ended')
     if (withSummary) setShowSummary(true)
   }, [setStatusSynced])
@@ -563,9 +563,9 @@ export default function LiveCallPage() {
     setErr('')
     setStatusSynced('listening')
     setSpeakerSynced('agent')
-    seenRef.current.clear()
+    lastFiredRef.current = null
     elapsedRef.current = 0
-    setLines([]); setObjections([]); setInterim(''); setLatestObjection(null)
+    setLines([]); setCards([]); setInterim(''); setLatestCard(null)
     setShowSummary(false); setElapsed(0); setMuted(false)
     setScore(7.0); setSentimentScore(0)
 
@@ -584,14 +584,14 @@ export default function LiveCallPage() {
 
       if (scoreIntervalRef.current) clearInterval(scoreIntervalRef.current)
       scoreIntervalRef.current = setInterval(() => {
-        const { lines: ls, objCount, sentimentScore: sent } = liveRef.current
+        const { lines: ls, cardCount, sentimentScore: sent } = liveRef.current
         const agentC    = ls.filter(l => l.speaker === 'agent').reduce((a, l) => a + l.text.length, 0)
         const prospectC = ls.filter(l => l.speaker === 'prospect').reduce((a, l) => a + l.text.length, 0)
         const total     = agentC + prospectC || 1
         const prospPct  = prospectC / total
         const kmCount   = ls.filter(l => l.isKeyMoment).length
         let s = 7.0
-        s += Math.min(objCount * 0.25, 1.0)
+        s += Math.min(cardCount * 0.2, 1.0)
         if (elapsedRef.current > 180) s += 0.3
         if (elapsedRef.current > 300) s += 0.2
         if (total > 80) {
@@ -622,7 +622,7 @@ export default function LiveCallPage() {
             const isKeyMoment = currentSpeaker === 'prospect' &&
               KEY_MOMENT_TRIGGERS.some(k => lower.includes(k))
             setLines(prev => [...prev, { id: crypto.randomUUID(), text, time, speaker: currentSpeaker, isKeyMoment }])
-            if (currentSpeaker === 'prospect') checkObjection(text, time)
+            if (currentSpeaker === 'prospect') checkLine(text, time)
             setTimeout(() => {
               if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
             }, 50)
@@ -665,7 +665,7 @@ export default function LiveCallPage() {
       if (timerRef.current)         { clearInterval(timerRef.current);         timerRef.current = null }
       if (scoreIntervalRef.current) { clearInterval(scoreIntervalRef.current); scoreIntervalRef.current = null }
     }
-  }, [checkObjection, stopCall, setStatusSynced, setSpeakerSynced])
+  }, [checkLine, stopCall, setStatusSynced, setSpeakerSynced])
 
   const endCall    = useCallback(() => stopCall(true), [stopCall])
   const toggleMute = useCallback(() => {
@@ -694,10 +694,34 @@ export default function LiveCallPage() {
   const agentPct      = Math.round(agentChars / talkTotal * 100)
   const prospectPct   = 100 - agentPct
 
-  const phase      = computePhase(elapsed, lines, objections.length)
+  const phase      = computePhase(elapsed, lines, cards.filter(c => c.cardType === 'objection').length)
   const sentiment  = computeSentiment(sentimentScore)
   const keyMoments = lines.filter(l => l.isKeyMoment)
   const scoreColor = score >= 7.5 ? '#4A7C59' : score >= 5.5 ? '#C9A84C' : '#C0392B'
+
+  // ─── Flash card renderer (inline) ────────────────────────────────────────────
+
+  const renderFlashCard = (card: DetectedCard) => {
+    const cs = cardStyle(card.cardType)
+    return (
+      <div style={{ margin: '0 12px 12px', padding: '12px 14px', borderRadius: 9, border: `1px solid ${cs.border}`, borderLeft: `3px solid ${cs.accent}`, backgroundColor: cs.bg, flexShrink: 0, position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: cs.badgeColor, backgroundColor: cs.badgeBg, padding: '2px 8px', borderRadius: 4 }}>{card.cardTitle}</span>
+        </div>
+        <p style={{ margin: '0 0 8px', fontSize: 12, color: '#7A7060', fontStyle: 'italic', lineHeight: 1.5 }}>&ldquo;{card.quote}&rdquo;</p>
+        <div style={{ backgroundColor: cs.innerBg, border: '1px solid #DDD5BB', borderRadius: 7, padding: '9px 11px', marginBottom: 7 }}>
+          <p style={{ margin: '0 0 4px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: cs.responseLabelColor }}>SUGGESTED RESPONSE</p>
+          <p style={{ margin: 0, fontSize: 12, color: '#2C2A1E', lineHeight: 1.6 }}>{card.response}</p>
+        </div>
+        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', color: cs.accent }}>
+          NEXT MOVE &nbsp;<span style={{ fontWeight: 400, color: '#5A6A50', letterSpacing: 0 }}>{card.nextMove}</span>
+        </p>
+        <button onClick={() => setLatestCard(null)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#9A9080', display: 'flex', padding: 2 }}>
+          <X size={12} />
+        </button>
+      </div>
+    )
+  }
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
@@ -712,7 +736,6 @@ export default function LiveCallPage() {
           </Link>
           <span style={{ color: '#4A7C59', opacity: 0.5 }}>|</span>
           <span style={{ color: '#C8D9CB', fontWeight: 700, fontSize: 14, letterSpacing: '0.06em' }}>SPEAR LIVE</span>
-          {/* Focus badge — always visible */}
           <span style={{ padding: '3px 9px', borderRadius: 20, backgroundColor: 'rgba(74,124,89,0.2)', border: '1px solid rgba(74,124,89,0.4)', fontSize: 9, fontWeight: 800, color: '#4A7C59', letterSpacing: '0.09em' }}>
             {FOCUS_BADGE[callFocus]}
           </span>
@@ -732,9 +755,7 @@ export default function LiveCallPage() {
             </div>
           )}
           {isLive && <span style={{ color: '#4A7C59', opacity: 0.4 }}>|</span>}
-          {isLive && (
-            <span style={{ color: '#C8D9CB', fontFamily: 'monospace', fontSize: 13 }}>{fmt(elapsed)}</span>
-          )}
+          {isLive && <span style={{ color: '#C8D9CB', fontFamily: 'monospace', fontSize: 13 }}>{fmt(elapsed)}</span>}
           {isLive && (
             <button onClick={toggleMute} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 7, backgroundColor: muted ? 'rgba(139,58,58,0.2)' : 'rgba(255,255,255,0.07)', border: `1px solid ${muted ? 'rgba(139,58,58,0.4)' : 'rgba(255,255,255,0.1)'}`, color: muted ? '#D08080' : '#C8D9CB', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
               {muted ? <MicOff size={12} /> : <Mic size={12} />}
@@ -749,7 +770,7 @@ export default function LiveCallPage() {
         </div>
       </header>
 
-      {/* ── Ready / Error state ── */}
+      {/* ── Ready / Error screen ── */}
       {!isLive && status !== 'ended' && (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div style={{ backgroundColor: '#FDFAF5', border: '1px solid #DDD5BB', borderRadius: 16, padding: '36px 32px', maxWidth: 480, width: '100%', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
@@ -758,10 +779,9 @@ export default function LiveCallPage() {
             </div>
             <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1C1C1A', margin: '0 0 6px', textAlign: 'center' }}>Live Call Coaching</h2>
             <p style={{ fontSize: 13, color: '#7A7060', margin: '0 0 20px', lineHeight: 1.6, textAlign: 'center' }}>
-              Select your product focus, then start the call. Spear will detect objections and surface the right response in real time.
+              Select your product focus, then start the call. Spear listens for 16 objection types and 3 buying signals in real time.
             </p>
 
-            {/* Product focus selector */}
             <p style={{ margin: '0 0 8px', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>CALL FOCUS</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 20 }}>
               {FOCUS_OPTIONS.map(opt => {
@@ -829,7 +849,7 @@ export default function LiveCallPage() {
               </select>
             </div>
 
-            {/* Toggle row */}
+            {/* Speaker toggle */}
             <div style={{ padding: '7px 12px', backgroundColor: '#FDFAF5', borderBottom: '1px solid #DDD5BB', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>TRANSCRIPT</span>
               <div style={{ display: 'flex', gap: 3, backgroundColor: '#EDE8DC', borderRadius: 8, padding: 3 }}>
@@ -891,63 +911,57 @@ export default function LiveCallPage() {
               )}
             </div>
 
-            {/* Objection flash */}
-            {latestObjection && (
-              <div style={{ margin: '0 12px 12px', padding: '12px 14px', borderRadius: 9, border: '1px solid rgba(192,57,43,0.25)', borderLeft: '3px solid #C0392B', backgroundColor: '#FFF5F4', flexShrink: 0, position: 'relative' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
-                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: '#C0392B', backgroundColor: 'rgba(192,57,43,0.1)', padding: '2px 8px', borderRadius: 4 }}>OBJECTION DETECTED</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#1C1C1A' }}>{latestObjection.label}</span>
-                </div>
-                <p style={{ margin: '0 0 8px', fontSize: 12, color: '#7A7060', fontStyle: 'italic', lineHeight: 1.5 }}>&ldquo;{latestObjection.quote}&rdquo;</p>
-                <div style={{ backgroundColor: '#FDFAF5', border: '1px solid #DDD5BB', borderRadius: 7, padding: '9px 11px', marginBottom: 7 }}>
-                  <p style={{ margin: '0 0 4px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: '#8C6D2F' }}>SUGGESTED RESPONSE</p>
-                  <p style={{ margin: 0, fontSize: 12, color: '#2C2A1E', lineHeight: 1.6 }}>{latestObjection.response}</p>
-                </div>
-                <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', color: '#4A7C59' }}>
-                  NEXT MOVE &nbsp;<span style={{ fontWeight: 400, color: '#5A6A50', letterSpacing: 0 }}>{latestObjection.nextMove}</span>
-                </p>
-                <button onClick={() => setLatestObjection(null)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#9A9080', display: 'flex', padding: 2 }}>
-                  <X size={12} />
-                </button>
-              </div>
-            )}
+            {/* Flash card */}
+            {latestCard && renderFlashCard(latestCard)}
           </div>
 
           {/* Right: coaching panel */}
           <div style={{ flex: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden', backgroundColor: '#F5F0E8' }}>
             <div style={{ flex: 1, overflowY: 'auto', padding: '0 0 12px' }}>
 
-              {/* Objections */}
+              {/* Cards header */}
               <div style={{ padding: '9px 12px', backgroundColor: '#FDFAF5', borderBottom: '1px solid #DDD5BB', position: 'sticky', top: 0, zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>OBJECTIONS CAUGHT</span>
-                {objections.length > 0 && (
-                  <span style={{ fontSize: 10, fontWeight: 800, color: '#C0392B', backgroundColor: 'rgba(192,57,43,0.1)', padding: '2px 8px', borderRadius: 10 }}>
-                    {objections.length}
-                  </span>
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>COACHING CARDS</span>
+                {cards.length > 0 && (
+                  <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                    {cards.filter(c => c.cardType !== 'objection').length > 0 && (
+                      <span style={{ fontSize: 10, fontWeight: 800, color: '#4A7C59', backgroundColor: 'rgba(74,124,89,0.1)', padding: '2px 8px', borderRadius: 10 }}>
+                        {cards.filter(c => c.cardType !== 'objection').length} signals
+                      </span>
+                    )}
+                    {cards.filter(c => c.cardType === 'objection').length > 0 && (
+                      <span style={{ fontSize: 10, fontWeight: 800, color: '#C0392B', backgroundColor: 'rgba(192,57,43,0.1)', padding: '2px 8px', borderRadius: 10 }}>
+                        {cards.filter(c => c.cardType === 'objection').length} obj
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
 
               <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {objections.length === 0 ? (
-                  <p style={{ margin: 0, padding: '4px 2px', color: '#9A9080', fontSize: 13, fontStyle: 'italic' }}>No objections detected yet.</p>
-                ) : objections.map(obj => (
-                  <div key={obj.id} style={{ borderRadius: 10, border: '1px solid #DDD5BB', overflow: 'hidden', backgroundColor: '#FDFAF5' }}>
-                    <div style={{ padding: '7px 12px', backgroundColor: 'rgba(192,57,43,0.05)', borderBottom: '1px solid rgba(192,57,43,0.12)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: '#C0392B' }}>{obj.label}</span>
-                      <span style={{ fontSize: 10, color: '#9A9080' }}>{obj.time}</span>
-                    </div>
-                    <div style={{ padding: '9px 12px' }}>
-                      <p style={{ margin: '0 0 7px', fontSize: 12, color: '#7A7060', fontStyle: 'italic', lineHeight: 1.5 }}>&ldquo;{obj.quote}&rdquo;</p>
-                      <div style={{ backgroundColor: '#F5F0E8', border: '1px solid #DDD5BB', borderRadius: 7, padding: '7px 10px', marginBottom: 7 }}>
-                        <p style={{ margin: '0 0 3px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: '#8C6D2F' }}>SUGGESTED RESPONSE</p>
-                        <p style={{ margin: 0, fontSize: 12, color: '#2C2A1E', lineHeight: 1.6 }}>{obj.response}</p>
+                {cards.length === 0 ? (
+                  <p style={{ margin: 0, padding: '4px 2px', color: '#9A9080', fontSize: 13, fontStyle: 'italic' }}>Listening for objections and buying signals…</p>
+                ) : cards.map(card => {
+                  const cs = cardStyle(card.cardType)
+                  return (
+                    <div key={card.id} style={{ borderRadius: 10, border: `1px solid ${cs.border}`, overflow: 'hidden', backgroundColor: cs.bg }}>
+                      <div style={{ padding: '7px 12px', backgroundColor: cs.badgeBg, borderBottom: `1px solid ${cs.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: cs.labelColor }}>{card.label}</span>
+                        <span style={{ fontSize: 10, color: '#9A9080' }}>{card.time}</span>
                       </div>
-                      <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', color: '#4A7C59' }}>
-                        NEXT MOVE &nbsp;<span style={{ fontWeight: 400, color: '#5A6A50', letterSpacing: 0 }}>{obj.nextMove}</span>
-                      </p>
+                      <div style={{ padding: '9px 12px' }}>
+                        <p style={{ margin: '0 0 7px', fontSize: 12, color: '#7A7060', fontStyle: 'italic', lineHeight: 1.5 }}>&ldquo;{card.quote}&rdquo;</p>
+                        <div style={{ backgroundColor: cs.innerBg, border: '1px solid #DDD5BB', borderRadius: 7, padding: '7px 10px', marginBottom: 7 }}>
+                          <p style={{ margin: '0 0 3px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: cs.responseLabelColor }}>SUGGESTED RESPONSE</p>
+                          <p style={{ margin: 0, fontSize: 12, color: '#2C2A1E', lineHeight: 1.6 }}>{card.response}</p>
+                        </div>
+                        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', color: cs.accent }}>
+                          NEXT MOVE &nbsp;<span style={{ fontWeight: 400, color: '#5A6A50', letterSpacing: 0 }}>{card.nextMove}</span>
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
               {/* Sentiment */}
@@ -1016,7 +1030,7 @@ export default function LiveCallPage() {
               <span style={{ fontFamily: 'monospace', fontSize: 20, fontWeight: 700, color: scoreColor }}>{score.toFixed(1)}<span style={{ fontSize: 11, color: '#B0A898', fontWeight: 400 }}>/10</span></span>
             </div>
             <p style={{ fontSize: 13, color: '#7A7060', margin: '10px 0 16px' }}>
-              Duration: {fmt(elapsed)} &nbsp;·&nbsp; {lines.length} lines &nbsp;·&nbsp; {objections.length} objection{objections.length !== 1 ? 's' : ''} &nbsp;·&nbsp; {keyMoments.length} key moment{keyMoments.length !== 1 ? 's' : ''}
+              Duration: {fmt(elapsed)} &nbsp;·&nbsp; {lines.length} lines &nbsp;·&nbsp; {cards.filter(c => c.cardType === 'objection').length} objections &nbsp;·&nbsp; {cards.filter(c => c.cardType !== 'objection').length} buying signals &nbsp;·&nbsp; {keyMoments.length} key moments
             </p>
 
             {lines.length > 0 && (
@@ -1032,18 +1046,21 @@ export default function LiveCallPage() {
               </div>
             )}
 
-            {objections.length > 0 && (
+            {cards.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                <p style={{ margin: '0 0 2px', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>OBJECTIONS</p>
-                {objections.map((obj, i) => (
-                  <div key={obj.id} style={{ borderRadius: 9, border: '1px solid #DDD5BB', overflow: 'hidden' }}>
-                    <div style={{ padding: '7px 13px', backgroundColor: 'rgba(192,57,43,0.05)', display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#C0392B' }}>{i + 1}. {obj.label}</span>
-                      <span style={{ fontSize: 11, color: '#9A9080' }}>@ {obj.time}</span>
+                <p style={{ margin: '0 0 2px', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>COACHING CARDS FIRED</p>
+                {cards.map((card, i) => {
+                  const cs = cardStyle(card.cardType)
+                  return (
+                    <div key={card.id} style={{ borderRadius: 9, border: `1px solid ${cs.border}`, overflow: 'hidden' }}>
+                      <div style={{ padding: '7px 13px', backgroundColor: cs.badgeBg, display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: cs.labelColor }}>{i + 1}. {card.label}</span>
+                        <span style={{ fontSize: 11, color: '#9A9080' }}>@ {card.time}</span>
+                      </div>
+                      <p style={{ margin: 0, padding: '7px 13px', fontSize: 12, color: '#7A7060', fontStyle: 'italic' }}>&ldquo;{card.quote}&rdquo;</p>
                     </div>
-                    <p style={{ margin: 0, padding: '7px 13px', fontSize: 12, color: '#7A7060', fontStyle: 'italic' }}>&ldquo;{obj.quote}&rdquo;</p>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
 
@@ -1063,7 +1080,7 @@ export default function LiveCallPage() {
               <button
                 onClick={() => {
                   setShowSummary(false); setStatusSynced('ready')
-                  setLines([]); setObjections([]); setElapsed(0); setErr('')
+                  setLines([]); setCards([]); setElapsed(0); setErr('')
                   setScore(7.0); setSentimentScore(0)
                 }}
                 style={{ flex: 1, padding: '10px 0', borderRadius: 10, backgroundColor: '#1A2C1E', color: '#C8D9CB', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
