@@ -828,7 +828,7 @@ function AnalyticsTab() {
           { label: "Objections",     value: totalObjections.toString(),  sub: "caught in calls",          Icon: Target,       color: "text-amber-400"  },
           { label: "Avg Call Score", value: avgScore,                    sub: "call quality",             Icon: Star,         color: "text-purple-400" },
         ].map(({ label, value, sub, Icon, color }) => (
-          <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+          <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-5" style={{ borderBottom: "2px solid #D4C9A8" }}>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[11px] text-zinc-500 uppercase tracking-wider">{label}</p>
               <Icon className={`h-4 w-4 ${color}`} />
@@ -1986,7 +1986,7 @@ function DashboardHome({
       {/* Stats */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {liveStats.map(s => (
-          <div key={s.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+          <div key={s.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-5" style={{ borderBottom: "2px solid #D4C9A8" }}>
             <p className="text-[11px] text-zinc-500 uppercase tracking-wider">{s.label}</p>
             {loading
               ? <div className="mt-2 h-7 w-16 rounded bg-zinc-800 animate-pulse" />
@@ -1999,7 +1999,7 @@ function DashboardHome({
 
       {/* Upload + Recent */}
       <div className="grid lg:grid-cols-5 gap-5">
-        <div className="lg:col-span-3 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+        <div className="lg:col-span-3 rounded-xl border border-zinc-800 bg-zinc-900 p-6" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-sm font-semibold text-white">Analyze a Call</h2>
             <span className="text-xs text-zinc-600">MP3 · MP4 · M4A · WAV · up to {MAX_CALL_UPLOAD_MB} MB</span>
@@ -2066,7 +2066,7 @@ function DashboardHome({
           )}
         </div>
 
-        <div className="lg:col-span-2 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+        <div className="lg:col-span-2 rounded-xl border border-zinc-800 bg-zinc-900 p-6" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-sm font-semibold text-white">Recent Calls</h2>
           </div>
