@@ -140,6 +140,8 @@ export default function LiveCallPage() {
   const [sentimentScore, setSentimentScore] = useState(0)
   const [switchRec,      setSwitchRec]      = useState<{ toProduct: CallFocus; message: string } | null>(null)
   const [limitedMode,    setLimitedMode]    = useState(false)
+  const [manualMode,     setManualMode]     = useState(false)
+  const [manualInput,    setManualInput]    = useState('')
   const [discProfile,    setDiscProfile]    = useState<{
     type: 'D' | 'I' | 'S' | 'C'; name: string; confidence: number;
     primaryTrait: string; traits: string[]; sellTo: string[];
@@ -288,6 +290,7 @@ export default function LiveCallPage() {
     streamRef.current?.getTracks().forEach(t => t.stop())
     streamRef.current = null
     setMuted(false); setInterim(''); setLatestCard(null); setSwitchRec(null)
+    setManualMode(false); setManualInput('')
     setStatusSynced('ended')
     if (withSummary) setShowSummary(true)
   }, [setStatusSynced])
@@ -304,10 +307,17 @@ export default function LiveCallPage() {
     setScore(7.0); setSentimentScore(0); setLimitedMode(false); setDiscProfile(null)
 
     try {
-      // ── Mic access ────────────────────────────────────────────────────────────
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      })
+      // ── Mic access ─────────────────────────────────────────────────────────
+      // Try ideal constraints first; fall back to bare {audio:true} for devices
+      // that reject specific constraints (Bluetooth, virtual mics, etc.)
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        })
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      }
       streamRef.current = stream
 
       if (timerRef.current) clearInterval(timerRef.current)
