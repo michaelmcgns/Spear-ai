@@ -140,6 +140,10 @@ export default function LiveCallPage() {
   const [sentimentScore, setSentimentScore] = useState(0)
   const [switchRec,      setSwitchRec]      = useState<{ toProduct: CallFocus; message: string } | null>(null)
   const [limitedMode,    setLimitedMode]    = useState(false)
+  const [discProfile,    setDiscProfile]    = useState<{
+    type: 'D' | 'I' | 'S' | 'C'; name: string; confidence: number;
+    primaryTrait: string; traits: string[]; sellTo: string[];
+  } | null>(null)
 
   const wsRef            = useRef<WebSocket | null>(null)      // Deepgram WebSocket connection
   const recorderRef      = useRef<MediaRecorder | null>(null)  // MediaRecorder streaming audio to Deepgram
@@ -152,6 +156,7 @@ export default function LiveCallPage() {
   const scoreIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const flashRef         = useRef<ReturnType<typeof setTimeout> | null>(null)
   const switchIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const discIntervalRef  = useRef<ReturnType<typeof setInterval> | null>(null)
   // lastFiredRef removed — Claude decides per-utterance whether coaching is warranted
   const scrollRef        = useRef<HTMLDivElement>(null)
   const streamRef        = useRef<MediaStream | null>(null)
@@ -237,10 +242,35 @@ export default function LiveCallPage() {
     }
   }, [])
 
+  const runDiscAnalysis = useCallback(async () => {
+    const prospectLines = liveRef.current.lines
+      .filter(l => l.speaker === 'prospect')
+      .map(l => l.text)
+    if (prospectLines.length < 5) return
+    try {
+      const res = await fetch('/api/calls/disc-live', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ lines: prospectLines, callFocus: focusRef.current }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      if (!data.skip) setDiscProfile(data)
+    } catch {}
+  }, [])
+
+  // Trigger first DISC analysis as soon as the prospect has spoken 5 lines
+  useEffect(() => {
+    if (statusRef.current !== 'listening') return
+    const count = lines.filter(l => l.speaker === 'prospect').length
+    if (count === 5) runDiscAnalysis()
+  }, [lines, runDiscAnalysis])
+
   const stopCall = useCallback((withSummary = true) => {
     if (timerRef.current)          { clearInterval(timerRef.current);          timerRef.current = null }
     if (scoreIntervalRef.current)  { clearInterval(scoreIntervalRef.current);  scoreIntervalRef.current = null }
     if (switchIntervalRef.current) { clearInterval(switchIntervalRef.current); switchIntervalRef.current = null }
+    if (discIntervalRef.current)   { clearInterval(discIntervalRef.current);   discIntervalRef.current = null }
     if (flashRef.current)          { clearTimeout(flashRef.current);           flashRef.current = null }
     // Stop MediaRecorder
     try { if (recorderRef.current?.state !== 'inactive') recorderRef.current?.stop() } catch {}
@@ -271,7 +301,7 @@ export default function LiveCallPage() {
     elapsedRef.current = 0
     setLines([]); setCards([]); setInterim(''); setLatestCard(null)
     setShowSummary(false); setElapsed(0); setMuted(false)
-    setScore(7.0); setSentimentScore(0); setLimitedMode(false)
+    setScore(7.0); setSentimentScore(0); setLimitedMode(false); setDiscProfile(null)
 
     try {
       // ── Mic access ────────────────────────────────────────────────────────────
@@ -287,6 +317,9 @@ export default function LiveCallPage() {
       }, 1000)
 
       // Product switch recommendations now come inline from Claude per utterance (see coachLine)
+
+      if (discIntervalRef.current) clearInterval(discIntervalRef.current)
+      discIntervalRef.current = setInterval(runDiscAnalysis, 45000)
 
       if (scoreIntervalRef.current) clearInterval(scoreIntervalRef.current)
       scoreIntervalRef.current = setInterval(() => {
@@ -436,7 +469,7 @@ export default function LiveCallPage() {
       if (timerRef.current)         { clearInterval(timerRef.current);         timerRef.current = null }
       if (scoreIntervalRef.current) { clearInterval(scoreIntervalRef.current); scoreIntervalRef.current = null }
     }
-  }, [coachLine, stopCall, setStatusSynced, setSpeakerSynced])
+  }, [coachLine, runDiscAnalysis, stopCall, setStatusSynced, setSpeakerSynced])
 
   const endCall    = useCallback(() => stopCall(true), [stopCall])
   const toggleMute = useCallback(() => {
@@ -454,6 +487,7 @@ export default function LiveCallPage() {
       if (timerRef.current)          clearInterval(timerRef.current)
       if (scoreIntervalRef.current)  clearInterval(scoreIntervalRef.current)
       if (switchIntervalRef.current) clearInterval(switchIntervalRef.current)
+      if (discIntervalRef.current)   clearInterval(discIntervalRef.current)
       try { if (recorderRef.current?.state !== 'inactive') recorderRef.current?.stop() } catch {}
       try { wsRef.current?.close() } catch {}
       try { recognitionRef.current?.stop() } catch {}
@@ -533,6 +567,20 @@ export default function LiveCallPage() {
               LIMITED MODE
             </span>
           )}
+          {isLive && discProfile && (() => {
+            const discHdr: Record<string, { bg: string; border: string; color: string }> = {
+              D: { bg: 'rgba(192,57,43,0.15)',  border: 'rgba(192,57,43,0.35)',  color: '#E07060' },
+              I: { bg: 'rgba(201,168,76,0.15)', border: 'rgba(201,168,76,0.35)', color: '#C9A84C' },
+              S: { bg: 'rgba(74,124,89,0.15)',  border: 'rgba(74,124,89,0.35)',  color: '#4A7C59' },
+              C: { bg: 'rgba(59,122,191,0.15)', border: 'rgba(59,122,191,0.35)', color: '#3B7ABF' },
+            }
+            const hc = discHdr[discProfile.type]
+            return (
+              <span style={{ padding: '3px 9px', borderRadius: 20, backgroundColor: hc.bg, border: `1px solid ${hc.border}`, fontSize: 9, fontWeight: 800, color: hc.color, letterSpacing: '0.07em' }}>
+                {discProfile.type} · {discProfile.name.toUpperCase()}
+              </span>
+            )
+          })()}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {isLive && (
@@ -780,6 +828,58 @@ export default function LiveCallPage() {
                 })}
               </div>
 
+              {/* DISC Buyer Profile */}
+              {discProfile && (() => {
+                const discColors: Record<string, { bg: string; border: string; badge: string; text: string; dim: string }> = {
+                  D: { bg: '#FFF5F4', border: 'rgba(192,57,43,0.25)', badge: '#C0392B', text: '#922B21', dim: 'rgba(192,57,43,0.08)' },
+                  I: { bg: '#FFFBF0', border: 'rgba(201,168,76,0.3)',  badge: '#8C6D2F', text: '#5A3E00', dim: 'rgba(201,168,76,0.09)' },
+                  S: { bg: '#F2FBF4', border: 'rgba(74,124,89,0.28)',  badge: '#4A7C59', text: '#2A5A3A', dim: 'rgba(74,124,89,0.08)' },
+                  C: { bg: '#F0F6FF', border: 'rgba(59,122,191,0.25)', badge: '#3B7ABF', text: '#1E4A80', dim: 'rgba(59,122,191,0.08)' },
+                }
+                const dc = discColors[discProfile.type]
+                return (
+                  <div style={{ margin: '8px 10px 0', borderRadius: 10, border: `1px solid ${dc.border}`, borderLeft: `3px solid ${dc.badge}`, overflow: 'hidden', backgroundColor: dc.bg }}>
+                    <div style={{ padding: '7px 12px', borderBottom: `1px solid ${dc.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: dc.text }}>DISC BUYER PROFILE</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 16, fontWeight: 900, color: dc.badge, letterSpacing: '-0.02em' }}>{discProfile.type}</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: dc.text }}>{discProfile.name}</span>
+                        <span style={{ fontSize: 10, color: '#9A9080', backgroundColor: '#EDE8DC', borderRadius: 8, padding: '1px 7px' }}>{discProfile.confidence}%</span>
+                      </div>
+                    </div>
+                    <div style={{ padding: '9px 12px' }}>
+                      {/* Confidence bar */}
+                      <div style={{ height: 3, borderRadius: 2, backgroundColor: '#E8E0D0', marginBottom: 8, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${discProfile.confidence}%`, backgroundColor: dc.badge, borderRadius: 2, transition: 'width 0.5s ease' }} />
+                      </div>
+                      {/* Primary trait */}
+                      <p style={{ margin: '0 0 8px', fontSize: 12, color: dc.text, fontStyle: 'italic', lineHeight: 1.5, backgroundColor: dc.dim, borderRadius: 6, padding: '5px 8px' }}>{discProfile.primaryTrait}</p>
+                      {/* Behavior traits */}
+                      <p style={{ margin: '0 0 5px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: '#9A9080' }}>SIGNALS DETECTED</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                        {discProfile.traits.map((t, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                            <span style={{ width: 14, height: 14, borderRadius: '50%', backgroundColor: dc.dim, border: `1px solid ${dc.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
+                              <span style={{ fontSize: 8, fontWeight: 900, color: dc.badge }}>·</span>
+                            </span>
+                            <p style={{ margin: 0, fontSize: 11, color: '#3A3428', lineHeight: 1.5 }}>{t}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Selling adjustments */}
+                      <p style={{ margin: '0 0 5px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: dc.text }}>SELL TO THIS TYPE</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {discProfile.sellTo.map((s, i) => (
+                          <div key={i} style={{ backgroundColor: dc.dim, border: `1px solid ${dc.border}`, borderRadius: 6, padding: '5px 8px' }}>
+                            <p style={{ margin: 0, fontSize: 11, color: dc.text, lineHeight: 1.5 }}>{s}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* Sentiment */}
               <div style={{ margin: '4px 10px 0', borderRadius: 10, border: '1px solid #DDD5BB', overflow: 'hidden', backgroundColor: '#FDFAF5' }}>
                 <div style={{ padding: '7px 12px', borderBottom: '1px solid #DDD5BB' }}>
@@ -892,12 +992,42 @@ export default function LiveCallPage() {
               </div>
             )}
 
+            {discProfile && (() => {
+              const discColors: Record<string, { border: string; badge: string; text: string; dim: string }> = {
+                D: { border: 'rgba(192,57,43,0.25)', badge: '#C0392B', text: '#922B21', dim: 'rgba(192,57,43,0.07)' },
+                I: { border: 'rgba(201,168,76,0.3)',  badge: '#8C6D2F', text: '#5A3E00', dim: 'rgba(201,168,76,0.08)' },
+                S: { border: 'rgba(74,124,89,0.28)',  badge: '#4A7C59', text: '#2A5A3A', dim: 'rgba(74,124,89,0.07)' },
+                C: { border: 'rgba(59,122,191,0.25)', badge: '#3B7ABF', text: '#1E4A80', dim: 'rgba(59,122,191,0.07)' },
+              }
+              const dc = discColors[discProfile.type]
+              return (
+                <div style={{ marginBottom: 16, borderRadius: 10, border: `1px solid ${dc.border}`, borderLeft: `3px solid ${dc.badge}`, overflow: 'hidden' }}>
+                  <div style={{ padding: '7px 13px', backgroundColor: dc.dim, borderBottom: `1px solid ${dc.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: dc.text }}>DISC BUYER PROFILE</span>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <span style={{ fontSize: 15, fontWeight: 900, color: dc.badge }}>{discProfile.type}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: dc.text }}>{discProfile.name}</span>
+                      <span style={{ fontSize: 10, color: '#9A9080' }}>{discProfile.confidence}% confidence</span>
+                    </div>
+                  </div>
+                  <div style={{ padding: '8px 13px' }}>
+                    <p style={{ margin: '0 0 6px', fontSize: 12, color: dc.text, fontStyle: 'italic', lineHeight: 1.5 }}>{discProfile.primaryTrait}</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {discProfile.sellTo.map((s, i) => (
+                        <p key={i} style={{ margin: 0, fontSize: 11, color: '#3A3428', lineHeight: 1.5 }}>→ {s}</p>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
             <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
               <button
                 onClick={() => {
                   setShowSummary(false); setStatusSynced('ready')
                   setLines([]); setCards([]); setElapsed(0); setErr('')
-                  setScore(7.0); setSentimentScore(0)
+                  setScore(7.0); setSentimentScore(0); setDiscProfile(null)
                 }}
                 style={{ flex: 1, padding: '10px 0', borderRadius: 10, backgroundColor: '#1A2C1E', color: '#C8D9CB', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
               >
