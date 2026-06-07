@@ -459,9 +459,13 @@ export default function LiveCallPage() {
 
     } catch (e: any) {
       if (e.name === 'NotAllowedError' || (e.message ?? '').toLowerCase().includes('denied')) {
-        setErr('Microphone access denied. Allow microphone access and try again.')
+        setErr('Microphone access denied. Click the microphone icon in your browser address bar and allow access, then try again.')
+      } else if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError' || (e.message ?? '').toLowerCase().includes('not found')) {
+        setErr('No microphone found. Make sure a microphone is connected and not in use by another app (Zoom, Teams, etc.), then try again.')
+      } else if (e.name === 'NotReadableError' || (e.message ?? '').toLowerCase().includes('already in use')) {
+        setErr('Microphone is in use by another app. Close Zoom, Teams, or any other app using your mic, then try again.')
       } else {
-        setErr(e.message || 'Failed to start. Check microphone permissions and try again.')
+        setErr(e.message || 'Could not start microphone. Check your system microphone settings and try again.')
       }
       setStatusSynced('error')
       streamRef.current?.getTracks().forEach(t => t.stop())
