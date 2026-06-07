@@ -295,6 +295,46 @@ export default function LiveCallPage() {
     if (withSummary) setShowSummary(true)
   }, [setStatusSynced])
 
+  const startManualCall = useCallback(() => {
+    setErr('')
+    setStatusSynced('listening')
+    setSpeakerSynced('agent')
+    setSwitchRec(null)
+    elapsedRef.current = 0
+    setLines([]); setCards([]); setInterim(''); setLatestCard(null)
+    setShowSummary(false); setElapsed(0); setMuted(false)
+    setScore(7.0); setSentimentScore(0); setLimitedMode(true); setDiscProfile(null)
+    setManualMode(true); setManualInput('')
+
+    if (timerRef.current) clearInterval(timerRef.current)
+    timerRef.current = setInterval(() => { elapsedRef.current += 1; setElapsed(elapsedRef.current) }, 1000)
+
+    if (discIntervalRef.current) clearInterval(discIntervalRef.current)
+    discIntervalRef.current = setInterval(runDiscAnalysis, 45000)
+
+    if (scoreIntervalRef.current) clearInterval(scoreIntervalRef.current)
+    scoreIntervalRef.current = setInterval(() => {
+      const { lines: ls, cardCount, sentimentScore: sent } = liveRef.current
+      const agentC    = ls.filter(l => l.speaker === 'agent').reduce((a, l) => a + l.text.length, 0)
+      const prospectC = ls.filter(l => l.speaker === 'prospect').reduce((a, l) => a + l.text.length, 0)
+      const total     = agentC + prospectC || 1
+      const prospPct  = prospectC / total
+      const kmCount   = ls.filter(l => l.isKeyMoment).length
+      let s = 7.0
+      s += Math.min(cardCount * 0.2, 1.0)
+      if (elapsedRef.current > 180) s += 0.3
+      if (elapsedRef.current > 300) s += 0.2
+      if (total > 80) {
+        if (prospPct >= 0.38 && prospPct <= 0.72) s += 0.3
+        else if (prospPct < 0.25) s -= 0.5
+      }
+      if (sent < -1) s -= 0.5
+      else if (sent > 1) s += 0.2
+      s += Math.min(kmCount * 0.15, 0.45)
+      setScore(Math.max(0, Math.min(10, Math.round(s * 10) / 10)))
+    }, 15000)
+  }, [runDiscAnalysis, setStatusSynced, setSpeakerSynced])
+
   const startCall = useCallback(async () => {
     if (typeof window === 'undefined') return
     setErr('')
@@ -649,18 +689,29 @@ export default function LiveCallPage() {
             </div>
 
             {status === 'error' && err && (
-              <div style={{ backgroundColor: 'rgba(192,57,43,0.07)', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 8, padding: '10px 14px', color: '#922B21', fontSize: 13, marginBottom: 14, lineHeight: 1.5 }}>
-                {err}
+              <div style={{ backgroundColor: 'rgba(192,57,43,0.07)', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 14, lineHeight: 1.5 }}>
+                <p style={{ margin: '0 0 6px', fontSize: 13, color: '#922B21' }}>{err}</p>
+                {(err.toLowerCase().includes('microphone') || err.toLowerCase().includes('device') || err.toLowerCase().includes('not found') || err.toLowerCase().includes('in use')) && (
+                  <p style={{ margin: 0, fontSize: 11, color: '#7A4030' }}>
+                    On Mac: <strong>System Settings → Privacy &amp; Security → Microphone</strong> → enable your browser
+                  </p>
+                )}
               </div>
             )}
-            <p style={{ fontSize: 11, color: '#9A9080', margin: '0 0 14px', textAlign: 'center' }}>
+            <p style={{ fontSize: 11, color: '#9A9080', margin: '0 0 12px', textAlign: 'center' }}>
               Deepgram AI transcription &nbsp;·&nbsp; Chrome fallback available
             </p>
             <button
               onClick={startCall}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '13px 0', borderRadius: 10, backgroundColor: '#1A2C1E', color: '#C8D9CB', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '13px 0', borderRadius: 10, backgroundColor: '#1A2C1E', color: '#C8D9CB', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit', width: '100%', marginBottom: 8 }}
             >
               <Mic size={15} /> Start Call
+            </button>
+            <button
+              onClick={startManualCall}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 0', borderRadius: 10, backgroundColor: 'transparent', color: '#7A7060', fontWeight: 600, fontSize: 13, border: '1px solid #DDD5BB', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}
+            >
+              Type manually (no mic needed)
             </button>
           </div>
         </div>
@@ -730,7 +781,7 @@ export default function LiveCallPage() {
             <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '12px 14px', backgroundColor: '#F5F0E8', display: 'flex', flexDirection: 'column', gap: 5 }}>
               {lines.length === 0 && !interim ? (
                 <p style={{ margin: 0, color: '#9A9080', fontSize: 13, fontStyle: 'italic' }}>
-                  Listening… speak clearly and Spear will transcribe in real time.
+                  {manualMode ? 'Type lines below — toggle You / Prospect, press Enter to add.' : 'Listening… speak clearly and Spear will transcribe in real time.'}
                 </p>
               ) : (
                 <>
@@ -760,6 +811,39 @@ export default function LiveCallPage() {
                 </>
               )}
             </div>
+
+            {/* Manual input bar */}
+            {manualMode && (
+              <div style={{ flexShrink: 0, borderTop: '1px solid #DDD5BB', backgroundColor: '#FDFAF5', padding: '8px 12px', display: 'flex', gap: 7, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 2, backgroundColor: '#EDE8DC', borderRadius: 6, padding: 2, flexShrink: 0 }}>
+                  <button onClick={() => setSpeakerSynced('agent')} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', backgroundColor: speaker === 'agent' ? '#1A2C1E' : 'transparent', color: speaker === 'agent' ? '#C8D9CB' : '#7A7060' }}>
+                    You
+                  </button>
+                  <button onClick={() => setSpeakerSynced('prospect')} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', backgroundColor: speaker === 'prospect' ? '#1A2C1E' : 'transparent', color: speaker === 'prospect' ? '#C8D9CB' : '#7A7060' }}>
+                    Prospect
+                  </button>
+                </div>
+                <input
+                  autoFocus
+                  value={manualInput}
+                  onChange={e => setManualInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && manualInput.trim()) {
+                      const t = manualInput.trim()
+                      const time = fmt(elapsedRef.current)
+                      const lower = t.toLowerCase()
+                      const isKeyMoment = speakerRef.current === 'prospect' && KEY_MOMENT_TRIGGERS.some(k => lower.includes(k))
+                      setLines(prev => [...prev, { id: crypto.randomUUID(), text: t, time, speaker: speakerRef.current, isKeyMoment }])
+                      if (speakerRef.current === 'prospect') coachLine(t, time)
+                      setManualInput('')
+                      setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 50)
+                    }
+                  }}
+                  placeholder={speaker === 'prospect' ? 'Type what the prospect said…' : 'Type what you said…'}
+                  style={{ flex: 1, padding: '7px 10px', borderRadius: 7, border: '1px solid #DDD5BB', backgroundColor: '#F5F0E8', color: '#1C1C1A', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                />
+              </div>
+            )}
 
             {/* Flash card */}
             {latestCard && renderFlashCard(latestCard)}
