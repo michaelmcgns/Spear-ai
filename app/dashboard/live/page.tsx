@@ -703,15 +703,9 @@ export default function LiveCallPage() {
             </p>
             <button
               onClick={startCall}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '13px 0', borderRadius: 10, backgroundColor: '#1A2C1E', color: '#C8D9CB', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit', width: '100%', marginBottom: 8 }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '13px 0', borderRadius: 10, backgroundColor: '#1A2C1E', color: '#C8D9CB', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}
             >
               <Mic size={15} /> Start Call
-            </button>
-            <button
-              onClick={startManualCall}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '10px 0', borderRadius: 10, backgroundColor: 'transparent', color: '#7A7060', fontWeight: 600, fontSize: 13, border: '1px solid #DDD5BB', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}
-            >
-              Type manually (no mic needed)
             </button>
           </div>
         </div>
