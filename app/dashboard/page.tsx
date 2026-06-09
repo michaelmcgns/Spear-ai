@@ -1425,6 +1425,14 @@ const STATUS_STYLES: Record<string, string> = {
   lost:      "bg-red-500/15 text-red-300 border-red-500/25",
 };
 
+// Call-queue priority chip styles (keyed by reason tone)
+const QUEUE_TONE: Record<string, string> = {
+  callback: "bg-amber-500/15 text-amber-300 border-amber-500/25",
+  worked:   "bg-emerald-500/15 text-emerald-300 border-emerald-500/25",
+  follow:   "bg-blue-500/15 text-blue-300 border-blue-500/25",
+  fresh:    "bg-zinc-700/40 text-zinc-300 border-zinc-700",
+};
+
 function parseCSV(text: string): Record<string, string>[] {
   // Properly parse CSV including quoted fields with commas inside
   function parseLine(line: string): string[] {
@@ -1600,6 +1608,40 @@ function LeadsTab() {
   const counts = { all: leads.length, new: 0, contacted: 0, closed: 0, lost: 0 };
   leads.forEach(l => { if (l.status in counts) counts[l.status as keyof typeof counts]++; });
 
+  // ─── Call-queue prioritization (real data only — no fabricated intel) ───
+  // Most recent call score for a lead, if any call has been analyzed.
+  const lastScore = (l: Lead) => {
+    const s = (l.call_sessions ?? []).slice()
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+    return s?.overall_score ?? null;
+  };
+  // Higher score = call sooner. Closed/lost are excluded from the queue.
+  const priority = (l: Lead) => {
+    if (l.status === "closed" || l.status === "lost") return -1;
+    const calls = l.call_sessions?.length ?? 0;
+    if (l.status === "contacted" && calls > 0) return 100; // callback after a worked call
+    if (l.status === "contacted")              return 80;  // contacted, awaiting follow-up
+    if (calls > 0)                             return 60;  // new but already touched
+    return 40;                                             // fresh, never called
+  };
+  const reasonFor = (l: Lead): { label: string; tone: string } => {
+    const calls = l.call_sessions?.length ?? 0;
+    if (l.status === "contacted" && calls > 0) return { label: "Callback due", tone: "callback" };
+    if (l.status === "contacted")              return { label: "Follow up",    tone: "follow" };
+    if (calls > 0)                             return { label: "Worked before", tone: "worked" };
+    return { label: "New — not called", tone: "fresh" };
+  };
+  const QUEUE_CAP = 12;
+  const queueAll = leads
+    .filter(l => l.status !== "closed" && l.status !== "lost")
+    .filter(l => {
+      const q = search.toLowerCase();
+      return !q || `${l.first_name} ${l.last_name} ${l.phone ?? ""} ${l.email ?? ""}`.toLowerCase().includes(q);
+    })
+    .sort((a, b) => priority(b) - priority(a)
+      || new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const queueTop = queueAll.slice(0, QUEUE_CAP);
+
   if (loading) return <div className="flex items-center justify-center h-64"><div className="h-6 w-6 rounded-full border-2 border-zinc-700 border-t-blue-500 animate-spin" /></div>;
 
   return (
@@ -1607,8 +1649,8 @@ function LeadsTab() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-base font-semibold text-white">Leads</h2>
-          <p className="text-xs text-zinc-500 mt-0.5">{leads.length} total leads</p>
+          <h2 className="text-base font-semibold text-white">Up next</h2>
+          <p className="text-xs text-zinc-500 mt-0.5">{queueAll.length} callable · {leads.length} total · sorted by who to call now</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setAddOpen(v => !v)}
@@ -1672,8 +1714,57 @@ function LeadsTab() {
         </div>
       )}
 
+      {/* Priority call queue — who to call now, with handoff to Live Call */}
+      {queueTop.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <p className="text-xs font-semibold text-[#C8D9CB] uppercase tracking-wider">Call queue</p>
+            <p className="text-[10px] text-zinc-500">showing {queueTop.length} of {queueAll.length} callable</p>
+          </div>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+            {queueTop.map((lead, i) => {
+              const r = reasonFor(lead);
+              const calls = lead.call_sessions?.length ?? 0;
+              const score = lastScore(lead);
+              const fullName = `${lead.first_name} ${lead.last_name}`.trim();
+              const meta = [lead.product_interest, lead.state].filter(Boolean).join(" · ") || "—";
+              return (
+                <div key={lead.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-7 w-7 shrink-0 rounded-full bg-[#2C4A32] text-[#C8D9CB] flex items-center justify-center text-[11px] font-semibold">{i + 1}</div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-zinc-100 truncate">{fullName}</p>
+                        <p className="text-[11px] text-zinc-500 truncate">{meta}</p>
+                      </div>
+                    </div>
+                    <span className={`shrink-0 text-[10px] font-semibold px-2 py-1 rounded-md border ${QUEUE_TONE[r.tone] ?? ""}`}>{r.label}</span>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-zinc-800/60 flex items-center justify-between gap-3">
+                    <div className="text-[11px] text-zinc-500 min-w-0 truncate">
+                      {calls > 0
+                        ? <span>{calls} call{calls !== 1 ? "s" : ""}{score != null && <span className="text-zinc-400"> · last score {score}</span>}</span>
+                        : <span className="italic text-zinc-600">Intel unlocks after first analyzed call</span>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {lead.phone && <a href={`tel:${lead.phone}`} className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors">{lead.phone}</a>}
+                      <Link href="/dashboard/live"
+                        className="px-2.5 py-1.5 rounded-lg bg-[#4A7C59] hover:bg-[#3c6749] text-white text-[11px] font-semibold flex items-center gap-1.5 transition-colors">
+                        <Phone className="h-3 w-3" /> Start call
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {leads.length > 0 && (
         <>
+          {/* All leads */}
+          <p className="text-xs font-semibold text-[#C8D9CB] uppercase tracking-wider pt-1">All leads</p>
           {/* Filters */}
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative flex-1 min-w-48">
@@ -2555,13 +2646,13 @@ function DashboardPage() {
     { id: "calls",     label: "Calls",     Icon: Phone,           feature: "call_history" },
     { id: "analytics", label: "Analytics", Icon: BarChart3,       feature: "analytics"    },
     { id: "coaching",  label: "Coaching",  Icon: BookOpen,        feature: "coaching_hub" },
-    { id: "leads",     label: "Leads",     Icon: Target,          feature: "leads_import" },
+    { id: "leads",     label: "Up next",   Icon: Target,          feature: "leads_import" },
     { id: "agents",    label: "Agents",    Icon: Users,           feature: "agents_tab"   },
   ];
 
   const tabTitle: Record<Tab, string> = {
     dashboard: "Dashboard", calls: "Calls", analytics: "Analytics",
-    coaching: "Coaching Hub", leads: "Leads", agents: "Agents",
+    coaching: "Coaching Hub", leads: "Up next", agents: "Agents",
   };
 
   return (
