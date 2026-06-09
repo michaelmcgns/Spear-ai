@@ -131,7 +131,6 @@ export default function LiveCallPage() {
   const [interim,        setInterim]        = useState('')
   const [speaker,        setSpeaker]        = useState<Speaker>('agent')
   const [cards,          setCards]          = useState<DetectedCard[]>([])
-  const [latestCard,     setLatestCard]     = useState<DetectedCard | null>(null)
   const [elapsed,        setElapsed]        = useState(0)
   const [muted,          setMuted]          = useState(false)
   const [err,            setErr]            = useState('')
@@ -156,7 +155,6 @@ export default function LiveCallPage() {
   const elapsedRef       = useRef(0)
   const timerRef         = useRef<ReturnType<typeof setInterval> | null>(null)
   const scoreIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const flashRef         = useRef<ReturnType<typeof setTimeout> | null>(null)
   const switchIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const discIntervalRef  = useRef<ReturnType<typeof setInterval> | null>(null)
   // lastFiredRef removed — Claude decides per-utterance whether coaching is warranted
@@ -236,9 +234,6 @@ export default function LiveCallPage() {
         time,
       }
       setCards(prev => [card, ...prev])
-      setLatestCard(card)
-      if (flashRef.current) clearTimeout(flashRef.current)
-      flashRef.current = setTimeout(() => setLatestCard(null), 12000)
     } catch {
       // Silently fail — coaching is enhancement, not core
     }
@@ -273,7 +268,6 @@ export default function LiveCallPage() {
     if (scoreIntervalRef.current)  { clearInterval(scoreIntervalRef.current);  scoreIntervalRef.current = null }
     if (switchIntervalRef.current) { clearInterval(switchIntervalRef.current); switchIntervalRef.current = null }
     if (discIntervalRef.current)   { clearInterval(discIntervalRef.current);   discIntervalRef.current = null }
-    if (flashRef.current)          { clearTimeout(flashRef.current);           flashRef.current = null }
     // Stop MediaRecorder
     try { if (recorderRef.current?.state !== 'inactive') recorderRef.current?.stop() } catch {}
     recorderRef.current = null
@@ -289,7 +283,7 @@ export default function LiveCallPage() {
     recognitionRef.current = null
     streamRef.current?.getTracks().forEach(t => t.stop())
     streamRef.current = null
-    setMuted(false); setInterim(''); setLatestCard(null); setSwitchRec(null)
+    setMuted(false); setInterim(''); setSwitchRec(null)
     setManualMode(false); setManualInput('')
     setStatusSynced('ended')
     if (withSummary) setShowSummary(true)
@@ -301,7 +295,7 @@ export default function LiveCallPage() {
     setSpeakerSynced('agent')
     setSwitchRec(null)
     elapsedRef.current = 0
-    setLines([]); setCards([]); setInterim(''); setLatestCard(null)
+    setLines([]); setCards([]); setInterim('')
     setShowSummary(false); setElapsed(0); setMuted(false)
     setScore(7.0); setSentimentScore(0); setLimitedMode(true); setDiscProfile(null)
     setManualMode(true); setManualInput('')
@@ -342,7 +336,7 @@ export default function LiveCallPage() {
     setSpeakerSynced('agent')
     setSwitchRec(null)
     elapsedRef.current = 0
-    setLines([]); setCards([]); setInterim(''); setLatestCard(null)
+    setLines([]); setCards([]); setInterim('')
     setShowSummary(false); setElapsed(0); setMuted(false)
     setScore(7.0); setSentimentScore(0); setLimitedMode(false); setDiscProfile(null)
 
@@ -563,36 +557,6 @@ export default function LiveCallPage() {
   const sentiment  = computeSentiment(sentimentScore)
   const keyMoments = lines.filter(l => l.isKeyMoment)
   const scoreColor = score >= 7.5 ? '#4A7C59' : score >= 5.5 ? '#C9A84C' : '#C0392B'
-
-  // ─── Flash card renderer (inline) ────────────────────────────────────────────
-
-  const renderFlashCard = (card: DetectedCard) => {
-    const cs = cardStyle(card.cardType)
-    return (
-      <div style={{ margin: '0 12px 12px', padding: '12px 14px', borderRadius: 9, border: `1px solid ${cs.border}`, borderLeft: `3px solid ${cs.accent}`, backgroundColor: cs.bg, flexShrink: 0, position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
-          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', color: cs.badgeColor, backgroundColor: cs.badgeBg, padding: '2px 8px', borderRadius: 4 }}>{card.cardTitle}</span>
-        </div>
-        <p style={{ margin: '0 0 7px', fontSize: 12, color: '#7A7060', fontStyle: 'italic', lineHeight: 1.5 }}>&ldquo;{card.quote}&rdquo;</p>
-        {card.psychRead && (
-          <div style={{ backgroundColor: 'rgba(140,109,47,0.07)', border: '1px solid rgba(140,109,47,0.2)', borderRadius: 6, padding: '7px 10px', marginBottom: 7 }}>
-            <p style={{ margin: '0 0 3px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: '#8C6D2F' }}>🧠 BUYER PSYCHOLOGY</p>
-            <p style={{ margin: 0, fontSize: 12, color: '#5A4A30', lineHeight: 1.6 }}>{card.psychRead}</p>
-          </div>
-        )}
-        <div style={{ backgroundColor: cs.innerBg, border: '1px solid #DDD5BB', borderRadius: 7, padding: '9px 11px', marginBottom: 7 }}>
-          <p style={{ margin: '0 0 4px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: cs.responseLabelColor }}>COACHING</p>
-          <p style={{ margin: 0, fontSize: 12, color: '#2C2A1E', lineHeight: 1.6 }}>{card.response}</p>
-        </div>
-        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', color: cs.accent }}>
-          NEXT MOVE &nbsp;<span style={{ fontWeight: 400, color: '#5A6A50', letterSpacing: 0 }}>{card.nextMove}</span>
-        </p>
-        <button onClick={() => setLatestCard(null)} style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#9A9080', display: 'flex', padding: 2 }}>
-          <X size={12} />
-        </button>
-      </div>
-    )
-  }
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
@@ -839,8 +803,6 @@ export default function LiveCallPage() {
               </div>
             )}
 
-            {/* Flash card */}
-            {latestCard && renderFlashCard(latestCard)}
           </div>
 
           {/* Right: coaching panel */}
