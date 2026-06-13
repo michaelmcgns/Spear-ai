@@ -413,14 +413,15 @@ export default function LiveCallPage() {
         if (!key) throw new Error('no-key')
 
         const params = new URLSearchParams({
-          model:            'nova-2',
+          model:            'nova-3',   // fastest Deepgram model
           language:         'en-US',
           smart_format:     'true',
           interim_results:  'true',
-          utterance_end_ms: '1000',
-          endpointing:      '300',
+          utterance_end_ms: '500',      // finalize words faster
+          endpointing:      '100',      // detect end-of-speech in 100ms
           filler_words:     'false',
           punctuate:        'true',
+          no_delay:         'true',     // stream results immediately
         })
 
         const ws = new WebSocket(
@@ -463,7 +464,7 @@ export default function LiveCallPage() {
         recorder.ondataavailable = (e) => {
           if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) ws.send(e.data)
         }
-        recorder.start(250)
+        recorder.start(50)  // send audio chunks every 50ms for lowest latency
         recorderRef.current = recorder
         dgOk = true
 
@@ -742,7 +743,11 @@ export default function LiveCallPage() {
             <div style={{ padding: '7px 12px', backgroundColor: '#FDFAF5', borderBottom: '1px solid #DDD5BB', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>TRANSCRIPT</span>
-                {isLive && <span style={{ fontSize: 9, color: '#B0A898', backgroundColor: '#EDE8DC', borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>SPACE to switch</span>}
+                {isLive && (
+                  <span style={{ fontSize: 10, color: '#4A7C59', backgroundColor: 'rgba(74,124,89,0.1)', border: '1px solid rgba(74,124,89,0.3)', borderRadius: 5, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.03em' }}>
+                    ⌨️ Press <kbd style={{ fontFamily: 'monospace', background: '#1A2C1E', color: '#C8D9CB', borderRadius: 3, padding: '0 5px', fontSize: 10 }}>SPACE</kbd> to switch Agent / Prospect
+                  </span>
+                )}
               </div>
               <div
                 role="group"
