@@ -413,15 +413,15 @@ export default function LiveCallPage() {
         if (!key) throw new Error('no-key')
 
         const params = new URLSearchParams({
-          model:            'nova-3',   // fastest Deepgram model
+          model:            'nova-2',   // nova-2 is proven stable
           language:         'en-US',
-          smart_format:     'true',
+          smart_format:     'false',    // skip server formatting — cuts latency
           interim_results:  'true',
-          utterance_end_ms: '500',      // finalize words faster
-          endpointing:      '100',      // detect end-of-speech in 100ms
+          utterance_end_ms: '500',
+          endpointing:      '100',
           filler_words:     'false',
-          punctuate:        'true',
-          no_delay:         'true',     // stream results immediately
+          punctuate:        'false',    // skip punctuation pass — faster
+          no_delay:         'true',
         })
 
         const ws = new WebSocket(
@@ -442,9 +442,14 @@ export default function LiveCallPage() {
             const data = JSON.parse(event.data as string)
             if (data.type === 'Results') {
               const transcript: string = data.channel?.alternatives?.[0]?.transcript ?? ''
-              if (!data.is_final) { setInterim(transcript); return }
-              setInterim('')
-              commitFinal(transcript)
+              if (!transcript) return
+              // speech_final fires as soon as speech stops — faster than is_final
+              if (data.speech_final) {
+                setInterim('')
+                commitFinal(transcript)
+              } else if (!data.is_final) {
+                setInterim(transcript)
+              }
             }
             if (data.type === 'UtteranceEnd') setInterim('')
           } catch {}
