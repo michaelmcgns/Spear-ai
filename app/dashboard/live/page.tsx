@@ -545,6 +545,8 @@ export default function LiveCallPage() {
     setMuted(next)
   }, [muted])
 
+  const isLive = status === 'listening'
+
   // Spacebar toggles speaker while call is live (but not when typing in manual input)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -574,8 +576,6 @@ export default function LiveCallPage() {
   }, [])
 
   // ─── Derived values ──────────────────────────────────────────────────────────
-
-  const isLive = status === 'listening'
 
   const agentChars    = lines.filter(l => l.speaker === 'agent').reduce((a, l) => a + l.text.length, 0)
   const prospectChars = lines.filter(l => l.speaker === 'prospect').reduce((a, l) => a + l.text.length, 0)
