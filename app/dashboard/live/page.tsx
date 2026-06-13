@@ -8,7 +8,7 @@ import { ArrowLeft, Mic, MicOff, PhoneOff, X } from 'lucide-react'
 
 type Status    = 'ready' | 'listening' | 'ended' | 'error'
 type Speaker   = 'agent' | 'prospect'
-type CardType  = 'objection' | 'buying_signal' | 'closing' | 'disc'
+type CardType  = 'objection' | 'buying_signal' | 'closing' | 'disc' | 'nepq'
 type CallFocus =
   | 'mortgage_protection'
   | 'term_life'
@@ -119,6 +119,11 @@ function cardStyle(ct: CardType) {
     badgeBg: 'rgba(59,122,191,0.1)', badgeColor: '#3B7ABF', labelColor: '#1E4A80',
     innerBg: '#EBF2FF', responseLabelColor: '#1E4A80',
   }
+  if (ct === 'nepq') return {
+    bg: '#F7F4FF', border: 'rgba(109,40,217,0.25)', accent: '#6D28D9',
+    badgeBg: 'rgba(109,40,217,0.1)', badgeColor: '#6D28D9', labelColor: '#4C1D95',
+    innerBg: '#EDE9FF', responseLabelColor: '#4C1D95',
+  }
   // objection
   return {
     bg: '#FFF5F4', border: 'rgba(192,57,43,0.25)', accent: '#C0392B',
@@ -150,6 +155,7 @@ export default function LiveCallPage() {
     type: 'D' | 'I' | 'S' | 'C'; name: string; confidence: number;
     primaryTrait: string; traits: string[]; sellTo: string[];
   } | null>(null)
+  const [nepqStage,      setNepqStage]      = useState<'hook' | 'discover' | 'deepen' | 'transition' | 'close'>('hook')
 
   const wsRef            = useRef<WebSocket | null>(null)      // Deepgram WebSocket connection
   const recorderRef      = useRef<MediaRecorder | null>(null)  // MediaRecorder streaming audio to Deepgram
@@ -246,6 +252,55 @@ export default function LiveCallPage() {
     }
   }, [])
 
+  // ── NEPQ coaching — fires alongside coachLine on every prospect utterance ────
+  const coachNepq = useCallback(async (text: string, time: string) => {
+    if (text.trim().length < 6) return
+
+    const contextLines = liveRef.current.lines
+      .slice(-8)
+      .map(l => `${l.speaker === 'agent' ? 'AGENT' : 'PROSPECT'}: ${l.text}`)
+      .join('\n')
+
+    // Map elapsed time to NEPQ stage
+    const el = elapsedRef.current
+    const callStage = el < 60 ? 'hook' : el < 300 ? 'discover' : el < 600 ? 'deepen' : el < 900 ? 'transition' : 'close'
+
+    try {
+      const res = await fetch('/api/calls/nepq-coach', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          utterance:  text,
+          context:    contextLines,
+          callFocus:  focusRef.current,
+          discType:   liveRef.current.lines.length > 0 ? undefined : undefined, // populated below via ref
+          callStage,
+        }),
+      })
+      if (!res.ok) return
+
+      const data = await res.json()
+      if (data.skip || !data.suggestedQuestion) return
+
+      // Update stage tracker
+      setNepqStage(data.stage ?? callStage)
+
+      const card: DetectedCard = {
+        id:        crypto.randomUUID(),
+        cardType:  'nepq',
+        cardTitle: `⚡ NEPQ — ${data.questionType}`,
+        psychRead: data.whyThisWorks || '',
+        response:  data.suggestedQuestion,
+        nextMove:  data.antiPattern ? `⚠️ Avoid: ${data.antiPattern}` : '',
+        quote:     `${data.tonality} — ${data.tonalityNote}`,
+        time,
+      }
+      setCards(prev => [card, ...prev])
+    } catch {
+      // Silently fail
+    }
+  }, [])
+
   const runDiscAnalysis = useCallback(async () => {
     const prospectLines = liveRef.current.lines
       .filter(l => l.speaker === 'prospect')
@@ -322,7 +377,7 @@ export default function LiveCallPage() {
     setSpeakerSynced('agent')
     setSwitchRec(null)
     elapsedRef.current = 0
-    setLines([]); setCards([]); setInterim(''); discFiredRef.current = false
+    setLines([]); setCards([]); setInterim(''); setNepqStage('hook'); discFiredRef.current = false
     setShowSummary(false); setElapsed(0); setMuted(false)
     setScore(7.0); setSentimentScore(0); setLimitedMode(true); setDiscProfile(null)
     setManualMode(true); setManualInput('')
@@ -363,7 +418,7 @@ export default function LiveCallPage() {
     setSpeakerSynced('agent')
     setSwitchRec(null)
     elapsedRef.current = 0
-    setLines([]); setCards([]); setInterim(''); discFiredRef.current = false
+    setLines([]); setCards([]); setInterim(''); setNepqStage('hook'); discFiredRef.current = false
     setShowSummary(false); setElapsed(0); setMuted(false)
     setScore(7.0); setSentimentScore(0); setLimitedMode(false); setDiscProfile(null)
 
@@ -424,7 +479,7 @@ export default function LiveCallPage() {
         const isKeyMoment    = currentSpeaker === 'prospect' &&
           KEY_MOMENT_TRIGGERS.some(k => lower.includes(k))
         setLines(prev => [...prev, { id: crypto.randomUUID(), text: t, time, speaker: currentSpeaker, isKeyMoment }])
-        if (currentSpeaker === 'prospect') coachLine(t, time)
+        if (currentSpeaker === 'prospect') { coachLine(t, time); coachNepq(t, time) }
         setTimeout(() => {
           if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
         }, 50)
@@ -892,7 +947,7 @@ export default function LiveCallPage() {
                       const lower = t.toLowerCase()
                       const isKeyMoment = speakerRef.current === 'prospect' && KEY_MOMENT_TRIGGERS.some(k => lower.includes(k))
                       setLines(prev => [...prev, { id: crypto.randomUUID(), text: t, time, speaker: speakerRef.current, isKeyMoment }])
-                      if (speakerRef.current === 'prospect') coachLine(t, time)
+                      if (speakerRef.current === 'prospect') { coachLine(t, time); coachNepq(t, time) }
                       setManualInput('')
                       setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 50)
                     }
@@ -931,6 +986,31 @@ export default function LiveCallPage() {
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '0 0 12px' }}>
 
+              {/* NEPQ Stage Tracker */}
+              {isLive && (() => {
+                const stages: { key: typeof nepqStage; label: string }[] = [
+                  { key: 'hook',       label: 'Hook' },
+                  { key: 'discover',   label: 'Discover' },
+                  { key: 'deepen',     label: 'Deepen' },
+                  { key: 'transition', label: 'Transition' },
+                  { key: 'close',      label: 'Close' },
+                ]
+                const activeIdx = stages.findIndex(s => s.key === nepqStage)
+                return (
+                  <div style={{ padding: '8px 12px', backgroundColor: '#F7F4FF', borderBottom: '1px solid rgba(109,40,217,0.15)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: '#6D28D9' }}>NEPQ STAGE</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#4C1D95' }}>{stages[activeIdx]?.label}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 3 }}>
+                      {stages.map((s, i) => (
+                        <div key={s.key} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i <= activeIdx ? '#6D28D9' : 'rgba(109,40,217,0.15)', transition: 'background-color 0.4s ease' }} />
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* Cards header */}
               <div style={{ padding: '9px 12px', backgroundColor: '#FDFAF5', borderBottom: '1px solid #DDD5BB', position: 'sticky', top: 0, zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>COACHING CARDS</span>
@@ -955,6 +1035,35 @@ export default function LiveCallPage() {
                   <p style={{ margin: 0, padding: '4px 2px', color: '#9A9080', fontSize: 13, fontStyle: 'italic' }}>Listening for objections and buying signals…</p>
                 ) : cards.map(card => {
                   const cs = cardStyle(card.cardType)
+                  if (card.cardType === 'nepq') return (
+                    <div key={card.id} style={{ borderRadius: 10, border: `1px solid ${cs.border}`, borderLeft: `3px solid ${cs.accent}`, overflow: 'hidden', backgroundColor: cs.bg }}>
+                      <div style={{ padding: '7px 12px', backgroundColor: cs.badgeBg, borderBottom: `1px solid ${cs.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: cs.labelColor }}>{card.cardTitle}</span>
+                        <span style={{ fontSize: 10, color: '#9A9080' }}>{card.time}</span>
+                      </div>
+                      <div style={{ padding: '9px 12px' }}>
+                        {/* Tonality badge */}
+                        {card.quote && (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, backgroundColor: 'rgba(109,40,217,0.08)', border: '1px solid rgba(109,40,217,0.2)', borderRadius: 6, padding: '3px 8px', marginBottom: 8 }}>
+                            <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', color: '#6D28D9' }}>{card.quote}</span>
+                          </div>
+                        )}
+                        {/* The actual question to ask */}
+                        <div style={{ backgroundColor: cs.innerBg, border: `1px solid ${cs.border}`, borderRadius: 7, padding: '8px 11px', marginBottom: 7 }}>
+                          <p style={{ margin: '0 0 3px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: cs.responseLabelColor }}>ASK THIS</p>
+                          <p style={{ margin: 0, fontSize: 13, color: '#1A1210', lineHeight: 1.6, fontWeight: 500 }}>&ldquo;{card.response}&rdquo;</p>
+                        </div>
+                        {/* Why it works */}
+                        {card.psychRead && (
+                          <p style={{ margin: '0 0 6px', fontSize: 11, color: '#5A4A70', lineHeight: 1.5, fontStyle: 'italic' }}>{card.psychRead}</p>
+                        )}
+                        {/* Anti-pattern warning */}
+                        {card.nextMove && (
+                          <p style={{ margin: 0, fontSize: 10, color: '#92400E', backgroundColor: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.2)', borderRadius: 5, padding: '4px 8px', lineHeight: 1.5 }}>{card.nextMove}</p>
+                        )}
+                      </div>
+                    </div>
+                  )
                   if (card.cardType === 'disc') return (
                     <div key={card.id} style={{ borderRadius: 10, border: `1px solid ${cs.border}`, borderLeft: `3px solid ${cs.accent}`, overflow: 'hidden', backgroundColor: cs.bg }}>
                       <div style={{ padding: '7px 12px', backgroundColor: cs.badgeBg, borderBottom: `1px solid ${cs.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
