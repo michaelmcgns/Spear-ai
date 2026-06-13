@@ -8,7 +8,7 @@ import { ArrowLeft, Mic, MicOff, PhoneOff, X } from 'lucide-react'
 
 type Status    = 'ready' | 'listening' | 'ended' | 'error'
 type Speaker   = 'agent' | 'prospect'
-type CardType  = 'objection' | 'buying_signal' | 'closing'
+type CardType  = 'objection' | 'buying_signal' | 'closing' | 'disc'
 type CallFocus =
   | 'mortgage_protection'
   | 'term_life'
@@ -114,6 +114,11 @@ function cardStyle(ct: CardType) {
     badgeBg: 'rgba(74,124,89,0.12)', badgeColor: '#4A7C59', labelColor: '#4A7C59',
     innerBg: '#E8F5EC', responseLabelColor: '#4A7C59',
   }
+  if (ct === 'disc') return {
+    bg: '#F5F8FF', border: 'rgba(59,122,191,0.28)', accent: '#3B7ABF',
+    badgeBg: 'rgba(59,122,191,0.1)', badgeColor: '#3B7ABF', labelColor: '#1E4A80',
+    innerBg: '#EBF2FF', responseLabelColor: '#1E4A80',
+  }
   // objection
   return {
     bg: '#FFF5F4', border: 'rgba(192,57,43,0.25)', accent: '#C0392B',
@@ -150,6 +155,7 @@ export default function LiveCallPage() {
   const recorderRef      = useRef<MediaRecorder | null>(null)  // MediaRecorder streaming audio to Deepgram
   const recognitionRef   = useRef<any>(null)                   // Web Speech API fallback
   const mutedRef         = useRef(false)                        // tracks mute state for onend guard
+  const discFiredRef     = useRef(false)                        // prevents double-firing first DISC run
   const statusRef        = useRef<Status>('ready')
   const speakerRef       = useRef<Speaker>('agent')
   const focusRef         = useRef<CallFocus>('mortgage_protection')
@@ -253,15 +259,35 @@ export default function LiveCallPage() {
       })
       if (!res.ok) return
       const data = await res.json()
-      if (!data.skip) setDiscProfile(data)
+      if (data.skip) return
+      setDiscProfile(data)
+      // Push a DISC card into the live feed
+      setCards(prev => {
+        // Remove previous disc cards so only latest shows at top
+        const withoutDisc = prev.filter(c => c.cardType !== 'disc')
+        const card: DetectedCard = {
+          id:        crypto.randomUUID(),
+          cardType:  'disc',
+          cardTitle: `🧠 ${data.type} — ${data.name}`,
+          psychRead: data.primaryTrait,
+          response:  data.sellTo?.join(' · ') ?? '',
+          nextMove:  data.traits?.slice(0, 2).join(' · ') ?? '',
+          quote:     '',
+          time:      fmt(elapsedRef.current),
+        }
+        return [card, ...withoutDisc]
+      })
     } catch {}
   }, [])
 
-  // Trigger first DISC analysis as soon as the prospect has spoken 5 lines
+  // Trigger first DISC analysis as soon as the prospect has spoken 5+ lines
   useEffect(() => {
     if (statusRef.current !== 'listening') return
     const count = lines.filter(l => l.speaker === 'prospect').length
-    if (count === 5) runDiscAnalysis()
+    if (count >= 5 && !discFiredRef.current) {
+      discFiredRef.current = true
+      runDiscAnalysis()
+    }
   }, [lines, runDiscAnalysis])
 
   const stopCall = useCallback((withSummary = true) => {
@@ -296,7 +322,7 @@ export default function LiveCallPage() {
     setSpeakerSynced('agent')
     setSwitchRec(null)
     elapsedRef.current = 0
-    setLines([]); setCards([]); setInterim('')
+    setLines([]); setCards([]); setInterim(''); discFiredRef.current = false
     setShowSummary(false); setElapsed(0); setMuted(false)
     setScore(7.0); setSentimentScore(0); setLimitedMode(true); setDiscProfile(null)
     setManualMode(true); setManualInput('')
@@ -305,7 +331,7 @@ export default function LiveCallPage() {
     timerRef.current = setInterval(() => { elapsedRef.current += 1; setElapsed(elapsedRef.current) }, 1000)
 
     if (discIntervalRef.current) clearInterval(discIntervalRef.current)
-    discIntervalRef.current = setInterval(runDiscAnalysis, 45000)
+    discIntervalRef.current = setInterval(runDiscAnalysis, 20000)
 
     if (scoreIntervalRef.current) clearInterval(scoreIntervalRef.current)
     scoreIntervalRef.current = setInterval(() => {
@@ -337,7 +363,7 @@ export default function LiveCallPage() {
     setSpeakerSynced('agent')
     setSwitchRec(null)
     elapsedRef.current = 0
-    setLines([]); setCards([]); setInterim('')
+    setLines([]); setCards([]); setInterim(''); discFiredRef.current = false
     setShowSummary(false); setElapsed(0); setMuted(false)
     setScore(7.0); setSentimentScore(0); setLimitedMode(false); setDiscProfile(null)
 
@@ -364,7 +390,7 @@ export default function LiveCallPage() {
       // Product switch recommendations now come inline from Claude per utterance (see coachLine)
 
       if (discIntervalRef.current) clearInterval(discIntervalRef.current)
-      discIntervalRef.current = setInterval(runDiscAnalysis, 45000)
+      discIntervalRef.current = setInterval(runDiscAnalysis, 20000)
 
       if (scoreIntervalRef.current) clearInterval(scoreIntervalRef.current)
       scoreIntervalRef.current = setInterval(() => {
@@ -929,6 +955,28 @@ export default function LiveCallPage() {
                   <p style={{ margin: 0, padding: '4px 2px', color: '#9A9080', fontSize: 13, fontStyle: 'italic' }}>Listening for objections and buying signals…</p>
                 ) : cards.map(card => {
                   const cs = cardStyle(card.cardType)
+                  if (card.cardType === 'disc') return (
+                    <div key={card.id} style={{ borderRadius: 10, border: `1px solid ${cs.border}`, borderLeft: `3px solid ${cs.accent}`, overflow: 'hidden', backgroundColor: cs.bg }}>
+                      <div style={{ padding: '7px 12px', backgroundColor: cs.badgeBg, borderBottom: `1px solid ${cs.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: cs.labelColor }}>{card.cardTitle}</span>
+                        <span style={{ fontSize: 10, color: '#9A9080' }}>{card.time}</span>
+                      </div>
+                      <div style={{ padding: '9px 12px' }}>
+                        <p style={{ margin: '0 0 7px', fontSize: 12, color: cs.labelColor, fontStyle: 'italic', lineHeight: 1.5 }}>{card.psychRead}</p>
+                        {card.response && (
+                          <div style={{ backgroundColor: cs.innerBg, border: `1px solid ${cs.border}`, borderRadius: 7, padding: '7px 10px', marginBottom: 7 }}>
+                            <p style={{ margin: '0 0 3px', fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: cs.responseLabelColor }}>HOW TO SELL</p>
+                            <p style={{ margin: 0, fontSize: 11, color: '#2C2A1E', lineHeight: 1.6 }}>{card.response}</p>
+                          </div>
+                        )}
+                        {card.nextMove && (
+                          <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', color: cs.accent }}>
+                            SIGNALS &nbsp;<span style={{ fontWeight: 400, color: '#5A6A50', letterSpacing: 0 }}>{card.nextMove}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )
                   return (
                     <div key={card.id} style={{ borderRadius: 10, border: `1px solid ${cs.border}`, overflow: 'hidden', backgroundColor: cs.bg }}>
                       <div style={{ padding: '7px 12px', backgroundColor: cs.badgeBg, borderBottom: `1px solid ${cs.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
