@@ -229,6 +229,12 @@ body {
   border-top: 1px solid var(--divider);
 }
 
+/* Upgrade button needs dark text on gold background */
+.upgrade-btn,
+.upgrade-btn * {
+  color: #111111 !important;
+}
+
 /* ── Surface color hard overrides ─────────────────────────────────── */
 /* Explicit rules beat @theme variables if the CSS variable doesn't cascade correctly */
 .bg-zinc-900       { background-color: #EDE4CC; }

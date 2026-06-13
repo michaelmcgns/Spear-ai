@@ -155,6 +155,8 @@ const LEADS_RAW = [{"fn":"Quiles","ln":"Abreu","phone":"787-461-7464","mob":"","
 // Status stored in localStorage
 function getStatuses() { try { return JSON.parse(localStorage.getItem('spear_statuses')||'{}') } catch{return{}} }
 function setStatus(i,s){ const d=getStatuses(); d[i]=s; localStorage.setItem('spear_statuses',JSON.stringify(d)); }
+function getLastUsed() { try { return JSON.parse(localStorage.getItem('spear_last_used')||'{}') } catch{return{}} }
+function setLastUsed(i,num){ const d=getLastUsed(); d[i]=num; localStorage.setItem('spear_last_used',JSON.stringify(d)); }
 
 const LEADS = LEADS_RAW.map((l,i)=>({...l, id:i, status: getStatuses()[i]||'new'}));
 
@@ -196,7 +198,7 @@ function renderLeads() {
         <span class="name">${l.fn} ${l.ln}</span>
         <span class="status-badge s-${l.status}">${STATUS_LABEL[l.status]||l.status}</span>
       </div>
-      <div class="sub">${l.phone||'No phone'}</div>
+      <div class="sub">${getLastUsed()[l.id]||l.phone||'No phone'}</div>
       <div class="meta">
         ${l.age?`<span>Age ${l.age}</span>`:''}
         ${l.lender?`<span>${l.lender.substring(0,22)}${l.lender.length>22?'…':''}</span>`:''}
@@ -211,8 +213,7 @@ function selectLead(id) {
   const l = LEADS[id];
   document.getElementById('lead-name').textContent = l.fn + ' ' + l.ln;
   document.getElementById('lead-details').innerHTML = `
-    ${l.phone?`<span style="font-family:monospace">${l.phone}</span>`:''}
-    ${l.mob?`<span style="font-family:monospace">M: ${l.mob}</span>`:''}
+    <span style="font-family:monospace">${getLastUsed()[${id}]||l.phone||l.mob||''}</span>
     ${l.addr?`<span>${l.addr}</span>`:''}
     ${l.lender?`<span class="lender">${l.lender}</span>`:''}
     ${l.mtg?`<span class="mtg">${l.mtg}</span>`:''}

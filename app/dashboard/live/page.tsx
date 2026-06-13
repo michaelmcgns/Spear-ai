@@ -149,6 +149,7 @@ export default function LiveCallPage() {
   const wsRef            = useRef<WebSocket | null>(null)      // Deepgram WebSocket connection
   const recorderRef      = useRef<MediaRecorder | null>(null)  // MediaRecorder streaming audio to Deepgram
   const recognitionRef   = useRef<any>(null)                   // Web Speech API fallback
+  const mutedRef         = useRef(false)                        // tracks mute state for onend guard
   const statusRef        = useRef<Status>('ready')
   const speakerRef       = useRef<Speaker>('agent')
   const focusRef         = useRef<CallFocus>('mortgage_protection')
@@ -496,7 +497,7 @@ export default function LiveCallPage() {
           if (event.error === 'not-allowed') { setErr('Microphone access denied.'); stopCall(false); setStatusSynced('error') }
           else console.warn('[SpeechRecognition]', event.error)
         }
-        recognition.onend = () => { if (statusRef.current === 'listening') try { recognition.start() } catch {} }
+        recognition.onend = () => { if (statusRef.current === 'listening' && !mutedRef.current) try { recognition.start() } catch {} }
         recognition.start()
         recognitionRef.current = recognition
       }
@@ -523,12 +524,41 @@ export default function LiveCallPage() {
   const toggleMute = useCallback(() => {
     if (!streamRef.current) return
     const next = !muted
+    mutedRef.current = next
+    // Silence the audio track (works for Deepgram)
     streamRef.current.getAudioTracks().forEach(t => { t.enabled = !next })
+    // Pause/resume Deepgram MediaRecorder
     if (recorderRef.current) {
       try { next ? recorderRef.current.pause() : recorderRef.current.resume() } catch {}
     }
+    // Stop/restart Web Speech API fallback
+    if (recognitionRef.current) {
+      try {
+        if (next) {
+          recognitionRef.current.stop()
+          setInterim('')
+        } else {
+          recognitionRef.current.start()
+        }
+      } catch {}
+    }
     setMuted(next)
   }, [muted])
+
+  // Spacebar toggles speaker while call is live (but not when typing in manual input)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!isLive) return
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (e.code === 'Space') {
+        e.preventDefault()
+        setSpeakerSynced(speakerRef.current === 'agent' ? 'prospect' : 'agent')
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isLive, setSpeakerSynced])
 
   useEffect(() => {
     return () => {
@@ -710,14 +740,31 @@ export default function LiveCallPage() {
 
             {/* Speaker toggle */}
             <div style={{ padding: '7px 12px', backgroundColor: '#FDFAF5', borderBottom: '1px solid #DDD5BB', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>TRANSCRIPT</span>
-              <div style={{ display: 'flex', gap: 3, backgroundColor: '#EDE8DC', borderRadius: 8, padding: 3 }}>
-                <button onClick={() => setSpeakerSynced('agent')} style={{ padding: '7px 16px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', backgroundColor: speaker === 'agent' ? '#1A2C1E' : 'transparent', color: speaker === 'agent' ? '#C8D9CB' : '#7A7060' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>TRANSCRIPT</span>
+                {isLive && <span style={{ fontSize: 9, color: '#B0A898', backgroundColor: '#EDE8DC', borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>SPACE to switch</span>}
+              </div>
+              <div
+                role="group"
+                style={{ display: 'flex', position: 'relative', backgroundColor: '#EDE8DC', borderRadius: 8, padding: 3, cursor: 'pointer' }}
+                onClick={() => setSpeakerSynced(speaker === 'agent' ? 'prospect' : 'agent')}
+                title="Click or press Tab to switch speaker"
+              >
+                {/* sliding pill */}
+                <div style={{
+                  position: 'absolute', top: 3, bottom: 3,
+                  left: speaker === 'agent' ? 3 : 'calc(50% + 1.5px)',
+                  width: 'calc(50% - 4.5px)',
+                  backgroundColor: '#1A2C1E', borderRadius: 6,
+                  transition: 'left 0.2s cubic-bezier(0.4,0,0.2,1)',
+                  pointerEvents: 'none',
+                }} />
+                <span style={{ position: 'relative', padding: '7px 16px', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', color: speaker === 'agent' ? '#C8D9CB' : '#7A7060', transition: 'color 0.2s', userSelect: 'none', minWidth: 64, textAlign: 'center' }}>
                   Agent
-                </button>
-                <button onClick={() => setSpeakerSynced('prospect')} style={{ padding: '7px 16px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', backgroundColor: speaker === 'prospect' ? '#1A2C1E' : 'transparent', color: speaker === 'prospect' ? '#C8D9CB' : '#7A7060' }}>
+                </span>
+                <span style={{ position: 'relative', padding: '7px 16px', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em', color: speaker === 'prospect' ? '#C8D9CB' : '#7A7060', transition: 'color 0.2s', userSelect: 'none', minWidth: 72, textAlign: 'center' }}>
                   Prospect
-                </button>
+                </span>
               </div>
             </div>
 
@@ -773,19 +820,36 @@ export default function LiveCallPage() {
             {/* Manual input bar */}
             {manualMode && (
               <div style={{ flexShrink: 0, borderTop: '1px solid #DDD5BB', backgroundColor: '#FDFAF5', padding: '8px 12px', display: 'flex', gap: 7, alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: 2, backgroundColor: '#EDE8DC', borderRadius: 6, padding: 2, flexShrink: 0 }}>
-                  <button onClick={() => setSpeakerSynced('agent')} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', backgroundColor: speaker === 'agent' ? '#1A2C1E' : 'transparent', color: speaker === 'agent' ? '#C8D9CB' : '#7A7060' }}>
+                <div
+                  role="group"
+                  style={{ display: 'flex', position: 'relative', backgroundColor: '#EDE8DC', borderRadius: 6, padding: 2, flexShrink: 0, cursor: 'pointer' }}
+                  onClick={() => setSpeakerSynced(speaker === 'agent' ? 'prospect' : 'agent')}
+                >
+                  <div style={{
+                    position: 'absolute', top: 2, bottom: 2,
+                    left: speaker === 'agent' ? 2 : 'calc(50% + 1px)',
+                    width: 'calc(50% - 3px)',
+                    backgroundColor: '#1A2C1E', borderRadius: 4,
+                    transition: 'left 0.2s cubic-bezier(0.4,0,0.2,1)',
+                    pointerEvents: 'none',
+                  }} />
+                  <span style={{ position: 'relative', padding: '5px 10px', fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', color: speaker === 'agent' ? '#C8D9CB' : '#7A7060', transition: 'color 0.2s', userSelect: 'none', minWidth: 40, textAlign: 'center' }}>
                     You
-                  </button>
-                  <button onClick={() => setSpeakerSynced('prospect')} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', backgroundColor: speaker === 'prospect' ? '#1A2C1E' : 'transparent', color: speaker === 'prospect' ? '#C8D9CB' : '#7A7060' }}>
+                  </span>
+                  <span style={{ position: 'relative', padding: '5px 10px', fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', color: speaker === 'prospect' ? '#C8D9CB' : '#7A7060', transition: 'color 0.2s', userSelect: 'none', minWidth: 56, textAlign: 'center' }}>
                     Prospect
-                  </button>
+                  </span>
                 </div>
                 <input
                   autoFocus
                   value={manualInput}
                   onChange={e => setManualInput(e.target.value)}
                   onKeyDown={e => {
+                    if (e.key === 'Tab') {
+                      e.preventDefault()
+                      setSpeakerSynced(speakerRef.current === 'agent' ? 'prospect' : 'agent')
+                      return
+                    }
                     if (e.key === 'Enter' && manualInput.trim()) {
                       const t = manualInput.trim()
                       const time = fmt(elapsedRef.current)
