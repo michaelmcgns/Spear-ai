@@ -45,7 +45,7 @@ const FOCUS_OPTIONS: { value: CallFocus; label: string }[] = [
 ]
 
 const FOCUS_BADGE: Record<CallFocus, string> = {
-  mortgage_protection: 'MORT PROTECT',
+  mortgage_protection: 'MORT PROTECTION',
   term_life:           'TERM LIFE',
   final_expense:       'FINAL EXPENSE',
   iul:                 'IUL',

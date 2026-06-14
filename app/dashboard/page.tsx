@@ -344,8 +344,16 @@ function sessionToRecord(s: RawCallSession, i: number): CallRecord {
     score: s.overall_score ?? 0,
     disc: (s.disc_profile_detected as "D" | "I" | "S" | "C") ?? "S",
     objectionCount: (s.objections_raised as unknown[])?.length ?? 0,
-    phase: lastPhase, outcome, revenue: null, product: s.product_name ?? "Call Recording",
-    topIssue: s.notes ?? null,
+    phase: lastPhase, outcome, revenue: null, product: s.product_name ?? "—",
+    topIssue: (() => {
+      if (!s.notes) return null;
+      try {
+        const parsed = JSON.parse(s.notes) as Record<string, unknown>;
+        return (parsed.nextCallFocus as string) ?? (parsed.topIssue as string) ?? s.notes;
+      } catch {
+        return s.notes;
+      }
+    })(),
     talkRatio: Math.round(s.talk_ratio_agent ?? 50),
     nepqScores,
     objectionTypes: getObjectionTypes(objections),
@@ -562,7 +570,7 @@ function CallsTab() {
         <div>
           <h2 className="text-base font-semibold text-white">Call History</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            {filtered.length} calls · {closedCount} closed · ${totalRevenue.toLocaleString()} revenue
+            {filtered.length} calls · {closedCount} closed{totalRevenue > 0 ? ` · $${totalRevenue.toLocaleString()} revenue` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -644,9 +652,9 @@ function CallsTab() {
                           <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">Revenue</p>
                           {call.revenue
                             ? <p className="text-xl font-bold text-emerald-400">${call.revenue.toLocaleString()}</p>
-                            : <p className="text-sm text-zinc-600">No deal</p>
+                            : <p className="text-sm text-zinc-600">{call.outcome === "closed" ? "Revenue not tracked" : "No deal"}</p>
                           }
-                          <p className="text-xs text-zinc-500 mt-1">{call.product} · {call.duration}</p>
+                          <p className="text-xs text-zinc-500 mt-1">{call.product !== "—" ? `${call.product} · ` : ""}{call.duration}</p>
                         </div>
                         <div>
                           <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">Coaching Note</p>

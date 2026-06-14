@@ -1372,7 +1372,7 @@ export default function Page() {
                   onClick={() => setDemoOpen(true)}
                   style={{
                     backgroundColor: "transparent", color: CREAM,
-                    border: `1px solid rgba(255,255,255,0.2)`,
+                    border: `1px solid rgba(255,255,255,0.45)`,
                     padding: "15px 34px", fontSize: "14px", fontWeight: 600,
                     letterSpacing: "0.04em", cursor: "pointer", borderRadius: "6px",
                     fontFamily: "var(--font-space)", transition: "background-color 0.2s",
@@ -1395,8 +1395,8 @@ export default function Page() {
             <motion.div
               initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.55, duration: 1.1, ease: EASE }}
-              style={{ flex: "0 0 auto", display: "flex", justifyContent: "center", width: "100%", paddingTop: "56px" }}
-              className="lg:w-auto"
+              style={{ flex: "0 0 auto", display: "flex", justifyContent: "center", paddingTop: "56px" }}
+              className="w-full lg:w-auto"
             >
               <LiveCallCard />
             </motion.div>
@@ -1709,7 +1709,7 @@ export default function Page() {
       </section>
 
       {/* ── SOCIAL PROOF STRIP ───────────────────────────── */}
-      <section id="pricing" style={{ padding: "80px 32px", backgroundColor: BG_CARD, borderTop: `1px solid ${DIVIDER}`, borderBottom: `1px solid ${DIVIDER}` }}>
+      <section id="social-proof" style={{ padding: "80px 32px", backgroundColor: BG_CARD, borderTop: `1px solid ${DIVIDER}`, borderBottom: `1px solid ${DIVIDER}` }}>
         <div style={{ maxWidth: "960px", margin: "0 auto" }}>
           <Reveal>
             <div className="grid sm:grid-cols-3 gap-10" style={{ textAlign: "center", marginBottom: "28px" }}>
@@ -1873,7 +1873,7 @@ export default function Page() {
                 loading={loadingPlan === tier.name}
                 onCTA={
                   tier.cta === "Talk to Us"
-                    ? () => { window.location.href = "mailto:Mj3mcginnis@gmail.com?subject=Spear Enterprise Inquiry"; }
+                    ? () => { window.location.href = "mailto:support@spearai.live?subject=Spear Enterprise Inquiry"; }
                     : () => handleCheckout(tier.name)
                 }
               />
@@ -1940,8 +1940,8 @@ export default function Page() {
                   <rect x="0.5" y="0.5" width="13" height="11" rx="1.5" stroke="rgba(201,168,76,0.5)" strokeWidth="1"/>
                   <path d="M1 1.5l6 4.5 6-4.5" stroke={BLUE} strokeWidth="1" strokeLinecap="round"/>
                 </svg>
-                <a href="mailto:Mj3mcginnis@gmail.com" style={{ fontSize: "12px", color: WARM_GRAY, fontWeight: 600, textDecoration: "none" }}>
-                  Questions? Mj3mcginnis@gmail.com
+                <a href="mailto:support@spearai.live" style={{ fontSize: "12px", color: WARM_GRAY, fontWeight: 600, textDecoration: "none" }}>
+                  Questions? support@spearai.live
                 </a>
               </div>
             </div>
@@ -1986,7 +1986,7 @@ export default function Page() {
                   fontFamily: "var(--font-space)",
                 }}
               >
-                Get Started Free
+                Get Access
               </motion.button>
             </Link>
           </div>

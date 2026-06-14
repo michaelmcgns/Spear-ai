@@ -359,7 +359,13 @@ Write ONE punchy coaching focus sentence (under 25 words) telling this agent exa
         messages: [{ role: "user", content: prompt }],
       });
       const text = res.content[0].type === "text" ? res.content[0].text.trim() : null;
-      if (text) coachingFocus = text.replace(/^["']|["']$/g, "");
+      if (text) coachingFocus = text
+        .replace(/^["']|["']$/g, "")          // strip surrounding quotes
+        .replace(/^#+\s*/gm, "")             // strip markdown headings (#, ##, etc.)
+        .replace(/\*\*([^*]+)\*\*/g, "$1")   // strip bold **text**
+        .replace(/\*([^*]+)\*/g, "$1")       // strip italic *text*
+        .replace(/^[-*]\s+/gm, "")          // strip list bullets
+        .trim();
     } catch {
       // Non-fatal
     }
