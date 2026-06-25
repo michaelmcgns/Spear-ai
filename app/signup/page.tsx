@@ -29,7 +29,7 @@ function getStrength(pw: string): { score: number; label: string; color: string 
   if (score <= 1) return { score, label: "Weak",   color: "#EF4444" };
   if (score <= 2) return { score, label: "Fair",   color: "#F59E0B" };
   if (score <= 3) return { score, label: "Good",   color: "#3B82F6" };
-  return             { score, label: "Strong", color: "#22C55E" };
+  return             { score, label: "Strong", color: "#1B3A63" };
 }
 
 // ─── Left panel cycling cards ─────────────────────────────────────────────────
@@ -306,8 +306,8 @@ export default function SignupPage({
           <motion.div
             initial={{ scale: 0 }} animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-            style={{ width: 72, height: 72, borderRadius: "50%", backgroundColor: "rgba(34,197,94,0.12)", border: "2px solid rgba(34,197,94,0.3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 28px" }}>
-            <CheckCircle2 size={32} color="#22C55E" />
+            style={{ width: 72, height: 72, borderRadius: "50%", backgroundColor: "rgba(74,111,165,0.12)", border: "2px solid rgba(74,111,165,0.3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 28px" }}>
+            <CheckCircle2 size={32} color="#4A6FA5" />
           </motion.div>
 
           <h1 style={{ fontSize: "28px", fontWeight: 800, color: CREAM, letterSpacing: "-0.02em", marginBottom: "12px" }}>
@@ -358,7 +358,7 @@ export default function SignupPage({
                   width: s < step ? 24 : s === step ? 24 : 20,
                   height: s === step ? 6 : 4,
                   borderRadius: "4px",
-                  backgroundColor: s < step ? "#22C55E" : s === step ? BLUE : "rgba(37,99,235,0.2)",
+                  backgroundColor: s < step ? "#1B3A63" : s === step ? BLUE : "rgba(37,99,235,0.2)",
                   transition: "all 0.3s ease",
                 }} />
               </React.Fragment>

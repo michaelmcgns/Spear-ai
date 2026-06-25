@@ -56,11 +56,11 @@ function ForgotPasswordForm() {
         <div style={{ width: "100%", maxWidth: "400px", textAlign: "center" }}>
           <div style={{
             width: 64, height: 64, borderRadius: "50%",
-            background: "rgba(34,197,94,0.1)", border: "2px solid rgba(34,197,94,0.25)",
+            background: "rgba(74,111,165,0.1)", border: "2px solid rgba(74,111,165,0.25)",
             display: "flex", alignItems: "center", justifyContent: "center",
             margin: "0 auto 24px",
           }}>
-            <CheckCircle2 size={28} color="#22C55E" />
+            <CheckCircle2 size={28} color="#4A6FA5" />
           </div>
           <h1 style={{ fontSize: "24px", fontWeight: 800, color: CREAM, marginBottom: "10px" }}>Check your email</h1>
           <p style={{ fontSize: "14px", color: "rgba(184,168,120,0.65)", lineHeight: 1.7, marginBottom: "8px" }}>

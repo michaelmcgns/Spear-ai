@@ -142,9 +142,9 @@ function LiveCallCard() {
             <motion.div
               animate={{ opacity: [1, 0.25, 1] }}
               transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-              style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#4A7C59", boxShadow: "0 0 8px #4A7C59" }}
+              style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#2C4A75", boxShadow: "0 0 8px #2C4A75" }}
             />
-            <span style={{ fontSize: "9px", letterSpacing: "0.22em", color: "#4A7C59", textTransform: "uppercase", fontWeight: 700 }}>LIVE</span>
+            <span style={{ fontSize: "9px", letterSpacing: "0.22em", color: "#2C4A75", textTransform: "uppercase", fontWeight: 700 }}>LIVE</span>
           </div>
         </div>
 
@@ -343,8 +343,8 @@ function PricingCard({ tier, annual, onCTA, loading = false }: { tier: PricingTi
                 exit={{ opacity: 0, scale: 0.8 }}
                 style={{
                   fontSize: "9px", fontWeight: 800, letterSpacing: "0.1em",
-                  color: "#16A34A", backgroundColor: "rgba(22,163,74,0.12)",
-                  border: "1px solid rgba(22,163,74,0.3)",
+                  color: "#14213D", backgroundColor: "rgba(20,33,61,0.12)",
+                  border: "1px solid rgba(20,33,61,0.3)",
                   borderRadius: "20px", padding: "2px 8px",
                 }}
               >
@@ -443,7 +443,7 @@ const COMPARISON_ROWS: { category: string; feature: string; agent: string | bool
 ];
 
 function CellValue({ val }: { val: string | boolean }) {
-  if (val === true)  return <span style={{ color: "#22C55E", fontSize: "15px", fontWeight: 700 }}>✓</span>;
+  if (val === true)  return <span style={{ color: "#1B3A63", fontSize: "15px", fontWeight: 700 }}>✓</span>;
   if (val === false) return <span style={{ color: "rgba(255,255,255,0.12)", fontSize: "15px" }}>—</span>;
   return <span style={{ fontSize: "11px", fontWeight: 600, color: CREAM_DIM }}>{val}</span>;
 }
@@ -848,8 +848,8 @@ function WaitlistModal({ plan, onClose }: { plan: string; onClose: () => void })
               >
                 <div style={{
                   width: 56, height: 56, borderRadius: "50%",
-                  backgroundColor: "rgba(34,197,94,0.12)",
-                  border: "1px solid rgba(34,197,94,0.3)",
+                  backgroundColor: "rgba(74,111,165,0.12)",
+                  border: "1px solid rgba(74,111,165,0.3)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: "22px", margin: "0 auto 20px",
                 }}>✓</div>
@@ -1019,9 +1019,9 @@ function DemoModal({ onClose }: { onClose: () => void }) {
                 <motion.div
                   animate={{ opacity: [1, 0.2, 1] }}
                   transition={{ duration: 1.2, repeat: Infinity }}
-                  style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#22C55E", boxShadow: "0 0 7px #22C55E" }}
+                  style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#1B3A63", boxShadow: "0 0 7px #1B3A63" }}
                 />
-                <span style={{ fontSize: "11px", fontWeight: 700, color: "#22C55E", letterSpacing: "0.18em" }}>LIVE  {mins}:{secs}</span>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "#1B3A63", letterSpacing: "0.18em" }}>LIVE  {mins}:{secs}</span>
               </div>
             )}
             <button onClick={onClose} style={{ background: "none", border: "none", color: WARM_GRAY, cursor: "pointer", fontSize: "20px", lineHeight: 1, padding: "2px 6px" }}>×</button>
@@ -1156,7 +1156,7 @@ function DemoModal({ onClose }: { onClose: () => void }) {
                     >
                       <p style={{ fontSize: "9px", letterSpacing: "0.18em", color: WARM_GRAY, textTransform: "uppercase", fontWeight: 700, marginBottom: "10px" }}>Buyer Profile</p>
                       <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                        {[["DISC: S-Type", "#3B82F6"], ["Emotional Buyer", "#C9A84C"], ["Family Motivated", "#22C55E"]].map(([label, color]) => (
+                        {[["DISC: S-Type", "#3B82F6"], ["Emotional Buyer", "#C9A84C"], ["Family Motivated", "#1B3A63"]].map(([label, color]) => (
                           <span key={label} style={{
                             fontSize: "9px", fontWeight: 700, letterSpacing: "0.1em",
                             padding: "3px 9px", borderRadius: "20px",
@@ -1255,7 +1255,7 @@ export default function Page() {
         }}
       >
         <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: "64px" }}>
-          <span style={{ fontSize: "22px", fontWeight: 800, color: "#1A2C1E", letterSpacing: "-0.5px" }}>SPEAR</span>
+          <span style={{ fontSize: "22px", fontWeight: 800, color: "#14213D", letterSpacing: "-0.5px" }}>SPEAR</span>
           <div className="hidden md:flex" style={{ alignItems: "center", gap: "36px" }}>
             {[["#how-it-works", "How It Works"], ["#features", "Features"], ["#pricing", "Pricing"]].map(([href, label]) => (
               <a key={href} href={href}
@@ -1310,14 +1310,14 @@ export default function Page() {
                 style={{
                   display: "inline-flex", alignItems: "center", gap: "8px",
                   backgroundColor: "#E8F0EB",
-                  border: "1px solid #C8D9CB",
+                  border: "1px solid #C8D2E0",
                   borderRadius: "20px", padding: "8px 16px", marginBottom: "28px",
                 }}
               >
                 <motion.div
                   animate={{ opacity: [1, 0.3, 1] }}
                   transition={{ duration: 1.5, repeat: Infinity }}
-                  style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#4A7C59", boxShadow: "0 0 6px #4A7C59" }}
+                  style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#2C4A75", boxShadow: "0 0 6px #2C4A75" }}
                 />
                 <span style={{ fontSize: "11px", color: CREAM_DIM, letterSpacing: "0.12em", fontWeight: 700 }}>BUILT FOR LIFE INSURANCE AGENTS</span>
               </motion.div>
@@ -1952,8 +1952,8 @@ export default function Page() {
       {/* ── CTA BANNER ───────────────────────────────────── */}
       <section style={{
         padding: "110px 32px",
-        backgroundColor: "#1A2C1E",
-        borderTop: `1px solid rgba(74,124,89,0.25)`,
+        backgroundColor: "#14213D",
+        borderTop: `1px solid rgba(44,74,117,0.25)`,
         position: "relative", overflow: "hidden",
       }}>
         <div style={{
@@ -1972,7 +1972,7 @@ export default function Page() {
             }}>
               Every call is a rep.<br />Start training smarter.
             </h2>
-            <p style={{ fontSize: "16px", color: "#C8D9CB", lineHeight: 1.75, marginBottom: "44px" }}>
+            <p style={{ fontSize: "16px", color: "#C8D2E0", lineHeight: 1.75, marginBottom: "44px" }}>
               The AI co-pilot built exclusively for life insurance agents.
             </p>
             <Link href="/dashboard">

@@ -67,7 +67,7 @@ function GHLCard() {
     <div style={{
       backgroundColor: "#080F1E",
       border: "1px solid rgba(37,99,235,0.18)",
-      borderTop: isConnected ? "3px solid #22C55E" : "3px solid rgba(37,99,235,0.4)",
+      borderTop: isConnected ? "3px solid #4A6FA5" : "3px solid rgba(37,99,235,0.4)",
       borderRadius: "10px",
       padding: "32px",
       maxWidth: "600px",
@@ -92,9 +92,9 @@ function GHLCard() {
         {isConnected ? (
           <span style={{
             display: "inline-flex", alignItems: "center", gap: "5px",
-            backgroundColor: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)",
+            backgroundColor: "rgba(74,111,165,0.12)", border: "1px solid rgba(74,111,165,0.3)",
             borderRadius: "20px", padding: "4px 12px",
-            fontSize: "11px", fontWeight: 700, color: "#22C55E",
+            fontSize: "11px", fontWeight: 700, color: "#4A6FA5",
           }}>
             <CheckCircle2 size={11} /> Connected
           </span>
@@ -114,11 +114,11 @@ function GHLCard() {
         // ── Connected state ──────────────────────────────────────────────────
         <div>
           <div style={{
-            backgroundColor: "rgba(34,197,94,0.06)",
-            border: "1px solid rgba(34,197,94,0.15)",
+            backgroundColor: "rgba(74,111,165,0.06)",
+            border: "1px solid rgba(74,111,165,0.15)",
             borderRadius: "6px", padding: "14px 16px", marginBottom: "20px",
           }}>
-            <p style={{ fontSize: "12px", color: "#22C55E", fontWeight: 600, marginBottom: "4px" }}>✓ Spear is syncing call data to GoHighLevel</p>
+            <p style={{ fontSize: "12px", color: "#4A6FA5", fontWeight: 600, marginBottom: "4px" }}>✓ Spear is syncing call data to GoHighLevel</p>
             {ghlState?.lastSync && (
               <p style={{ fontSize: "11px", color: "#6B7A8D" }}>
                 Last synced: {new Date(ghlState.lastSync).toLocaleString()}
@@ -139,7 +139,7 @@ function GHLCard() {
                 "Contact moved to pipeline stage based on outcome",
               ].map(item => (
                 <li key={item} style={{ display: "flex", gap: "8px", fontSize: "12px", color: "#8B909A" }}>
-                  <span style={{ color: "#22C55E" }}>✓</span> {item}
+                  <span style={{ color: "#4A6FA5" }}>✓</span> {item}
                 </li>
               ))}
             </ul>
@@ -362,7 +362,7 @@ function ZapierCard() {
           <code style={{ fontSize: "11px", color: "#C9A84C", flex: 1, wordBreak: "break-all" }}>
             {typeof window !== "undefined" ? window.location.origin : ""}/api/integrations/zapier/webhook
           </code>
-          <button onClick={copyUrl} style={{ background: "none", border: "none", cursor: "pointer", color: copied ? "#22C55E" : "#6B7A8D", padding: "2px" }}>
+          <button onClick={copyUrl} style={{ background: "none", border: "none", cursor: "pointer", color: copied ? "#4A6FA5" : "#6B7A8D", padding: "2px" }}>
             {copied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
           </button>
         </div>

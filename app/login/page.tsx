@@ -275,11 +275,11 @@ function LoginForm() {
             {message && (
               <div style={{
                 borderRadius: "8px",
-                border: "1px solid rgba(34,197,94,0.3)",
-                background: "rgba(34,197,94,0.08)",
+                border: "1px solid rgba(44,74,117,0.3)",
+                background: "rgba(44,74,117,0.08)",
                 padding: "10px 14px",
                 fontSize: "13px",
-                color: "#86EFAC",
+                color: "#9DB4D6",
               }}>
                 {message}
               </div>

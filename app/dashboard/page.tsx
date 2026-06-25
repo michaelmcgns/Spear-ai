@@ -430,7 +430,7 @@ function EditableProspectName({ name, sessionId, onUpdate }: {
 }
 
 function ScoreBadge({ score }: { score: number }) {
-  return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold border bg-[#2C4A32] text-[#C8D9CB] border-[#2C4A32]/60">{score.toFixed(1)}</span>;
+  return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold border bg-[#1B3A63] text-[#C8D2E0] border-[#1B3A63]/60">{score.toFixed(1)}</span>;
 }
 
 function OutcomeBadge({ outcome, sessionId, onUpdate }: {
@@ -686,19 +686,19 @@ function CallsTab() {
 // ─── Analytics Tab ────────────────────────────────────────────────────────────
 
 const ANALYTICS_PHASES = [
-  { key: "connection",        phase: "Connection",        color: "#10B981" },
+  { key: "connection",        phase: "Connection",        color: "#2C4A75" },
   { key: "situation",         phase: "Situation",         color: "#3B82F6" },
   { key: "problemAwareness",  phase: "Problem Awareness", color: "#6366F1" },
   { key: "consequence",       phase: "Consequence",       color: "#EF4444" },
   { key: "solutionAwareness", phase: "Solution",          color: "#8B5CF6" },
   { key: "qualifying",        phase: "Qualifying",        color: "#F59E0B" },
-  { key: "close",             phase: "Close",             color: "#10B981" },
+  { key: "close",             phase: "Close",             color: "#2C4A75" },
 ];
 
 const DISC_ANALYTICS = [
   { type: "D" as const, label: "Dominant",     color: "#EF4444", desc: "Direct, decisive, wants results" },
   { type: "I" as const, label: "Influential",  color: "#F59E0B", desc: "Social, optimistic, emotionally driven" },
-  { type: "S" as const, label: "Steady",       color: "#10B981", desc: "Patient, risk-averse, needs trust" },
+  { type: "S" as const, label: "Steady",       color: "#2C4A75", desc: "Patient, risk-averse, needs trust" },
   { type: "C" as const, label: "Conscientious",color: "#3B82F6", desc: "Analytical, detail-focused, cautious" },
 ];
 
@@ -775,7 +775,7 @@ function AnalyticsTab() {
     }
   }
   const objectionData = Array.from(objectionCounts.entries())
-    .map(([type, count], idx) => ({ type, count, color: ["#EF4444", "#8B5CF6", "#F59E0B", "#3B82F6", "#10B981"][idx % 5] }))
+    .map(([type, count], idx) => ({ type, count, color: ["#EF4444", "#8B5CF6", "#F59E0B", "#3B82F6", "#2C4A75"][idx % 5] }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 6);
   const maxObj = Math.max(1, ...objectionData.map(o => o.count));
@@ -1726,7 +1726,7 @@ function LeadsTab() {
       {queueTop.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-baseline justify-between">
-            <p className="text-xs font-semibold text-[#C8D9CB] uppercase tracking-wider">Call queue</p>
+            <p className="text-xs font-semibold text-[#C8D2E0] uppercase tracking-wider">Call queue</p>
             <p className="text-[10px] text-zinc-500">showing {queueTop.length} of {queueAll.length} callable</p>
           </div>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
@@ -1740,7 +1740,7 @@ function LeadsTab() {
                 <div key={lead.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-7 w-7 shrink-0 rounded-full bg-[#2C4A32] text-[#C8D9CB] flex items-center justify-center text-[11px] font-semibold">{i + 1}</div>
+                      <div className="h-7 w-7 shrink-0 rounded-full bg-[#1B3A63] text-[#C8D2E0] flex items-center justify-center text-[11px] font-semibold">{i + 1}</div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-zinc-100 truncate">{fullName}</p>
                         <p className="text-[11px] text-zinc-500 truncate">{meta}</p>
@@ -1757,7 +1757,7 @@ function LeadsTab() {
                     <div className="flex items-center gap-2 shrink-0">
                       {lead.phone && <a href={`tel:${lead.phone}`} className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors">{lead.phone}</a>}
                       <Link href="/dashboard/live"
-                        className="px-2.5 py-1.5 rounded-lg bg-[#4A7C59] hover:bg-[#3c6749] text-white text-[11px] font-semibold flex items-center gap-1.5 transition-colors">
+                        className="px-2.5 py-1.5 rounded-lg bg-[#2C4A75] hover:bg-[#1B3A63] text-white text-[11px] font-semibold flex items-center gap-1.5 transition-colors">
                         <Phone className="h-3 w-3" /> Start call
                       </Link>
                     </div>
@@ -1772,7 +1772,7 @@ function LeadsTab() {
       {leads.length > 0 && (
         <>
           {/* All leads */}
-          <p className="text-xs font-semibold text-[#C8D9CB] uppercase tracking-wider pt-1">All leads</p>
+          <p className="text-xs font-semibold text-[#C8D2E0] uppercase tracking-wider pt-1">All leads</p>
           {/* Filters */}
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative flex-1 min-w-48">
@@ -1858,11 +1858,229 @@ function LeadsTab() {
 
 // ─── Agents Tab ───────────────────────────────────────────────────────────────
 
+// ─── Manager agent data types ─────────────────────────────────────────────────
+
+interface LiveAgentStat {
+  user_id:      string;
+  role:         string;
+  invite_email: string | null;
+  joined_at:    string | null;
+  product_focus: string | null;
+  agency_name:  string | null;
+  total_calls:  number;
+  calls_month:  number;
+  close_rate:   number;
+  avg_score:    number | null;
+  trend:        "up" | "down" | "flat";
+  last_call_at: string | null;
+}
+
+interface AgentCall {
+  id: string;
+  created_at: string;
+  duration_seconds: number;
+  outcome: string;
+  overall_score: number | null;
+  disc_profile_detected: string | null;
+  talk_ratio_agent: number | null;
+  prospect_name: string | null;
+  product_name: string | null;
+  notes: string | null;
+}
+
+function useManagerAgents() {
+  const [agents, setAgents]     = useState<LiveAgentStat[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [isManager, setIsManager] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/manager/agents")
+      .then(r => r.json())
+      .then(d => { if (d.agents) { setAgents(d.agents); setIsManager(true); } })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { agents, loading, isManager };
+}
+
+// ─── Invite modal ─────────────────────────────────────────────────────────────
+
+function InviteModal({ onClose }: { onClose: () => void }) {
+  const [email, setEmail]     = useState("");
+  const [role, setRole]       = useState<"agent" | "manager">("agent");
+  const [status, setStatus]   = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [inviteUrl, setInviteUrl] = useState("");
+  const [errMsg, setErrMsg]   = useState("");
+
+  async function send() {
+    if (!email) return;
+    setStatus("sending");
+    const r = await fetch("/api/manager/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, role }),
+    });
+    const d = await r.json();
+    if (r.ok) { setStatus("sent"); setInviteUrl(d.invite_url ?? ""); }
+    else { setStatus("error"); setErrMsg(d.error ?? "Failed to send invite"); }
+  }
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 200,
+      background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: "24px",
+    }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{
+        background: "#1E293B", border: "1px solid #334155",
+        borderRadius: "16px", padding: "32px", width: "100%", maxWidth: "420px",
+        position: "relative",
+      }}>
+        <button onClick={onClose} style={{
+          position: "absolute", top: "16px", right: "16px",
+          background: "none", border: "none", cursor: "pointer", color: "#64748B", padding: "4px", display: "flex",
+        }}><X size={18} /></button>
+
+        <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#F1F5F9", marginBottom: "6px" }}>Invite Agent</h3>
+        <p style={{ fontSize: "12px", color: "#64748B", marginBottom: "24px" }}>They'll receive an email with a link to join your team.</p>
+
+        {status === "sent" ? (
+          <div>
+            <div style={{ background: "rgba(44,74,117,0.1)", border: "1px solid rgba(44,74,117,0.3)", borderRadius: "10px", padding: "16px", marginBottom: "16px" }}>
+              <p style={{ color: "#4A6FA5", fontSize: "13px", fontWeight: 600, marginBottom: "6px" }}>✓ Invite sent to {email}</p>
+              <p style={{ color: "#94A3B8", fontSize: "12px" }}>Share this link if their email doesn't arrive:</p>
+            </div>
+            {inviteUrl && (
+              <div style={{ background: "#0F172A", border: "1px solid #334155", borderRadius: "8px", padding: "10px 12px", fontSize: "11px", color: "#94A3B8", wordBreak: "break-all", cursor: "pointer" }}
+                onClick={() => navigator.clipboard.writeText(inviteUrl)} title="Click to copy">
+                {inviteUrl} <span style={{ color: "#2563EB", marginLeft: "8px" }}>Copy</span>
+              </div>
+            )}
+            <button onClick={onClose} style={{ marginTop: "20px", width: "100%", padding: "10px", background: "#2563EB", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Done</button>
+          </div>
+        ) : (
+          <>
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", fontSize: "11px", color: "#94A3B8", marginBottom: "6px", fontWeight: 500 }}>Email address</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="agent@example.com"
+                style={{ width: "100%", padding: "9px 12px", boxSizing: "border-box", background: "#0F172A", border: "1px solid #334155", borderRadius: "8px", color: "#F1F5F9", fontSize: "13px", outline: "none" }} />
+            </div>
+            <div style={{ marginBottom: "24px" }}>
+              <label style={{ display: "block", fontSize: "11px", color: "#94A3B8", marginBottom: "6px", fontWeight: 500 }}>Role</label>
+              <select value={role} onChange={e => setRole(e.target.value as "agent" | "manager")}
+                style={{ width: "100%", padding: "9px 12px", boxSizing: "border-box", background: "#0F172A", border: "1px solid #334155", borderRadius: "8px", color: "#F1F5F9", fontSize: "13px", outline: "none" }}>
+                <option value="agent">Agent — sees own calls only</option>
+                <option value="manager">Manager — sees all team data</option>
+              </select>
+            </div>
+            {status === "error" && <p style={{ color: "#F87171", fontSize: "12px", marginBottom: "12px" }}>{errMsg}</p>}
+            <button onClick={send} disabled={status === "sending" || !email}
+              style={{ width: "100%", padding: "10px", background: "#2563EB", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: 600, cursor: status === "sending" ? "not-allowed" : "pointer", opacity: !email ? 0.5 : 1 }}>
+              {status === "sending" ? "Sending..." : "Send Invite"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Agent drill-down panel ───────────────────────────────────────────────────
+
+function AgentDrillDown({ agent, onClose }: { agent: LiveAgentStat; onClose: () => void }) {
+  const [calls, setCalls]     = useState<AgentCall[]>([]);
+  const [loading, setLoading] = useState(true);
+  const displayName = agent.invite_email ? agent.invite_email.split("@")[0] : agent.user_id.slice(0, 8);
+
+  useEffect(() => {
+    fetch(`/api/manager/agents/${agent.user_id}/calls`)
+      .then(r => r.json())
+      .then(d => { if (d.calls) setCalls(d.calls); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [agent.user_id]);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 150, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-start", justifyContent: "flex-end", padding: "16px" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: "#0F172A", border: "1px solid #1E293B", borderRadius: "16px", width: "100%", maxWidth: "560px", height: "calc(100vh - 32px)", overflow: "auto", padding: "24px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "#1E293B", border: "1px solid #334155", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", fontWeight: 700, color: "#94A3B8" }}>
+              {displayName.slice(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <p style={{ fontSize: "14px", fontWeight: 700, color: "#F1F5F9" }}>{displayName}</p>
+              <p style={{ fontSize: "11px", color: "#475569" }}>{agent.invite_email ?? agent.user_id}</p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#475569" }}><X size={18} /></button>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginBottom: "20px" }}>
+          {[
+            { label: "Total Calls", value: agent.total_calls.toString(), color: "#94A3B8" },
+            { label: "Close Rate",  value: `${agent.close_rate}%`,       color: "#4A6FA5" },
+            { label: "Avg Score",   value: agent.avg_score != null ? agent.avg_score.toString() : "—", color: "#818CF8" },
+          ].map(({ label, value, color }) => (
+            <div key={label} style={{ background: "#1E293B", border: "1px solid #334155", borderRadius: "10px", padding: "12px", textAlign: "center" }}>
+              <p style={{ fontSize: "9px", color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px" }}>{label}</p>
+              <p style={{ fontSize: "18px", fontWeight: 800, color }}>{value}</p>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize: "11px", fontWeight: 600, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "10px" }}>Call History</p>
+
+        {loading && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "120px" }}>
+            <div style={{ width: "24px", height: "24px", borderRadius: "50%", border: "2px solid #334155", borderTopColor: "#2563EB", animation: "spin 0.8s linear infinite" }} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        )}
+
+        {!loading && calls.length === 0 && (
+          <div style={{ textAlign: "center", padding: "40px 0", color: "#475569", fontSize: "13px" }}>No calls uploaded yet.</div>
+        )}
+
+        {!loading && calls.map(call => {
+          const date = new Date(call.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+          const mins = Math.floor((call.duration_seconds ?? 0) / 60);
+          const outcomeColor = call.outcome === "closed" ? "#4A6FA5" : call.outcome === "follow_up" ? "#FBBF24" : "#F87171";
+          return (
+            <div key={call.id} style={{ background: "#1E293B", border: "1px solid #334155", borderRadius: "10px", padding: "14px 16px", marginBottom: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: call.notes ? "8px" : "0" }}>
+                <div>
+                  <p style={{ fontSize: "13px", fontWeight: 600, color: "#F1F5F9", marginBottom: "2px" }}>{call.prospect_name ?? "Unknown Prospect"}</p>
+                  <p style={{ fontSize: "11px", color: "#475569" }}>{date} · {mins}m · {call.product_name ?? "—"}</p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  {call.overall_score != null && (
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: call.overall_score >= 8 ? "#4A6FA5" : call.overall_score >= 6 ? "#FBBF24" : "#F87171", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "6px" }}>
+                      {call.overall_score.toFixed(1)}
+                    </span>
+                  )}
+                  <span style={{ fontSize: "10px", fontWeight: 600, color: outcomeColor, textTransform: "uppercase", letterSpacing: "0.06em" }}>{call.outcome}</span>
+                </div>
+              </div>
+              {call.notes && <p style={{ fontSize: "11px", color: "#64748B", borderTop: "1px solid #334155", paddingTop: "8px", lineHeight: 1.5 }}>{call.notes}</p>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Agents Tab ───────────────────────────────────────────────────────────────
+
 function AgentsTab() {
-  const { hasReal, loading } = useDashboardData();
-  const [sortKey, setSortKey] = useState<"score" | "closeRate" | "revenue" | "calls">("score");
-  const [search, setSearch]   = useState("");
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const { agents, loading, isManager } = useManagerAgents();
+  const [sortKey, setSortKey]       = useState<"score" | "closeRate" | "calls">("score");
+  const [search, setSearch]         = useState("");
+  const [selectedAgent, setSelectedAgent] = useState<LiveAgentStat | null>(null);
+  const [showInvite, setShowInvite] = useState(false);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -1870,39 +2088,133 @@ function AgentsTab() {
     </div>
   );
 
-  if (!hasReal) return (
-    <div className="flex flex-col items-center justify-center h-64 text-center gap-4">
-      <div className="h-12 w-12 rounded-full bg-zinc-800 flex items-center justify-center">
-        <Users className="h-5 w-5 text-zinc-600" />
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-zinc-300">No agent data yet</p>
-        <p className="text-xs text-zinc-600 mt-1">Agent leaderboard appears once your team starts logging calls.</p>
-      </div>
-    </div>
-  );
+  // Not a real manager yet — show mock demo data so the UI is never empty
+  if (!isManager) {
+    const mockSorted = [...MOCK_AGENTS]
+      .filter(a => a.name.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => {
+        if (sortKey === "score")     return b.avgScore - a.avgScore;
+        if (sortKey === "closeRate") return b.closeRate - a.closeRate;
+        return b.callsMonth - a.callsMonth;
+      });
+    const mockTeamAvg   = (MOCK_AGENTS.reduce((s, a) => s + a.avgScore, 0) / MOCK_AGENTS.length).toFixed(1);
+    const mockCloseRate = Math.round(MOCK_AGENTS.reduce((s, a) => s + a.closeRate, 0) / MOCK_AGENTS.length);
 
-  const sorted = [...MOCK_AGENTS]
-    .filter(a => a.name.toLowerCase().includes(search.toLowerCase()))
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-white">Agents <span className="ml-2 text-[10px] text-zinc-600 font-normal uppercase tracking-wider">Demo</span></h2>
+            <p className="text-xs text-zinc-500 mt-0.5">{MOCK_AGENTS.length} agents · Sample data</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-600" />
+              <input type="text" placeholder="Search agents..." value={search} onChange={e => setSearch(e.target.value)}
+                className="pl-8 pr-3 py-1.5 bg-zinc-900 border border-zinc-700 rounded-lg text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-600 w-40" />
+            </div>
+            <select value={sortKey} onChange={e => setSortKey(e.target.value as typeof sortKey)}
+              className="px-3 py-1.5 bg-zinc-900 border border-zinc-700 rounded-lg text-xs text-zinc-300 focus:outline-none">
+              <option value="score">Score</option>
+              <option value="closeRate">Close Rate</option>
+              <option value="calls">Calls</option>
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {[
+            { label: "Team Avg Score",  value: mockTeamAvg,        color: "text-indigo-400"  },
+            { label: "Team Close Rate", value: `${mockCloseRate}%`, color: "text-emerald-400" },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-center">
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">{label}</p>
+              <p className={`text-xl font-bold ${color}`}>{value}</p>
+            </div>
+          ))}
+        </div>
+        <div className="rounded-xl border border-zinc-800 overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-zinc-800 bg-zinc-900/80">
+                <th className="text-left px-4 py-3 text-[11px] text-zinc-500 font-medium uppercase tracking-wider w-8">#</th>
+                <th className="text-left px-4 py-3 text-[11px] text-zinc-500 font-medium uppercase tracking-wider">Agent</th>
+                <th className="text-left px-4 py-3 text-[11px] text-zinc-500 font-medium uppercase tracking-wider hidden sm:table-cell">Calls MTD</th>
+                <th className="text-left px-4 py-3 text-[11px] text-zinc-500 font-medium uppercase tracking-wider">Score</th>
+                <th className="text-left px-4 py-3 text-[11px] text-zinc-500 font-medium uppercase tracking-wider hidden md:table-cell">Close Rate</th>
+                <th className="text-left px-4 py-3 text-[11px] text-zinc-500 font-medium uppercase tracking-wider hidden md:table-cell">Trend</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mockSorted.map((agent, rank) => (
+                <tr key={agent.id} className="border-b border-zinc-800/60 bg-zinc-900">
+                  <td className="px-4 py-3">
+                    {rank === 0 ? <Award className="h-4 w-4 text-amber-400" /> : <span className="text-xs text-zinc-600">{rank + 1}</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-7 w-7 rounded-full bg-zinc-700 flex items-center justify-center text-[11px] font-bold text-zinc-300 shrink-0">{agent.initials}</div>
+                      <div>
+                        <p className="text-xs font-medium text-zinc-100">{agent.name}</p>
+                        <p className="text-[10px] text-zinc-600">{agent.role}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-zinc-400 hidden sm:table-cell">{agent.callsMonth}</td>
+                  <td className="px-4 py-3"><ScoreBadge score={agent.avgScore} /></td>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1 w-16 bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${agent.closeRate}%` }} />
+                      </div>
+                      <span className="text-xs text-zinc-300 font-medium">{agent.closeRate}%</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    {agent.trend === "up"   && <div className="flex items-center gap-1 text-emerald-400 text-xs"><ArrowUp className="h-3 w-3" />{agent.trendPct}%</div>}
+                    {agent.trend === "down" && <div className="flex items-center gap-1 text-red-400 text-xs"><ArrowDown className="h-3 w-3" />{agent.trendPct}%</div>}
+                    {agent.trend === "flat" && <span className="text-xs text-zinc-600">— flat</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  const sorted = [...agents]
+    .filter(a => (a.invite_email ?? a.user_id).toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
-      if (sortKey === "score")     return b.avgScore - a.avgScore;
-      if (sortKey === "closeRate") return b.closeRate - a.closeRate;
-      if (sortKey === "revenue")   return b.revenueMTD - a.revenueMTD;
-      return b.callsMonth - a.callsMonth;
+      if (sortKey === "score")     return (b.avg_score ?? 0) - (a.avg_score ?? 0);
+      if (sortKey === "closeRate") return b.close_rate - a.close_rate;
+      return b.calls_month - a.calls_month;
     });
 
-  const teamAvgScore  = (MOCK_AGENTS.reduce((s, a) => s + a.avgScore, 0) / MOCK_AGENTS.length).toFixed(1);
-  const teamCloseRate = Math.round(MOCK_AGENTS.reduce((s, a) => s + a.closeRate, 0) / MOCK_AGENTS.length);
-  const teamRevenue   = MOCK_AGENTS.reduce((s, a) => s + a.revenueMTD, 0);
+  const scoredAgents  = agents.filter(a => a.avg_score != null);
+  const teamAvgScore  = scoredAgents.length
+    ? (scoredAgents.reduce((s, a) => s + (a.avg_score ?? 0), 0) / scoredAgents.length).toFixed(1)
+    : "—";
+  const teamCloseRate = agents.length
+    ? Math.round(agents.reduce((s, a) => s + a.close_rate, 0) / agents.length)
+    : 0;
 
   return (
+    <>
+      {showInvite && <InviteModal onClose={() => setShowInvite(false)} />}
+      {selectedAgent && <AgentDrillDown agent={selectedAgent} onClose={() => setSelectedAgent(null)} />}
+
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-base font-semibold text-white">Agents</h2>
-          <p className="text-xs text-zinc-500 mt-0.5">{MOCK_AGENTS.length} agents · Current month</p>
+          <p className="text-xs text-zinc-500 mt-0.5">{agents.length} agents · Current month</p>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setShowInvite(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs text-white font-medium transition-colors">
+            + Invite Agent
+          </button>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-600" />
             <input type="text" placeholder="Search agents..." value={search} onChange={e => setSearch(e.target.value)}
@@ -1912,18 +2224,16 @@ function AgentsTab() {
             className="px-3 py-1.5 bg-zinc-900 border border-zinc-700 rounded-lg text-xs text-zinc-300 focus:outline-none">
             <option value="score">Score</option>
             <option value="closeRate">Close Rate</option>
-            <option value="revenue">Revenue</option>
             <option value="calls">Calls</option>
           </select>
         </div>
       </div>
 
       {/* Team summary */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         {[
-          { label: "Team Avg Score",    value: teamAvgScore,                       color: "text-indigo-400" },
-          { label: "Team Close Rate",   value: `${teamCloseRate}%`,               color: "text-emerald-400" },
-          { label: "Team Revenue MTD",  value: `$${(teamRevenue/1000).toFixed(0)}k`, color: "text-amber-400" },
+          { label: "Team Avg Score",  value: teamAvgScore,        color: "text-indigo-400"  },
+          { label: "Team Close Rate", value: `${teamCloseRate}%`, color: "text-emerald-400" },
         ].map(({ label, value, color }) => (
           <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-center">
             <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">{label}</p>
@@ -1933,95 +2243,83 @@ function AgentsTab() {
       </div>
 
       {/* Leaderboard */}
+      {agents.length === 0 ? (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-10 text-center">
+          <Users className="h-8 w-8 text-zinc-700 mx-auto mb-3" />
+          <p className="text-sm font-medium text-zinc-400 mb-1">No agents yet</p>
+          <p className="text-xs text-zinc-600 mb-4">Invite your first agent to start tracking their performance.</p>
+          <button onClick={() => setShowInvite(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs text-white font-medium transition-colors">
+            + Invite First Agent
+          </button>
+        </div>
+      ) : (
       <div className="rounded-xl border border-zinc-800 overflow-hidden">
         <table className="w-full">
           <thead>
             <tr className="border-b border-zinc-800 bg-zinc-900/80">
               <th className="text-left px-4 py-3 text-[11px] text-zinc-500 font-medium uppercase tracking-wider w-8">#</th>
               <th className="text-left px-4 py-3 text-[11px] text-zinc-500 font-medium uppercase tracking-wider">Agent</th>
-              <th className="text-left px-4 py-3 text-[11px] text-zinc-500 font-medium uppercase tracking-wider hidden sm:table-cell">Calls</th>
+              <th className="text-left px-4 py-3 text-[11px] text-zinc-500 font-medium uppercase tracking-wider hidden sm:table-cell">Calls MTD</th>
               <th className="text-left px-4 py-3 text-[11px] text-zinc-500 font-medium uppercase tracking-wider">Score</th>
               <th className="text-left px-4 py-3 text-[11px] text-zinc-500 font-medium uppercase tracking-wider hidden md:table-cell">Close Rate</th>
-              <th className="text-left px-4 py-3 text-[11px] text-zinc-500 font-medium uppercase tracking-wider hidden lg:table-cell">Revenue MTD</th>
               <th className="text-left px-4 py-3 text-[11px] text-zinc-500 font-medium uppercase tracking-wider hidden md:table-cell">Trend</th>
               <th className="px-4 py-3 w-8" />
             </tr>
           </thead>
           <tbody>
             {sorted.map((agent, rank) => {
-              const isMe  = agent.name === "You";
-              const isExp = expandedId === agent.id;
+              const displayName = agent.invite_email ? agent.invite_email.split("@")[0] : agent.user_id.slice(0, 8);
+              const initials    = displayName.slice(0, 2).toUpperCase();
               return (
-                <>
-                  <tr key={agent.id} onClick={() => setExpandedId(isExp ? null : agent.id)}
-                    className={`border-b border-zinc-800/60 cursor-pointer transition-colors ${isMe ? "bg-blue-500/5 hover:bg-blue-500/8" : "bg-zinc-900 hover:bg-zinc-800/40"}`}>
-                    <td className="px-4 py-3">
-                      {rank === 0
-                        ? <Award className="h-4 w-4 text-amber-400" />
-                        : <span className="text-xs text-zinc-600">{rank + 1}</span>
-                      }
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${isMe ? "bg-blue-600/30 text-blue-300" : "bg-zinc-700 text-zinc-300"}`}>
-                          {agent.initials}
-                        </div>
-                        <div>
-                          <p className={`text-xs font-medium ${isMe ? "text-blue-300" : "text-zinc-100"}`}>
-                            {agent.name} {isMe && <span className="text-[10px] text-zinc-600">(you)</span>}
-                          </p>
-                          <p className="text-[10px] text-zinc-600">{agent.role}</p>
-                        </div>
+                <tr key={agent.user_id} onClick={() => setSelectedAgent(agent)}
+                  className="border-b border-zinc-800/60 cursor-pointer bg-zinc-900 hover:bg-zinc-800/40 transition-colors">
+                  <td className="px-4 py-3">
+                    {rank === 0
+                      ? <Award className="h-4 w-4 text-amber-400" />
+                      : <span className="text-xs text-zinc-600">{rank + 1}</span>
+                    }
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-7 w-7 rounded-full bg-zinc-700 flex items-center justify-center text-[11px] font-bold text-zinc-300 shrink-0">
+                        {initials}
                       </div>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-zinc-400 hidden sm:table-cell">{agent.callsMonth}</td>
-                    <td className="px-4 py-3"><ScoreBadge score={agent.avgScore} /></td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      <div className="flex items-center gap-2">
-                        <div className="h-1 w-16 bg-zinc-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${agent.closeRate}%` }} />
-                        </div>
-                        <span className="text-xs text-zinc-300 font-medium">{agent.closeRate}%</span>
+                      <div>
+                        <p className="text-xs font-medium text-zinc-100">{displayName}</p>
+                        <p className="text-[10px] text-zinc-600">{agent.role}</p>
                       </div>
-                    </td>
-                    <td className="px-4 py-3 text-xs font-medium text-zinc-200 hidden lg:table-cell">
-                      ${(agent.revenueMTD / 1000).toFixed(0)}k
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      {agent.trend === "up"   && <div className="flex items-center gap-1 text-emerald-400 text-xs"><ArrowUp className="h-3 w-3" />{agent.trendPct}%</div>}
-                      {agent.trend === "down" && <div className="flex items-center gap-1 text-red-400 text-xs"><ArrowDown className="h-3 w-3" />{agent.trendPct}%</div>}
-                      {agent.trend === "flat" && <span className="text-xs text-zinc-600">— flat</span>}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-600">
-                      {isExp ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    </td>
-                  </tr>
-                  {isExp && (
-                    <tr key={`${agent.id}-exp`} className={`border-b border-zinc-800 ${isMe ? "bg-blue-500/3" : "bg-zinc-800/20"}`}>
-                      <td colSpan={8} className="px-6 py-4">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                          {[
-                            { label: "Calls / Month",  value: agent.callsMonth.toString(),                 color: "text-zinc-100"    },
-                            { label: "Close Rate",     value: `${agent.closeRate}%`,                      color: "text-emerald-400" },
-                            { label: "Revenue MTD",    value: `$${agent.revenueMTD.toLocaleString()}`,    color: "text-amber-400"   },
-                            { label: "Score Trend",    value: agent.trend === "up" ? `↑ ${agent.trendPct}%` : agent.trend === "down" ? `↓ ${agent.trendPct}%` : "Flat", color: agent.trend === "up" ? "text-emerald-400" : agent.trend === "down" ? "text-red-400" : "text-zinc-400" },
-                          ].map(({ label, value, color }) => (
-                            <div key={label}>
-                              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">{label}</p>
-                              <p className={`text-base font-bold ${color}`}>{value}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-zinc-400 hidden sm:table-cell">{agent.calls_month}</td>
+                  <td className="px-4 py-3">
+                    {agent.avg_score != null
+                      ? <ScoreBadge score={agent.avg_score} />
+                      : <span className="text-xs text-zinc-600">—</span>
+                    }
+                  </td>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1 w-16 bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${agent.close_rate}%` }} />
+                      </div>
+                      <span className="text-xs text-zinc-300 font-medium">{agent.close_rate}%</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    {agent.trend === "up"   && <div className="flex items-center gap-1 text-emerald-400 text-xs"><ArrowUp className="h-3 w-3" />Up</div>}
+                    {agent.trend === "down" && <div className="flex items-center gap-1 text-red-400 text-xs"><ArrowDown className="h-3 w-3" />Down</div>}
+                    {agent.trend === "flat" && <span className="text-xs text-zinc-600">— flat</span>}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-600"><ChevronRight className="h-4 w-4" /></td>
+                </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+      )}
     </div>
+    </>
   );
 }
 
@@ -2677,20 +2975,20 @@ function DashboardPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-[#2C4A32] bg-zinc-950 overflow-y-auto">
-          <div className="px-5 py-4 border-b border-[#2C4A32]">
-            <span style={{ fontSize: "22px", fontWeight: 800, color: "#C8D9CB", letterSpacing: "-0.5px", fontFamily: "var(--font-space), system-ui, sans-serif" }}>SPEAR</span>
+        <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-[#1B3A63] bg-zinc-950 overflow-y-auto">
+          <div className="px-5 py-4 border-b border-[#1B3A63]">
+            <span style={{ fontSize: "22px", fontWeight: 800, color: "#C8D2E0", letterSpacing: "-0.5px", fontFamily: "var(--font-space), system-ui, sans-serif" }}>SPEAR</span>
           </div>
 
           <nav className="flex-1 px-3 py-4 space-y-0.5">
             {/* Live Call — navigates to full-screen live call page */}
             <Link
               href="/dashboard/live"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors border border-[#4A7C59]/30 bg-[#4A7C59]/10 text-[#C8D9CB] hover:bg-[#2C4A32] mb-1"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors border border-[#2C4A75]/30 bg-[#2C4A75]/10 text-[#C8D2E0] hover:bg-[#1B3A63] mb-1"
             >
-              <Mic className="h-4 w-4 shrink-0 text-[#4A7C59]" />
+              <Mic className="h-4 w-4 shrink-0 text-[#2C4A75]" />
               Live Call
-              <span style={{ fontSize: "9px", marginLeft: "auto", padding: "2px 6px", borderRadius: 4, backgroundColor: "rgba(74,124,89,0.3)", color: "#4A7C59", fontWeight: 700, letterSpacing: "0.1em" }}>
+              <span style={{ fontSize: "9px", marginLeft: "auto", padding: "2px 6px", borderRadius: 4, backgroundColor: "rgba(44,74,117,0.3)", color: "#2C4A75", fontWeight: 700, letterSpacing: "0.1em" }}>
                 LIVE
               </span>
             </Link>
@@ -2701,10 +2999,10 @@ function DashboardPage() {
                 <button key={id} type="button" onClick={() => setActiveTab(id)}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
                     activeTab === id
-                      ? "bg-[#2C4A32] text-[#C8D9CB] border border-[#2C4A32]"
-                      : "text-[#C8D9CB]/75 hover:bg-[#2C4A32] hover:text-[#C8D9CB] border border-transparent"
+                      ? "bg-[#1B3A63] text-[#C8D2E0] border border-[#1B3A63]"
+                      : "text-[#C8D2E0]/75 hover:bg-[#1B3A63] hover:text-[#C8D2E0] border border-transparent"
                   }`}>
-                  {locked ? <Lock className="h-4 w-4 shrink-0 text-[#C8D9CB]/40" /> : <Icon className="h-4 w-4 shrink-0" />}
+                  {locked ? <Lock className="h-4 w-4 shrink-0 text-[#C8D2E0]/40" /> : <Icon className="h-4 w-4 shrink-0" />}
                   {label}
                   {locked && <PlanBadge plan={FEATURE_MIN_PLAN[feature]} />}
                 </button>
@@ -2717,14 +3015,14 @@ function DashboardPage() {
           </div>
 
           {/* Product Focus Selector */}
-          <div className="px-3 pb-3 border-t border-[#2C4A32] pt-3">
-            <p className="text-[10px] font-semibold text-[#7A9E82] uppercase tracking-wider mb-1.5 px-1" style={{ letterSpacing: "0.1em" }}>Product Focus</p>
+          <div className="px-3 pb-3 border-t border-[#1B3A63] pt-3">
+            <p className="text-[10px] font-semibold text-[#7A8EAE] uppercase tracking-wider mb-1.5 px-1" style={{ letterSpacing: "0.1em" }}>Product Focus</p>
             <div className="relative">
               <select
                 value={productFocus}
                 onChange={e => handleProductFocusChange(e.target.value)}
                 disabled={savingFocus}
-                className="w-full appearance-none bg-[#2C4A32] border border-[#3A5A40] text-[#C8D9CB] text-xs rounded-lg px-3 py-2 pr-7 focus:outline-none focus:border-[#C8D9CB]/40 focus:ring-1 focus:ring-[#C8D9CB]/10 transition-colors cursor-pointer disabled:opacity-50"
+                className="w-full appearance-none bg-[#1B3A63] border border-[#2C4A75] text-[#C8D2E0] text-xs rounded-lg px-3 py-2 pr-7 focus:outline-none focus:border-[#C8D2E0]/40 focus:ring-1 focus:ring-[#C8D2E0]/10 transition-colors cursor-pointer disabled:opacity-50"
               >
                 <option value="life_insurance">All Life Insurance</option>
                 <option value="mortgage_protection">Mortgage Protection</option>
@@ -2733,30 +3031,30 @@ function DashboardPage() {
                 <option value="iul">IUL / Indexed Universal Life</option>
                 <option value="annuities">Annuities</option>
               </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-[#C8D9CB]/60 pointer-events-none" />
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-[#C8D2E0]/60 pointer-events-none" />
             </div>
             {savingFocus && <p className="text-[10px] text-zinc-600 mt-1 px-1">Saving…</p>}
           </div>
 
-          <div className="px-3 py-4 border-t border-[#2C4A32] space-y-0.5">
+          <div className="px-3 py-4 border-t border-[#1B3A63] space-y-0.5">
             <Link href="/settings/privacy"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D9CB]/75 hover:bg-[#2C4A32] hover:text-[#C8D9CB] transition-colors border border-transparent">
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#1B3A63] hover:text-[#C8D2E0] transition-colors border border-transparent">
               <Settings className="h-4 w-4 shrink-0" />
               Privacy &amp; Data
             </Link>
             <Link href="/Terms" target="_blank"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D9CB]/75 hover:bg-[#2C4A32] hover:text-[#C8D9CB] transition-colors border border-transparent">
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#1B3A63] hover:text-[#C8D2E0] transition-colors border border-transparent">
               <BookOpen className="h-4 w-4 shrink-0" />
               Terms of Service
             </Link>
             <Link href="/Privacy" target="_blank"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D9CB]/75 hover:bg-[#2C4A32] hover:text-[#C8D9CB] transition-colors border border-transparent">
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#1B3A63] hover:text-[#C8D2E0] transition-colors border border-transparent">
               <Lock className="h-4 w-4 shrink-0" />
               Privacy Policy
             </Link>
             <form action={logout}>
               <button type="submit"
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D9CB]/75 hover:bg-[#2C4A32] hover:text-[#C8D9CB] transition-colors">
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#1B3A63] hover:text-[#C8D2E0] transition-colors">
                 <LogOut className="h-4 w-4 shrink-0" />
                 Sign out
               </button>
