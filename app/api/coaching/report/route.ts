@@ -51,13 +51,13 @@ export interface CoachingReport {
 // ─── NEPQ phase config ────────────────────────────────────────────────────────
 
 const PHASE_CONFIG: { key: string; label: string; color: string }[] = [
-  { key: "connection",        label: "Connection",        color: "#2C4A75" },
+  { key: "connection",        label: "Connection",        color: "#1A3358" },
   { key: "situation",         label: "Situation",         color: "#3B82F6" },
   { key: "problemAwareness",  label: "Problem Awareness", color: "#8B5CF6" },
   { key: "consequence",       label: "Consequence",       color: "#EF4444" },
   { key: "solutionAwareness", label: "Solution",          color: "#F59E0B" },
   { key: "qualifying",        label: "Qualifying",        color: "#06B6D4" },
-  { key: "close",             label: "Close",             color: "#2C4A75" },
+  { key: "close",             label: "Close",             color: "#1A3358" },
 ];
 
 // ─── Drill library keyed by what's weak ──────────────────────────────────────

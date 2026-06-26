@@ -275,8 +275,8 @@ function LoginForm() {
             {message && (
               <div style={{
                 borderRadius: "8px",
-                border: "1px solid rgba(44,74,117,0.3)",
-                background: "rgba(44,74,117,0.08)",
+                border: "1px solid rgba(26,51,88,0.3)",
+                background: "rgba(26,51,88,0.08)",
                 padding: "10px 14px",
                 fontSize: "13px",
                 color: "#9DB4D6",

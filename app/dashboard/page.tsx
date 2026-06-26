@@ -430,7 +430,7 @@ function EditableProspectName({ name, sessionId, onUpdate }: {
 }
 
 function ScoreBadge({ score }: { score: number }) {
-  return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold border bg-[#1B3A63] text-[#C8D2E0] border-[#1B3A63]/60">{score.toFixed(1)}</span>;
+  return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold border bg-[#0F2444] text-[#C8D2E0] border-[#0F2444]/60">{score.toFixed(1)}</span>;
 }
 
 function OutcomeBadge({ outcome, sessionId, onUpdate }: {
@@ -686,19 +686,19 @@ function CallsTab() {
 // ─── Analytics Tab ────────────────────────────────────────────────────────────
 
 const ANALYTICS_PHASES = [
-  { key: "connection",        phase: "Connection",        color: "#2C4A75" },
+  { key: "connection",        phase: "Connection",        color: "#1A3358" },
   { key: "situation",         phase: "Situation",         color: "#3B82F6" },
   { key: "problemAwareness",  phase: "Problem Awareness", color: "#6366F1" },
   { key: "consequence",       phase: "Consequence",       color: "#EF4444" },
   { key: "solutionAwareness", phase: "Solution",          color: "#8B5CF6" },
   { key: "qualifying",        phase: "Qualifying",        color: "#F59E0B" },
-  { key: "close",             phase: "Close",             color: "#2C4A75" },
+  { key: "close",             phase: "Close",             color: "#1A3358" },
 ];
 
 const DISC_ANALYTICS = [
   { type: "D" as const, label: "Dominant",     color: "#EF4444", desc: "Direct, decisive, wants results" },
   { type: "I" as const, label: "Influential",  color: "#F59E0B", desc: "Social, optimistic, emotionally driven" },
-  { type: "S" as const, label: "Steady",       color: "#2C4A75", desc: "Patient, risk-averse, needs trust" },
+  { type: "S" as const, label: "Steady",       color: "#1A3358", desc: "Patient, risk-averse, needs trust" },
   { type: "C" as const, label: "Conscientious",color: "#3B82F6", desc: "Analytical, detail-focused, cautious" },
 ];
 
@@ -775,7 +775,7 @@ function AnalyticsTab() {
     }
   }
   const objectionData = Array.from(objectionCounts.entries())
-    .map(([type, count], idx) => ({ type, count, color: ["#EF4444", "#8B5CF6", "#F59E0B", "#3B82F6", "#2C4A75"][idx % 5] }))
+    .map(([type, count], idx) => ({ type, count, color: ["#EF4444", "#8B5CF6", "#F59E0B", "#3B82F6", "#1A3358"][idx % 5] }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 6);
   const maxObj = Math.max(1, ...objectionData.map(o => o.count));
@@ -1740,7 +1740,7 @@ function LeadsTab() {
                 <div key={lead.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-7 w-7 shrink-0 rounded-full bg-[#1B3A63] text-[#C8D2E0] flex items-center justify-center text-[11px] font-semibold">{i + 1}</div>
+                      <div className="h-7 w-7 shrink-0 rounded-full bg-[#0F2444] text-[#C8D2E0] flex items-center justify-center text-[11px] font-semibold">{i + 1}</div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-zinc-100 truncate">{fullName}</p>
                         <p className="text-[11px] text-zinc-500 truncate">{meta}</p>
@@ -1757,7 +1757,7 @@ function LeadsTab() {
                     <div className="flex items-center gap-2 shrink-0">
                       {lead.phone && <a href={`tel:${lead.phone}`} className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors">{lead.phone}</a>}
                       <Link href="/dashboard/live"
-                        className="px-2.5 py-1.5 rounded-lg bg-[#2C4A75] hover:bg-[#1B3A63] text-white text-[11px] font-semibold flex items-center gap-1.5 transition-colors">
+                        className="px-2.5 py-1.5 rounded-lg bg-[#1A3358] hover:bg-[#0F2444] text-white text-[11px] font-semibold flex items-center gap-1.5 transition-colors">
                         <Phone className="h-3 w-3" /> Start call
                       </Link>
                     </div>
@@ -1947,7 +1947,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
 
         {status === "sent" ? (
           <div>
-            <div style={{ background: "rgba(44,74,117,0.1)", border: "1px solid rgba(44,74,117,0.3)", borderRadius: "10px", padding: "16px", marginBottom: "16px" }}>
+            <div style={{ background: "rgba(26,51,88,0.1)", border: "1px solid rgba(26,51,88,0.3)", borderRadius: "10px", padding: "16px", marginBottom: "16px" }}>
               <p style={{ color: "#4A6FA5", fontSize: "13px", fontWeight: 600, marginBottom: "6px" }}>✓ Invite sent to {email}</p>
               <p style={{ color: "#94A3B8", fontSize: "12px" }}>Share this link if their email doesn't arrive:</p>
             </div>
@@ -2975,8 +2975,8 @@ function DashboardPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-[#1B3A63] bg-zinc-950 overflow-y-auto">
-          <div className="px-5 py-4 border-b border-[#1B3A63]">
+        <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-[#0F2444] bg-zinc-950 overflow-y-auto">
+          <div className="px-5 py-4 border-b border-[#0F2444]">
             <span style={{ fontSize: "22px", fontWeight: 800, color: "#C8D2E0", letterSpacing: "-0.5px", fontFamily: "var(--font-space), system-ui, sans-serif" }}>SPEAR</span>
           </div>
 
@@ -2984,11 +2984,11 @@ function DashboardPage() {
             {/* Live Call — navigates to full-screen live call page */}
             <Link
               href="/dashboard/live"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors border border-[#2C4A75]/30 bg-[#2C4A75]/10 text-[#C8D2E0] hover:bg-[#1B3A63] mb-1"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors border border-[#1A3358]/30 bg-[#1A3358]/10 text-[#C8D2E0] hover:bg-[#0F2444] mb-1"
             >
-              <Mic className="h-4 w-4 shrink-0 text-[#2C4A75]" />
+              <Mic className="h-4 w-4 shrink-0 text-[#1A3358]" />
               Live Call
-              <span style={{ fontSize: "9px", marginLeft: "auto", padding: "2px 6px", borderRadius: 4, backgroundColor: "rgba(44,74,117,0.3)", color: "#2C4A75", fontWeight: 700, letterSpacing: "0.1em" }}>
+              <span style={{ fontSize: "9px", marginLeft: "auto", padding: "2px 6px", borderRadius: 4, backgroundColor: "rgba(26,51,88,0.3)", color: "#1A3358", fontWeight: 700, letterSpacing: "0.1em" }}>
                 LIVE
               </span>
             </Link>
@@ -2999,8 +2999,8 @@ function DashboardPage() {
                 <button key={id} type="button" onClick={() => setActiveTab(id)}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
                     activeTab === id
-                      ? "bg-[#1B3A63] text-[#C8D2E0] border border-[#1B3A63]"
-                      : "text-[#C8D2E0]/75 hover:bg-[#1B3A63] hover:text-[#C8D2E0] border border-transparent"
+                      ? "bg-[#0F2444] text-[#C8D2E0] border border-[#0F2444]"
+                      : "text-[#C8D2E0]/75 hover:bg-[#0F2444] hover:text-[#C8D2E0] border border-transparent"
                   }`}>
                   {locked ? <Lock className="h-4 w-4 shrink-0 text-[#C8D2E0]/40" /> : <Icon className="h-4 w-4 shrink-0" />}
                   {label}
@@ -3015,14 +3015,14 @@ function DashboardPage() {
           </div>
 
           {/* Product Focus Selector */}
-          <div className="px-3 pb-3 border-t border-[#1B3A63] pt-3">
+          <div className="px-3 pb-3 border-t border-[#0F2444] pt-3">
             <p className="text-[10px] font-semibold text-[#7A8EAE] uppercase tracking-wider mb-1.5 px-1" style={{ letterSpacing: "0.1em" }}>Product Focus</p>
             <div className="relative">
               <select
                 value={productFocus}
                 onChange={e => handleProductFocusChange(e.target.value)}
                 disabled={savingFocus}
-                className="w-full appearance-none bg-[#1B3A63] border border-[#2C4A75] text-[#C8D2E0] text-xs rounded-lg px-3 py-2 pr-7 focus:outline-none focus:border-[#C8D2E0]/40 focus:ring-1 focus:ring-[#C8D2E0]/10 transition-colors cursor-pointer disabled:opacity-50"
+                className="w-full appearance-none bg-[#0F2444] border border-[#1A3358] text-[#C8D2E0] text-xs rounded-lg px-3 py-2 pr-7 focus:outline-none focus:border-[#C8D2E0]/40 focus:ring-1 focus:ring-[#C8D2E0]/10 transition-colors cursor-pointer disabled:opacity-50"
               >
                 <option value="life_insurance">All Life Insurance</option>
                 <option value="mortgage_protection">Mortgage Protection</option>
@@ -3036,25 +3036,25 @@ function DashboardPage() {
             {savingFocus && <p className="text-[10px] text-zinc-600 mt-1 px-1">Saving…</p>}
           </div>
 
-          <div className="px-3 py-4 border-t border-[#1B3A63] space-y-0.5">
+          <div className="px-3 py-4 border-t border-[#0F2444] space-y-0.5">
             <Link href="/settings/privacy"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#1B3A63] hover:text-[#C8D2E0] transition-colors border border-transparent">
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#0F2444] hover:text-[#C8D2E0] transition-colors border border-transparent">
               <Settings className="h-4 w-4 shrink-0" />
               Privacy &amp; Data
             </Link>
             <Link href="/Terms" target="_blank"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#1B3A63] hover:text-[#C8D2E0] transition-colors border border-transparent">
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#0F2444] hover:text-[#C8D2E0] transition-colors border border-transparent">
               <BookOpen className="h-4 w-4 shrink-0" />
               Terms of Service
             </Link>
             <Link href="/Privacy" target="_blank"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#1B3A63] hover:text-[#C8D2E0] transition-colors border border-transparent">
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#0F2444] hover:text-[#C8D2E0] transition-colors border border-transparent">
               <Lock className="h-4 w-4 shrink-0" />
               Privacy Policy
             </Link>
             <form action={logout}>
               <button type="submit"
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#1B3A63] hover:text-[#C8D2E0] transition-colors">
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#0F2444] hover:text-[#C8D2E0] transition-colors">
                 <LogOut className="h-4 w-4 shrink-0" />
                 Sign out
               </button>

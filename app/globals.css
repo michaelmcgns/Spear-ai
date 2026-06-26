@@ -3,8 +3,8 @@
 /* ── CSS Variables ─────────────────────────────────────────────────── */
 :root {
   /* Brand palette */
-  --color-navy:          #14213D;
-  --color-navy-deep:     #1B3A63;
+  --color-navy:          #0A1628;
+  --color-navy-deep:     #0F2444;
   --color-gray-secondary:#7A7060;
   --color-gold:          #8C6D2F;
   --color-blue:          #8C6D2F;
@@ -17,8 +17,8 @@
   --gold:         #8C6D2F;
   --gold-light:   #A07E3F;
   --gold-dark:    #6A5020;
-  --navy:         #14213D;
-  --navy-light:   #1B3A63;
+  --navy:         #0A1628;
+  --navy-light:   #0F2444;
   --navy-muted:   #F5F0E8;
   --warm-gray:    #7A7060;
   --divider:      rgba(0,0,0,0.08);
@@ -30,7 +30,7 @@
 @theme {
   /* Backgrounds → light parchment scale */
   --color-black:         #0E1810;
-  --color-zinc-950:      #14213D;
+  --color-zinc-950:      #0A1628;
   --color-zinc-900:      #EDE4CC;
   --color-zinc-800:      #E8DFC8;
   --color-zinc-700:      #D4C9A8;
@@ -64,10 +64,10 @@
   --color-indigo-500:    #8C6D2F;
   --color-indigo-800:    #6A5020;
   /* Success → navy blue */
-  --color-emerald-300:   #2C4A75;
-  --color-emerald-400:   #2C4A75;
-  --color-emerald-500:   #1B3A63;
-  --color-emerald-600:   #0F1830;
+  --color-emerald-300:   #1A3358;
+  --color-emerald-400:   #1A3358;
+  --color-emerald-500:   #0F2444;
+  --color-emerald-600:   #07101E;
   /* Danger */
   --color-red-300:       #8B3A3A;
   --color-red-400:       #8B3A3A;

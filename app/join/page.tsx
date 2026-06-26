@@ -113,13 +113,13 @@ function JoinContent() {
           <>
             <div style={{
               width: "56px", height: "56px", borderRadius: "50%",
-              background: "rgba(20, 33, 61, 0.15)", border: "2px solid #14213D",
+              background: "rgba(10, 22, 40, 0.15)", border: "2px solid #0A1628",
               display: "flex", alignItems: "center", justifyContent: "center",
               margin: "0 auto 20px", fontSize: "24px",
             }}>
               ✓
             </div>
-            <p style={{ color: "#2C4A75", fontSize: "16px", fontWeight: 600 }}>
+            <p style={{ color: "#1A3358", fontSize: "16px", fontWeight: 600 }}>
               {message}
             </p>
           </>

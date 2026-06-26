@@ -23,7 +23,7 @@ function getStrength(pw: string): { score: number; label: string; color: string 
   if (score <= 1) return { score, label: "Weak",   color: "#EF4444" };
   if (score <= 2) return { score, label: "Fair",   color: "#F59E0B" };
   if (score <= 3) return { score, label: "Good",   color: "#3B82F6" };
-  return             { score, label: "Strong", color: "#2C4A75" };
+  return             { score, label: "Strong", color: "#1A3358" };
 }
 
 function SubmitButton() {

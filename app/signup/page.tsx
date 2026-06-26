@@ -29,7 +29,7 @@ function getStrength(pw: string): { score: number; label: string; color: string 
   if (score <= 1) return { score, label: "Weak",   color: "#EF4444" };
   if (score <= 2) return { score, label: "Fair",   color: "#F59E0B" };
   if (score <= 3) return { score, label: "Good",   color: "#3B82F6" };
-  return             { score, label: "Strong", color: "#1B3A63" };
+  return             { score, label: "Strong", color: "#0F2444" };
 }
 
 // ─── Left panel cycling cards ─────────────────────────────────────────────────
@@ -358,7 +358,7 @@ export default function SignupPage({
                   width: s < step ? 24 : s === step ? 24 : 20,
                   height: s === step ? 6 : 4,
                   borderRadius: "4px",
-                  backgroundColor: s < step ? "#1B3A63" : s === step ? BLUE : "rgba(37,99,235,0.2)",
+                  backgroundColor: s < step ? "#0F2444" : s === step ? BLUE : "rgba(37,99,235,0.2)",
                   transition: "all 0.3s ease",
                 }} />
               </React.Fragment>
