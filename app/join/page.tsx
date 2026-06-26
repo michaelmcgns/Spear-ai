@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function JoinPage() {
+function JoinContent() {
   const params = useSearchParams();
   const router = useRouter();
   const token  = params.get("token");
@@ -150,5 +150,27 @@ export default function JoinPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function JoinPage() {
+  return (
+    <Suspense
+      fallback={
+        <div style={{
+          minHeight: "100vh", background: "#0F172A",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{
+            width: "40px", height: "40px", borderRadius: "50%",
+            border: "3px solid #334155", borderTopColor: "#2563EB",
+            animation: "spin 0.8s linear infinite",
+          }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      }
+    >
+      <JoinContent />
+    </Suspense>
   );
 }
