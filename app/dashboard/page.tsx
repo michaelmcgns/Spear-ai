@@ -702,10 +702,13 @@ const ANALYTICS_PHASES = [
   { key: "close",             phase: "Close",             color: "#142846" },
 ];
 
+// Cohesive navy → green gradient for the NEPQ skill-profile bars (distinct per phase)
+const NEPQ_PHASE_COLORS = ["#14213D", "#1E3A5F", "#22557A", "#2C7A6E", "#2E7D5B", "#3A8A4E", "#4F9A41"];
+
 const DISC_ANALYTICS = [
   { type: "D" as const, label: "Dominant",     color: "#EF4444", desc: "Direct, decisive, wants results" },
   { type: "I" as const, label: "Influential",  color: "#F59E0B", desc: "Social, optimistic, emotionally driven" },
-  { type: "S" as const, label: "Steady",       color: "#142846", desc: "Patient, risk-averse, needs trust" },
+  { type: "S" as const, label: "Steady",       color: "#2E7D5B", desc: "Patient, risk-averse, needs trust" },
   { type: "C" as const, label: "Conscientious",color: "#3B82F6", desc: "Analytical, detail-focused, cautious" },
 ];
 
@@ -1168,8 +1171,8 @@ function CoachingTab() {
           )}
         </div>
         <div className="flex items-end gap-2" style={{ height: 80 }}>
-          {report.nepqPhaseScores.map(({ phase, score }) => {
-            const pc = score >= 8 ? "#2E7D5B" : score >= 6 ? "#9A7716" : "#9E3B30";
+          {report.nepqPhaseScores.map(({ phase, score }, i) => {
+            const pc = NEPQ_PHASE_COLORS[i % NEPQ_PHASE_COLORS.length];
             return (
             <div key={phase} className="flex-1 flex flex-col items-center gap-1.5">
               <div className="w-full bg-zinc-800 rounded-sm relative" style={{ height: 64 }}>
