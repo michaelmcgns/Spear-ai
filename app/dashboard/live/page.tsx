@@ -156,6 +156,12 @@ export default function LiveCallPage() {
     primaryTrait: string; traits: string[]; sellTo: string[];
   } | null>(null)
   const [nepqStage,      setNepqStage]      = useState<'hook' | 'discover' | 'deepen' | 'transition' | 'close'>('hook')
+  // Post-call logging
+  const [notes,          setNotes]          = useState('')
+  const [outcome,        setOutcome]        = useState<'closed' | 'follow_up' | 'not_closed' | ''>('')
+  const [prospectName,   setProspectName]   = useState('')
+  const [saveState,      setSaveState]      = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveErr,        setSaveErr]        = useState('')
 
   const wsRef            = useRef<WebSocket | null>(null)      // Deepgram WebSocket connection
   const recorderRef      = useRef<MediaRecorder | null>(null)  // MediaRecorder streaming audio to Deepgram
@@ -674,6 +680,49 @@ export default function LiveCallPage() {
   const sentiment  = computeSentiment(sentimentScore)
   const keyMoments = lines.filter(l => l.isKeyMoment)
   const scoreColor = score >= 7.5 ? '#142846' : score >= 5.5 ? '#C9A84C' : '#C0392B'
+
+  // Persist the completed call to call_sessions — transcript, coaching, DISC, NEPQ, objections, score, notes
+  async function saveCall() {
+    setSaveState('saving'); setSaveErr('')
+    try {
+      const objectionCards = cards.filter(c => c.cardType === 'objection')
+      const res = await fetch('/api/calls/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          durationSeconds:    elapsed,
+          transcript:         lines,
+          coachingCardsFired: cards.map(c => ({ id: c.id, type: c.cardType })),
+          outcome:            outcome || 'unknown',
+          talkRatioAgent:     agentPct,
+          talkRatioProspect:  prospectPct,
+          discProfile:        discProfile?.type ?? null,
+          nepqPhases:         { stageReached: nepqStage },
+          nepqPhaseReached:   nepqStage,
+          objectionsRaised:   objectionCards.map(c => ({ title: c.cardTitle, quote: c.quote, time: c.time })),
+          overallScore:       Number(score.toFixed(1)),
+          notes:              notes.trim() || null,
+          prospectName:       prospectName.trim() || null,
+          productName:        FOCUS_BADGE[callFocus],
+        }),
+      })
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(j.error || 'Save failed')
+      }
+      setSaveState('saved')
+    } catch (e) {
+      setSaveState('error')
+      setSaveErr(e instanceof Error ? e.message : 'Save failed')
+    }
+  }
+
+  function resetForNewCall() {
+    setShowSummary(false); setStatusSynced('ready')
+    setLines([]); setCards([]); setElapsed(0); setErr('')
+    setScore(7.0); setSentimentScore(0); setDiscProfile(null)
+    setNotes(''); setOutcome(''); setProspectName(''); setSaveState('idle'); setSaveErr('')
+  }
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
@@ -1307,21 +1356,68 @@ export default function LiveCallPage() {
               )
             })()}
 
-            <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-              <button
-                onClick={() => {
-                  setShowSummary(false); setStatusSynced('ready')
-                  setLines([]); setCards([]); setElapsed(0); setErr('')
-                  setScore(7.0); setSentimentScore(0); setDiscProfile(null)
-                }}
-                style={{ flex: 1, padding: '10px 0', borderRadius: 10, backgroundColor: '#050B14', color: '#C8D2E0', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
-              >
-                New Call
-              </button>
-              <Link href="/dashboard" style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid #DDD5BB', color: '#7A7060', fontWeight: 600, fontSize: 13, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                Dashboard
-              </Link>
-            </div>
+            {saveState !== 'saved' ? (
+              <div style={{ marginTop: 8 }}>
+                <p style={{ margin: '0 0 8px', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>LOG THIS CALL</p>
+                <input
+                  value={prospectName}
+                  onChange={e => setProspectName(e.target.value)}
+                  placeholder="Prospect name (optional)"
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: 8, border: '1px solid #DDD5BB', backgroundColor: '#FFF', color: '#1C1C1A', fontSize: 13, fontFamily: 'inherit', marginBottom: 10, outline: 'none' }}
+                />
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                  {([['closed', '✓ Closed', '#2E7D5B'], ['follow_up', '↗ Follow-up', '#8C6D2F'], ['not_closed', '✕ Lost', '#9E3B30']] as const).map(([val, label, col]) => (
+                    <button key={val} type="button" onClick={() => setOutcome(val)}
+                      style={{ flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                        border: `1px solid ${outcome === val ? col : '#DDD5BB'}`,
+                        backgroundColor: outcome === val ? col : 'transparent',
+                        color: outcome === val ? '#FFF' : '#7A7060' }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  placeholder="Call notes — what happened, objections, next steps…"
+                  rows={3}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: 8, border: '1px solid #DDD5BB', backgroundColor: '#FFF', color: '#1C1C1A', fontSize: 13, fontFamily: 'inherit', marginBottom: 10, outline: 'none', resize: 'vertical' }}
+                />
+                {saveState === 'error' && <p style={{ fontSize: 12, color: '#9E3B30', margin: '0 0 10px' }}>Couldn&rsquo;t save: {saveErr}</p>}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={saveCall}
+                    disabled={saveState === 'saving'}
+                    style={{ flex: 2, padding: '11px 0', borderRadius: 10, backgroundColor: '#2E7D5B', color: '#EAF6EF', fontWeight: 700, fontSize: 13, border: 'none', cursor: saveState === 'saving' ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: saveState === 'saving' ? 0.7 : 1 }}
+                  >
+                    {saveState === 'saving' ? 'Saving…' : 'Save Call to Log'}
+                  </button>
+                  <button
+                    onClick={resetForNewCall}
+                    style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: '1px solid #DDD5BB', backgroundColor: 'transparent', color: '#7A7060', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    Discard
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '6px 0 16px', color: '#2E7D5B', fontWeight: 700, fontSize: 14 }}>
+                  ✓ Call saved to your log
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={resetForNewCall}
+                    style={{ flex: 1, padding: '11px 0', borderRadius: 10, backgroundColor: '#142846', color: '#EAF0F8', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    New Call
+                  </button>
+                  <Link href="/dashboard" style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: '1px solid #DDD5BB', color: '#7A7060', fontWeight: 600, fontSize: 13, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    View in Dashboard
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
