@@ -145,11 +145,11 @@ type AgentRecord = {
 
 // Score scale — green (strong) → steel (solid) → brick red (weak)
 function scoreBarColor(s: number) {
-  if (s >= 8) return "bg-[#2E7D5B]"; if (s >= 6) return "bg-[#B8901E]";
+  if (s >= 8) return "bg-[#2E7D5B]"; if (s >= 6) return "bg-[#9A7716]";
   return "bg-[#9E3B30]";
 }
 function scoreTextColor(s: number) {
-  if (s >= 8) return "text-[#2E7D5B]"; if (s >= 6) return "text-[#9A7A14]";
+  if (s >= 8) return "text-[#2E7D5B]"; if (s >= 6) return "text-[#8A6C12]";
   return "text-[#9E3B30]";
 }
 function discBadgeColor(t: string) {
@@ -435,7 +435,7 @@ function ScoreBadge({ score }: { score: number }) {
   const t = score >= 8
     ? { bg: "#2E7D5B", fg: "#EAF6EF" }
     : score >= 6
-    ? { bg: "#B8901E", fg: "#332806" }
+    ? { bg: "#9A7716", fg: "#F6EDD0" }
     : { bg: "#9E3B30", fg: "#F6DEDA" };
   return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold" style={{ backgroundColor: t.bg, color: t.fg }}>{score.toFixed(1)}</span>;
 }
@@ -872,7 +872,7 @@ function AnalyticsTab() {
           <div className="flex items-end gap-2" style={{ height: 96 }}>
             {data.map(w => (
               <div key={w.label} className="flex-1 flex flex-col items-center gap-1.5">
-                <div className="w-full rounded-t-sm transition-all" style={{ height: `${Math.max((w.avgScore / maxWeeklyScore) * 80, w.avgScore > 0 ? 4 : 0)}px`, backgroundColor: w.avgScore >= 8 ? "#2E7D5B" : w.avgScore >= 6 ? "#B8901E" : w.avgScore > 0 ? "#9E3B30" : "#C9CDD6" }} />
+                <div className="w-full rounded-t-sm transition-all" style={{ height: `${Math.max((w.avgScore / maxWeeklyScore) * 80, w.avgScore > 0 ? 4 : 0)}px`, backgroundColor: w.avgScore >= 8 ? "#2E7D5B" : w.avgScore >= 6 ? "#9A7716" : w.avgScore > 0 ? "#9E3B30" : "#C9CDD6" }} />
                 <span className="text-[9px] text-zinc-600">{w.avgScore > 0 ? w.avgScore.toFixed(1) : "—"}</span>
               </div>
             ))}
@@ -885,7 +885,7 @@ function AnalyticsTab() {
           <p className="text-xs font-semibold text-white mb-5">NEPQ Phase Averages</p>
           <div className="space-y-3.5">
             {phaseScores.map(({ phase, score, count }) => {
-              const pc = score == null ? "#9CA3AF" : score >= 8 ? "#2E7D5B" : score >= 6 ? "#A8841C" : "#9E3B30";
+              const pc = score == null ? "#9CA3AF" : score >= 8 ? "#2E7D5B" : score >= 6 ? "#8A6C12" : "#9E3B30";
               return (
               <div key={phase}>
                 <div className="flex items-center justify-between mb-1.5">
