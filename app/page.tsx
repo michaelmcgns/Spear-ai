@@ -14,6 +14,8 @@ const CREAM_DIM = "#7A7060";
 const BLUE      = "#8C6D2F";
 const BLUE_LIGHT = "#A07E3F";
 const GOLD      = "#8C6D2F";
+const NAVY      = "#14213D";
+const NAVY_TEXT = "#F5EFE2";
 const WARM_GRAY = "#7A7060";
 const DIVIDER   = "rgba(0,0,0,0.08)";
 
@@ -1044,7 +1046,7 @@ function DemoModal({ onClose }: { onClose: () => void }) {
                 whileTap={{ scale: 0.97 }}
                 onClick={startDemo}
                 style={{
-                  backgroundColor: BLUE, color: CREAM, border: "none",
+                  backgroundColor: NAVY, color: NAVY_TEXT, border: "none",
                   padding: "14px 44px", fontSize: "14px", fontWeight: 700,
                   letterSpacing: "0.06em", cursor: "pointer", borderRadius: "6px",
                   fontFamily: "var(--font-space)",
@@ -1184,7 +1186,7 @@ function DemoModal({ onClose }: { onClose: () => void }) {
                 whileHover={{ scale: 1.03, boxShadow: `0 0 20px rgba(201,168,76,0.35)` }}
                 whileTap={{ scale: 0.97 }}
                 style={{
-                  backgroundColor: BLUE, color: CREAM, border: "none",
+                  backgroundColor: NAVY, color: NAVY_TEXT, border: "none",
                   padding: "8px 22px", fontSize: "11px", fontWeight: 700,
                   letterSpacing: "0.08em", cursor: "pointer", borderRadius: "4px",
                   fontFamily: "var(--font-space)",
@@ -1271,7 +1273,7 @@ export default function Page() {
                 whileHover={{ scale: 1.03, boxShadow: `0 0 20px rgba(201,168,76,0.35)` }}
                 whileTap={{ scale: 0.97 }}
                 style={{
-                  backgroundColor: BLUE, color: CREAM, border: "none",
+                  backgroundColor: NAVY, color: NAVY_TEXT, border: "none",
                   padding: "8px 20px", fontSize: "11px", letterSpacing: "0.1em",
                   fontWeight: 700, cursor: "pointer", borderRadius: "4px",
                   fontFamily: "var(--font-space)",
@@ -1357,7 +1359,7 @@ export default function Page() {
                     whileHover={{ scale: 1.03, boxShadow: `0 0 36px rgba(201,168,76,0.45)` }}
                     whileTap={{ scale: 0.98 }}
                     style={{
-                      backgroundColor: BLUE, color: CREAM, border: "none",
+                      backgroundColor: NAVY, color: NAVY_TEXT, border: "none",
                       padding: "15px 34px", fontSize: "14px", fontWeight: 700,
                       letterSpacing: "0.04em", cursor: "pointer", borderRadius: "6px",
                       fontFamily: "var(--font-space)",
@@ -1980,7 +1982,7 @@ export default function Page() {
                 whileHover={{ scale: 1.04, boxShadow: `0 0 56px rgba(140,109,47,0.45)` }}
                 whileTap={{ scale: 0.97 }}
                 style={{
-                  backgroundColor: "#8C6D2F", color: "#FAF5EC", border: "none",
+                  backgroundColor: NAVY, color: "#FAF5EC", border: "none",
                   padding: "18px 52px", fontSize: "16px", fontWeight: 800,
                   letterSpacing: "0.06em", cursor: "pointer", borderRadius: "6px",
                   fontFamily: "var(--font-space)",

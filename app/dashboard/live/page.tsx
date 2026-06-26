@@ -784,7 +784,7 @@ export default function LiveCallPage() {
             </p>
             <button
               onClick={startCall}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '13px 0', borderRadius: 10, backgroundColor: '#050B14', color: '#C8D2E0', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '13px 0', borderRadius: 10, backgroundColor: '#2E7D5B', color: '#EAF6EF', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}
             >
               <Mic size={15} /> Start Call
             </button>

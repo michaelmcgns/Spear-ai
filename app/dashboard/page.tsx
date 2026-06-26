@@ -143,13 +143,13 @@ type AgentRecord = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-// Score scale — dark/masculine: strong navy → steel → brick red
+// Score scale — green (strong) → steel (solid) → brick red (weak)
 function scoreBarColor(s: number) {
-  if (s >= 8) return "bg-[#1B3A63]"; if (s >= 6) return "bg-[#5A6478]";
+  if (s >= 8) return "bg-[#2E7D5B]"; if (s >= 6) return "bg-[#5A6478]";
   return "bg-[#9E3B30]";
 }
 function scoreTextColor(s: number) {
-  if (s >= 8) return "text-[#1B3A63]"; if (s >= 6) return "text-[#5A6478]";
+  if (s >= 8) return "text-[#2E7D5B]"; if (s >= 6) return "text-[#5A6478]";
   return "text-[#9E3B30]";
 }
 function discBadgeColor(t: string) {
@@ -433,7 +433,7 @@ function EditableProspectName({ name, sessionId, onUpdate }: {
 function ScoreBadge({ score }: { score: number }) {
   // Tiered so quality reads at a glance — navy (strong) / steel (solid) / brick (weak)
   const t = score >= 8
-    ? { bg: "#1B3A63", fg: "#EAF0F8" }
+    ? { bg: "#2E7D5B", fg: "#EAF6EF" }
     : score >= 6
     ? { bg: "#5A6478", fg: "#EDEFF4" }
     : { bg: "#9E3B30", fg: "#F6DEDA" };
@@ -474,7 +474,7 @@ function OutcomeBadge({ outcome, sessionId, onUpdate }: {
   }
 
   if (current === "closed") {
-    return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold" style={{ backgroundColor: "#1B3A63", color: "#EAF0F8" }}>✓ Closed</span>;
+    return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold" style={{ backgroundColor: "#2E7D5B", color: "#EAF6EF" }}>✓ Closed</span>;
   }
   if (current === "lost") {
     return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium" style={{ backgroundColor: "rgba(158,59,48,0.12)", color: "#9E3B30", border: "1px solid rgba(158,59,48,0.30)" }}>✗ Lost</span>;
@@ -493,7 +493,7 @@ function OutcomeBadge({ outcome, sessionId, onUpdate }: {
         type="button"
         onClick={() => select("closed")}
         disabled={!!saving}
-        className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-[#1B3A63]/10 text-[#1B3A63] border border-[#1B3A63]/30 hover:bg-[#1B3A63]/20 disabled:opacity-50 transition-colors"
+        className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-[#2E7D5B]/10 text-[#2E7D5B] border border-[#2E7D5B]/30 hover:bg-[#2E7D5B]/20 disabled:opacity-50 transition-colors"
       >
         {saving === "closed" ? "…" : "✓ Closed"}
       </button>
@@ -838,10 +838,10 @@ function AnalyticsTab() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total Calls",    value: totalCalls.toString(),       sub: `${range} period`,           Icon: Phone,        color: "text-blue-400"   },
-          { label: "Deals Closed",   value: totalClose.toString(),       sub: `${closeRate}% close rate`,  Icon: CheckCircle2, color: "text-emerald-400" },
-          { label: "Objections",     value: totalObjections.toString(),  sub: "caught in calls",          Icon: Target,       color: "text-amber-400"  },
-          { label: "Avg Call Score", value: avgScore,                    sub: "call quality",             Icon: Star,         color: "text-purple-400" },
+          { label: "Total Calls",    value: totalCalls.toString(),       sub: `${range} period`,           Icon: Phone,        color: "text-[#1B3A63]" },
+          { label: "Deals Closed",   value: totalClose.toString(),       sub: `${closeRate}% close rate`,  Icon: CheckCircle2, color: "text-[#2E7D5B]" },
+          { label: "Objections",     value: totalObjections.toString(),  sub: "caught in calls",          Icon: Target,       color: "text-[#8C6D2F]" },
+          { label: "Avg Call Score", value: avgScore,                    sub: "call quality",             Icon: Star,         color: "text-[#1B3A63]" },
         ].map(({ label, value, sub, Icon, color }) => (
           <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-7" style={{ borderBottom: "2px solid #D4C9A8" }}>
             <div className="flex items-center justify-between mb-2">
@@ -860,7 +860,7 @@ function AnalyticsTab() {
           <div className="flex items-end gap-2" style={{ height: 96 }}>
             {data.map(w => (
               <div key={w.label} className="flex-1 flex flex-col items-center gap-1.5">
-                <div className="w-full rounded-t-sm bg-blue-600/75 transition-all" style={{ height: `${Math.max((w.calls / maxCalls) * 80, w.calls > 0 ? 4 : 0)}px` }} />
+                <div className="w-full rounded-t-sm transition-all" style={{ height: `${Math.max((w.calls / maxCalls) * 80, w.calls > 0 ? 4 : 0)}px`, backgroundColor: "#1B3A63" }} />
                 <span className="text-[9px] text-zinc-600">{w.label}</span>
               </div>
             ))}
@@ -872,7 +872,7 @@ function AnalyticsTab() {
           <div className="flex items-end gap-2" style={{ height: 96 }}>
             {data.map(w => (
               <div key={w.label} className="flex-1 flex flex-col items-center gap-1.5">
-                <div className="w-full rounded-t-sm bg-emerald-600/75 transition-all" style={{ height: `${Math.max((w.avgScore / maxWeeklyScore) * 80, w.avgScore > 0 ? 4 : 0)}px` }} />
+                <div className="w-full rounded-t-sm transition-all" style={{ height: `${Math.max((w.avgScore / maxWeeklyScore) * 80, w.avgScore > 0 ? 4 : 0)}px`, backgroundColor: w.avgScore >= 8 ? "#2E7D5B" : w.avgScore >= 6 ? "#5A6478" : w.avgScore > 0 ? "#9E3B30" : "#C9CDD6" }} />
                 <span className="text-[9px] text-zinc-600">{w.avgScore > 0 ? w.avgScore.toFixed(1) : "—"}</span>
               </div>
             ))}
@@ -884,18 +884,21 @@ function AnalyticsTab() {
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
           <p className="text-xs font-semibold text-white mb-5">NEPQ Phase Averages</p>
           <div className="space-y-3.5">
-            {phaseScores.map(({ phase, score, color, count }) => (
+            {phaseScores.map(({ phase, score, count }) => {
+              const pc = score == null ? "#9CA3AF" : score >= 8 ? "#2E7D5B" : score >= 6 ? "#5A6478" : "#9E3B30";
+              return (
               <div key={phase}>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs text-zinc-400">{phase}</span>
-                  <span className="text-xs font-bold" style={{ color }}>{score == null ? "—" : score.toFixed(1)}</span>
+                  <span className="text-xs font-bold" style={{ color: pc }}>{score == null ? "—" : score.toFixed(1)}</span>
                 </div>
                 <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${score == null ? 0 : score * 10}%`, backgroundColor: color }} />
+                  <div className="h-full rounded-full" style={{ width: `${score == null ? 0 : score * 10}%`, backgroundColor: pc }} />
                 </div>
                 {count === 0 && <p className="text-[9px] text-zinc-700 mt-1">No data yet</p>}
               </div>
-            ))}
+              );
+            })}
           </div>
           {weakestPhase?.score != null && (
             <p className="text-[10px] text-red-400 mt-4">Weakest phase: {weakestPhase.phase} at {weakestPhase.score.toFixed(1)}</p>
@@ -908,11 +911,11 @@ function AnalyticsTab() {
             <p className="text-xs text-zinc-600">No objections detected yet.</p>
           ) : (
             <div className="space-y-3">
-              {objectionData.map(({ type, count, color }) => (
+              {objectionData.map(({ type, count }) => (
                 <div key={type} className="flex items-center gap-3">
                   <span className="text-xs text-zinc-400 w-28 shrink-0">{type}</span>
                   <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${(count / maxObj) * 100}%`, backgroundColor: color }} />
+                    <div className="h-full rounded-full" style={{ width: `${(count / maxObj) * 100}%`, backgroundColor: "#8C6D2F" }} />
                   </div>
                   <span className="text-xs font-semibold text-zinc-300 w-6 text-right">{count}</span>
                 </div>
@@ -1764,7 +1767,7 @@ function LeadsTab() {
                     <div className="flex items-center gap-2 shrink-0">
                       {lead.phone && <a href={`tel:${lead.phone}`} className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors">{lead.phone}</a>}
                       <Link href="/dashboard/live"
-                        className="px-2.5 py-1.5 rounded-lg bg-[#142846] hover:bg-[#0B1B34] text-white text-[11px] font-semibold flex items-center gap-1.5 transition-colors">
+                        className="px-2.5 py-1.5 rounded-lg bg-[#2E7D5B] hover:bg-[#256B4D] text-white text-[11px] font-semibold flex items-center gap-1.5 transition-colors shadow-sm">
                         <Phone className="h-3 w-3" /> Start call
                       </Link>
                     </div>
@@ -2054,7 +2057,7 @@ function AgentDrillDown({ agent, onClose }: { agent: LiveAgentStat; onClose: () 
         {!loading && calls.map(call => {
           const date = new Date(call.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
           const mins = Math.floor((call.duration_seconds ?? 0) / 60);
-          const outcomeColor = call.outcome === "closed" ? "#7BA0D9" : call.outcome === "follow_up" ? "#C9A84C" : "#D9776B";
+          const outcomeColor = call.outcome === "closed" ? "#5FB58A" : call.outcome === "follow_up" ? "#C9A84C" : "#D9776B";
           return (
             <div key={call.id} style={{ background: "#1E293B", border: "1px solid #334155", borderRadius: "10px", padding: "14px 16px", marginBottom: "8px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: call.notes ? "8px" : "0" }}>
@@ -2064,7 +2067,7 @@ function AgentDrillDown({ agent, onClose }: { agent: LiveAgentStat; onClose: () 
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   {call.overall_score != null && (
-                    <span style={{ fontSize: "12px", fontWeight: 700, color: call.overall_score >= 8 ? "#7BA0D9" : call.overall_score >= 6 ? "#9AA7BC" : "#D9776B", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "6px" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: call.overall_score >= 8 ? "#5FB58A" : call.overall_score >= 6 ? "#9AA7BC" : "#D9776B", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "6px" }}>
                       {call.overall_score.toFixed(1)}
                     </span>
                   )}
@@ -2177,7 +2180,7 @@ function AgentsTab() {
                     </div>
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
-                    {agent.trend === "up"   && <div className="flex items-center gap-1 text-emerald-400 text-xs"><ArrowUp className="h-3 w-3" />{agent.trendPct}%</div>}
+                    {agent.trend === "up"   && <div className="flex items-center gap-1 text-[#2E7D5B] text-xs"><ArrowUp className="h-3 w-3" />{agent.trendPct}%</div>}
                     {agent.trend === "down" && <div className="flex items-center gap-1 text-red-400 text-xs"><ArrowDown className="h-3 w-3" />{agent.trendPct}%</div>}
                     {agent.trend === "flat" && <span className="text-xs text-zinc-600">— flat</span>}
                   </td>
@@ -2313,7 +2316,7 @@ function AgentsTab() {
                     </div>
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
-                    {agent.trend === "up"   && <div className="flex items-center gap-1 text-emerald-400 text-xs"><ArrowUp className="h-3 w-3" />Up</div>}
+                    {agent.trend === "up"   && <div className="flex items-center gap-1 text-[#2E7D5B] text-xs"><ArrowUp className="h-3 w-3" />Up</div>}
                     {agent.trend === "down" && <div className="flex items-center gap-1 text-red-400 text-xs"><ArrowDown className="h-3 w-3" />Down</div>}
                     {agent.trend === "flat" && <span className="text-xs text-zinc-600">— flat</span>}
                   </td>
