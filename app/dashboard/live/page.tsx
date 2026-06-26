@@ -97,7 +97,7 @@ function computePhase(elapsed: number, lines: TranscriptLine[], objCount: number
 }
 
 function computeSentiment(score: number): { label: string; color: string; pct: number } {
-  if (score > 1)  return { label: 'Positive', color: '#1A3358', pct: Math.min(100, 60 + score * 12) }
+  if (score > 1)  return { label: 'Positive', color: '#142846', pct: Math.min(100, 60 + score * 12) }
   if (score < -1) return { label: 'Negative', color: '#C0392B', pct: Math.max(0,  40 + score * 12) }
   return { label: 'Neutral', color: '#8C6D2F', pct: 50 }
 }
@@ -105,14 +105,14 @@ function computeSentiment(score: number): { label: string; color: string; pct: n
 // Card type → style tokens
 function cardStyle(ct: CardType) {
   if (ct === 'closing') return {
-    bg: '#F2F6FB', border: 'rgba(26,51,88,0.3)', accent: '#1A3358',
-    badgeBg: 'rgba(26,51,88,0.12)', badgeColor: '#1A3358', labelColor: '#1A3358',
-    innerBg: '#E8EEF5', responseLabelColor: '#1A3358',
+    bg: '#F2F6FB', border: 'rgba(20,40,70,0.3)', accent: '#142846',
+    badgeBg: 'rgba(20,40,70,0.12)', badgeColor: '#142846', labelColor: '#142846',
+    innerBg: '#E8EEF5', responseLabelColor: '#142846',
   }
   if (ct === 'buying_signal') return {
-    bg: '#F2F6FB', border: 'rgba(26,51,88,0.28)', accent: '#1A3358',
-    badgeBg: 'rgba(26,51,88,0.12)', badgeColor: '#1A3358', labelColor: '#1A3358',
-    innerBg: '#E8EEF5', responseLabelColor: '#1A3358',
+    bg: '#F2F6FB', border: 'rgba(20,40,70,0.28)', accent: '#142846',
+    badgeBg: 'rgba(20,40,70,0.12)', badgeColor: '#142846', labelColor: '#142846',
+    innerBg: '#E8EEF5', responseLabelColor: '#142846',
   }
   if (ct === 'disc') return {
     bg: '#F5F8FF', border: 'rgba(59,122,191,0.28)', accent: '#3B7ABF',
@@ -673,7 +673,7 @@ export default function LiveCallPage() {
   const phase      = computePhase(elapsed, lines, cards.filter(c => c.cardType === 'objection').length)
   const sentiment  = computeSentiment(sentimentScore)
   const keyMoments = lines.filter(l => l.isKeyMoment)
-  const scoreColor = score >= 7.5 ? '#1A3358' : score >= 5.5 ? '#C9A84C' : '#C0392B'
+  const scoreColor = score >= 7.5 ? '#142846' : score >= 5.5 ? '#C9A84C' : '#C0392B'
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
@@ -681,14 +681,14 @@ export default function LiveCallPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#F5F0E8', fontFamily: 'var(--font-space, system-ui, sans-serif)', overflow: 'hidden' }}>
 
       {/* ── Header ── */}
-      <header style={{ backgroundColor: '#0A1628', height: 56, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px' }}>
+      <header style={{ backgroundColor: '#050B14', height: 56, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Link href="/dashboard" style={{ color: '#C8D2E0', display: 'flex', alignItems: 'center', gap: 5, textDecoration: 'none', fontSize: 12 }}>
             <ArrowLeft size={13} /> Dashboard
           </Link>
-          <span style={{ color: '#1A3358', opacity: 0.5 }}>|</span>
+          <span style={{ color: '#142846', opacity: 0.5 }}>|</span>
           <span style={{ color: '#C8D2E0', fontWeight: 700, fontSize: 14, letterSpacing: '0.06em' }}>SPEAR LIVE</span>
-          <span style={{ padding: '3px 9px', borderRadius: 20, backgroundColor: 'rgba(26,51,88,0.2)', border: '1px solid rgba(26,51,88,0.4)', fontSize: 9, fontWeight: 800, color: '#1A3358', letterSpacing: '0.09em' }}>
+          <span style={{ padding: '3px 9px', borderRadius: 20, backgroundColor: 'rgba(20,40,70,0.2)', border: '1px solid rgba(20,40,70,0.4)', fontSize: 9, fontWeight: 800, color: '#142846', letterSpacing: '0.09em' }}>
             {FOCUS_BADGE[callFocus]}
           </span>
           {isLive && (
@@ -706,7 +706,7 @@ export default function LiveCallPage() {
             const discHdr: Record<string, { bg: string; border: string; color: string }> = {
               D: { bg: 'rgba(192,57,43,0.15)',  border: 'rgba(192,57,43,0.35)',  color: '#E07060' },
               I: { bg: 'rgba(201,168,76,0.15)', border: 'rgba(201,168,76,0.35)', color: '#C9A84C' },
-              S: { bg: 'rgba(26,51,88,0.15)',  border: 'rgba(26,51,88,0.35)',  color: '#1A3358' },
+              S: { bg: 'rgba(20,40,70,0.15)',  border: 'rgba(20,40,70,0.35)',  color: '#142846' },
               C: { bg: 'rgba(59,122,191,0.15)', border: 'rgba(59,122,191,0.35)', color: '#3B7ABF' },
             }
             const hc = discHdr[discProfile.type]
@@ -725,7 +725,7 @@ export default function LiveCallPage() {
               <span style={{ fontSize: 9, color: 'rgba(200,210,224,0.4)' }}>/10</span>
             </div>
           )}
-          {isLive && <span style={{ color: '#1A3358', opacity: 0.4 }}>|</span>}
+          {isLive && <span style={{ color: '#142846', opacity: 0.4 }}>|</span>}
           {isLive && <span style={{ color: '#C8D2E0', fontFamily: 'monospace', fontSize: 13 }}>{fmt(elapsed)}</span>}
           {isLive && (
             <button onClick={toggleMute} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 7, backgroundColor: muted ? 'rgba(139,58,58,0.2)' : 'rgba(255,255,255,0.07)', border: `1px solid ${muted ? 'rgba(139,58,58,0.4)' : 'rgba(255,255,255,0.1)'}`, color: muted ? '#D08080' : '#C8D2E0', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -745,8 +745,8 @@ export default function LiveCallPage() {
       {!isLive && status !== 'ended' && (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div style={{ backgroundColor: '#FDFAF5', border: '1px solid #DDD5BB', borderRadius: 16, padding: '36px 32px', maxWidth: 480, width: '100%', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
-            <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: 'rgba(26,51,88,0.12)', border: '1px solid rgba(26,51,88,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <Mic size={20} style={{ color: '#1A3358' }} />
+            <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: 'rgba(20,40,70,0.12)', border: '1px solid rgba(20,40,70,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Mic size={20} style={{ color: '#142846' }} />
             </div>
             <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1C1C1A', margin: '0 0 6px', textAlign: 'center' }}>Live Call Coaching</h2>
             <p style={{ fontSize: 13, color: '#7A7060', margin: '0 0 20px', lineHeight: 1.6, textAlign: 'center' }}>
@@ -761,7 +761,7 @@ export default function LiveCallPage() {
                   <button
                     key={opt.value}
                     onClick={() => setCallFocusSynced(opt.value)}
-                    style={{ padding: '9px 12px', borderRadius: 8, border: `1px solid ${active ? '#1A3358' : '#DDD5BB'}`, backgroundColor: active ? '#0A1628' : '#F5F0E8', color: active ? '#C8D2E0' : '#5A5448', fontSize: 12, fontWeight: active ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', transition: 'all 0.12s' }}
+                    style={{ padding: '9px 12px', borderRadius: 8, border: `1px solid ${active ? '#142846' : '#DDD5BB'}`, backgroundColor: active ? '#050B14' : '#F5F0E8', color: active ? '#C8D2E0' : '#5A5448', fontSize: 12, fontWeight: active ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', transition: 'all 0.12s' }}
                   >
                     {opt.label}
                   </button>
@@ -784,7 +784,7 @@ export default function LiveCallPage() {
             </p>
             <button
               onClick={startCall}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '13px 0', borderRadius: 10, backgroundColor: '#0A1628', color: '#C8D2E0', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '13px 0', borderRadius: 10, backgroundColor: '#050B14', color: '#C8D2E0', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', fontFamily: 'inherit', width: '100%' }}
             >
               <Mic size={15} /> Start Call
             </button>
@@ -803,7 +803,7 @@ export default function LiveCallPage() {
             <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', height: 34, backgroundColor: '#FDFAF5', borderBottom: '1px solid #DDD5BB', flexShrink: 0, gap: 2 }}>
               {PHASES.map((p, i) => (
                 <div key={p} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                  <div style={{ flex: 1, textAlign: 'center', padding: '4px 2px', borderRadius: 4, backgroundColor: phase === i ? '#0A1628' : phase > i ? 'rgba(26,51,88,0.12)' : 'transparent', fontSize: 9, fontWeight: 700, letterSpacing: '0.04em', color: phase === i ? '#C8D2E0' : phase > i ? '#1A3358' : '#B8AFA0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ flex: 1, textAlign: 'center', padding: '4px 2px', borderRadius: 4, backgroundColor: phase === i ? '#050B14' : phase > i ? 'rgba(20,40,70,0.12)' : 'transparent', fontSize: 9, fontWeight: 700, letterSpacing: '0.04em', color: phase === i ? '#C8D2E0' : phase > i ? '#142846' : '#B8AFA0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {p}
                   </div>
                   {i < 4 && <span style={{ fontSize: 9, color: '#CCC5B0', flexShrink: 0, margin: '0 1px' }}>›</span>}
@@ -830,8 +830,8 @@ export default function LiveCallPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#7A7060' }}>TRANSCRIPT</span>
                 {isLive && (
-                  <span style={{ fontSize: 10, color: '#1A3358', backgroundColor: 'rgba(26,51,88,0.1)', border: '1px solid rgba(26,51,88,0.3)', borderRadius: 5, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.03em' }}>
-                    ⌨️ Press <kbd style={{ fontFamily: 'monospace', background: '#0A1628', color: '#C8D2E0', borderRadius: 3, padding: '0 5px', fontSize: 10 }}>SPACE</kbd> to switch Agent / Prospect
+                  <span style={{ fontSize: 10, color: '#142846', backgroundColor: 'rgba(20,40,70,0.1)', border: '1px solid rgba(20,40,70,0.3)', borderRadius: 5, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.03em' }}>
+                    ⌨️ Press <kbd style={{ fontFamily: 'monospace', background: '#050B14', color: '#C8D2E0', borderRadius: 3, padding: '0 5px', fontSize: 10 }}>SPACE</kbd> to switch Agent / Prospect
                   </span>
                 )}
               </div>
@@ -846,7 +846,7 @@ export default function LiveCallPage() {
                   position: 'absolute', top: 3, bottom: 3,
                   left: speaker === 'agent' ? 3 : 'calc(50% + 1.5px)',
                   width: 'calc(50% - 4.5px)',
-                  backgroundColor: '#0A1628', borderRadius: 6,
+                  backgroundColor: '#050B14', borderRadius: 6,
                   transition: 'left 0.2s cubic-bezier(0.4,0,0.2,1)',
                   pointerEvents: 'none',
                 }} />
@@ -863,11 +863,11 @@ export default function LiveCallPage() {
             {lines.length > 0 && (
               <div style={{ padding: '5px 12px 7px', backgroundColor: '#FDFAF5', borderBottom: '1px solid #DDD5BB', flexShrink: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#1A3358' }}>YOU {agentPct}%</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#142846' }}>YOU {agentPct}%</span>
                   <span style={{ fontSize: 10, fontWeight: 700, color: '#8C6D2F' }}>PROSPECT {prospectPct}%</span>
                 </div>
                 <div style={{ height: 5, borderRadius: 3, overflow: 'hidden', display: 'flex' }}>
-                  <div style={{ width: `${agentPct}%`, backgroundColor: '#1A3358', transition: 'width 0.5s ease' }} />
+                  <div style={{ width: `${agentPct}%`, backgroundColor: '#142846', transition: 'width 0.5s ease' }} />
                   <div style={{ flex: 1, backgroundColor: '#8C6D2F' }} />
                 </div>
               </div>
@@ -884,7 +884,7 @@ export default function LiveCallPage() {
                   {lines.map(line => (
                     <div key={line.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                       <span style={{ fontSize: 9, color: '#B0A898', fontFamily: 'monospace', flexShrink: 0, marginTop: 4 }}>{line.time}</span>
-                      <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.07em', flexShrink: 0, marginTop: 4, minWidth: 52, color: line.speaker === 'agent' ? '#1A3358' : '#8C6D2F' }}>
+                      <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.07em', flexShrink: 0, marginTop: 4, minWidth: 52, color: line.speaker === 'agent' ? '#142846' : '#8C6D2F' }}>
                         {line.speaker === 'agent' ? 'YOU' : 'PROSPECT'}
                       </span>
                       {line.isKeyMoment && (
@@ -896,7 +896,7 @@ export default function LiveCallPage() {
                   {interim && (
                     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                       <span style={{ fontSize: 9, color: '#B0A898', fontFamily: 'monospace', flexShrink: 0, marginTop: 4 }}>{fmt(elapsed)}</span>
-                      <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.07em', flexShrink: 0, marginTop: 4, minWidth: 52, color: speaker === 'agent' ? '#1A3358' : '#8C6D2F' }}>
+                      <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.07em', flexShrink: 0, marginTop: 4, minWidth: 52, color: speaker === 'agent' ? '#142846' : '#8C6D2F' }}>
                         {speaker === 'agent' ? 'YOU' : 'PROSPECT'}
                       </span>
                       <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: '#9A9080', fontStyle: 'italic', flex: 1 }}>
@@ -920,7 +920,7 @@ export default function LiveCallPage() {
                     position: 'absolute', top: 2, bottom: 2,
                     left: speaker === 'agent' ? 2 : 'calc(50% + 1px)',
                     width: 'calc(50% - 3px)',
-                    backgroundColor: '#0A1628', borderRadius: 4,
+                    backgroundColor: '#050B14', borderRadius: 4,
                     transition: 'left 0.2s cubic-bezier(0.4,0,0.2,1)',
                     pointerEvents: 'none',
                   }} />
@@ -1017,7 +1017,7 @@ export default function LiveCallPage() {
                 {cards.length > 0 && (
                   <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
                     {cards.filter(c => c.cardType !== 'objection').length > 0 && (
-                      <span style={{ fontSize: 10, fontWeight: 800, color: '#1A3358', backgroundColor: 'rgba(26,51,88,0.1)', padding: '2px 8px', borderRadius: 10 }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: '#142846', backgroundColor: 'rgba(20,40,70,0.1)', padding: '2px 8px', borderRadius: 10 }}>
                         {cards.filter(c => c.cardType !== 'objection').length} signals
                       </span>
                     )}
@@ -1118,7 +1118,7 @@ export default function LiveCallPage() {
                 const discColors: Record<string, { bg: string; border: string; badge: string; text: string; dim: string }> = {
                   D: { bg: '#FFF5F4', border: 'rgba(192,57,43,0.25)', badge: '#C0392B', text: '#922B21', dim: 'rgba(192,57,43,0.08)' },
                   I: { bg: '#FFFBF0', border: 'rgba(201,168,76,0.3)',  badge: '#8C6D2F', text: '#5A3E00', dim: 'rgba(201,168,76,0.09)' },
-                  S: { bg: '#F2F6FB', border: 'rgba(26,51,88,0.28)',  badge: '#1A3358', text: '#0F2444', dim: 'rgba(26,51,88,0.08)' },
+                  S: { bg: '#F2F6FB', border: 'rgba(20,40,70,0.28)',  badge: '#142846', text: '#0B1B34', dim: 'rgba(20,40,70,0.08)' },
                   C: { bg: '#F0F6FF', border: 'rgba(59,122,191,0.25)', badge: '#3B7ABF', text: '#1E4A80', dim: 'rgba(59,122,191,0.08)' },
                 }
                 const dc = discColors[discProfile.type]
@@ -1178,7 +1178,7 @@ export default function LiveCallPage() {
                       <div style={{ display: 'flex', gap: 4, marginBottom: 9 }}>
                         {(['Negative', 'Neutral', 'Positive'] as const).map(label => {
                           const active = sentiment.label === label
-                          const col = label === 'Positive' ? '#1A3358' : label === 'Negative' ? '#C0392B' : '#8C6D2F'
+                          const col = label === 'Positive' ? '#142846' : label === 'Negative' ? '#C0392B' : '#8C6D2F'
                           return (
                             <div key={label} style={{ flex: 1, textAlign: 'center', padding: '5px 4px', borderRadius: 5, backgroundColor: active ? `${col}18` : 'transparent', border: `1px solid ${active ? `${col}44` : 'transparent'}`, fontSize: 11, fontWeight: active ? 700 : 500, color: active ? col : '#B0A898' }}>
                               {label}
@@ -1186,7 +1186,7 @@ export default function LiveCallPage() {
                           )
                         })}
                       </div>
-                      <div style={{ height: 4, borderRadius: 2, background: 'linear-gradient(to right, #C0392B 0%, #DDD5BB 50%, #1A3358 100%)', position: 'relative' }}>
+                      <div style={{ height: 4, borderRadius: 2, background: 'linear-gradient(to right, #C0392B 0%, #DDD5BB 50%, #142846 100%)', position: 'relative' }}>
                         <div style={{ position: 'absolute', top: '50%', left: `${sentiment.pct}%`, transform: 'translate(-50%, -50%)', width: 10, height: 10, borderRadius: '50%', backgroundColor: sentiment.color, border: '2px solid #FDFAF5', boxShadow: '0 1px 4px rgba(0,0,0,0.2)', transition: 'left 0.4s ease' }} />
                       </div>
                     </>
@@ -1226,7 +1226,7 @@ export default function LiveCallPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
               <div>
                 <h2 style={{ fontSize: 17, fontWeight: 700, color: '#1C1C1A', margin: '0 0 3px' }}>Call Complete</h2>
-                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', color: '#1A3358', backgroundColor: 'rgba(26,51,88,0.1)', padding: '2px 8px', borderRadius: 4 }}>{FOCUS_BADGE[callFocus]}</span>
+                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', color: '#142846', backgroundColor: 'rgba(20,40,70,0.1)', padding: '2px 8px', borderRadius: 4 }}>{FOCUS_BADGE[callFocus]}</span>
               </div>
               <span style={{ fontFamily: 'monospace', fontSize: 20, fontWeight: 700, color: scoreColor }}>{score.toFixed(1)}<span style={{ fontSize: 11, color: '#B0A898', fontWeight: 400 }}>/10</span></span>
             </div>
@@ -1237,11 +1237,11 @@ export default function LiveCallPage() {
             {lines.length > 0 && (
               <div style={{ marginBottom: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#1A3358' }}>YOU {agentPct}%</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#142846' }}>YOU {agentPct}%</span>
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#8C6D2F' }}>PROSPECT {prospectPct}%</span>
                 </div>
                 <div style={{ height: 6, borderRadius: 3, overflow: 'hidden', display: 'flex' }}>
-                  <div style={{ width: `${agentPct}%`, backgroundColor: '#1A3358' }} />
+                  <div style={{ width: `${agentPct}%`, backgroundColor: '#142846' }} />
                   <div style={{ flex: 1, backgroundColor: '#8C6D2F' }} />
                 </div>
               </div>
@@ -1281,7 +1281,7 @@ export default function LiveCallPage() {
               const discColors: Record<string, { border: string; badge: string; text: string; dim: string }> = {
                 D: { border: 'rgba(192,57,43,0.25)', badge: '#C0392B', text: '#922B21', dim: 'rgba(192,57,43,0.07)' },
                 I: { border: 'rgba(201,168,76,0.3)',  badge: '#8C6D2F', text: '#5A3E00', dim: 'rgba(201,168,76,0.08)' },
-                S: { border: 'rgba(26,51,88,0.28)',  badge: '#1A3358', text: '#0F2444', dim: 'rgba(26,51,88,0.07)' },
+                S: { border: 'rgba(20,40,70,0.28)',  badge: '#142846', text: '#0B1B34', dim: 'rgba(20,40,70,0.07)' },
                 C: { border: 'rgba(59,122,191,0.25)', badge: '#3B7ABF', text: '#1E4A80', dim: 'rgba(59,122,191,0.07)' },
               }
               const dc = discColors[discProfile.type]
@@ -1314,7 +1314,7 @@ export default function LiveCallPage() {
                   setLines([]); setCards([]); setElapsed(0); setErr('')
                   setScore(7.0); setSentimentScore(0); setDiscProfile(null)
                 }}
-                style={{ flex: 1, padding: '10px 0', borderRadius: 10, backgroundColor: '#0A1628', color: '#C8D2E0', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                style={{ flex: 1, padding: '10px 0', borderRadius: 10, backgroundColor: '#050B14', color: '#C8D2E0', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
               >
                 New Call
               </button>

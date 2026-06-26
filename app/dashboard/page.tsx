@@ -143,13 +143,14 @@ type AgentRecord = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+// Score scale — dark/masculine: strong navy → steel → brick red
 function scoreBarColor(s: number) {
-  if (s >= 9) return "bg-emerald-500"; if (s >= 7) return "bg-indigo-500";
-  if (s >= 5) return "bg-amber-500"; return "bg-red-500";
+  if (s >= 8) return "bg-[#1B3A63]"; if (s >= 6) return "bg-[#5A6478]";
+  return "bg-[#9E3B30]";
 }
 function scoreTextColor(s: number) {
-  if (s >= 9) return "text-emerald-400"; if (s >= 7) return "text-indigo-400";
-  if (s >= 5) return "text-amber-400"; return "text-red-400";
+  if (s >= 8) return "text-[#1B3A63]"; if (s >= 6) return "text-[#5A6478]";
+  return "text-[#9E3B30]";
 }
 function discBadgeColor(t: string) {
   const m: Record<string, string> = {
@@ -430,7 +431,13 @@ function EditableProspectName({ name, sessionId, onUpdate }: {
 }
 
 function ScoreBadge({ score }: { score: number }) {
-  return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold border bg-[#0F2444] text-[#C8D2E0] border-[#0F2444]/60">{score.toFixed(1)}</span>;
+  // Tiered so quality reads at a glance — navy (strong) / steel (solid) / brick (weak)
+  const t = score >= 8
+    ? { bg: "#1B3A63", fg: "#EAF0F8" }
+    : score >= 6
+    ? { bg: "#5A6478", fg: "#EDEFF4" }
+    : { bg: "#9E3B30", fg: "#F6DEDA" };
+  return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold" style={{ backgroundColor: t.bg, color: t.fg }}>{score.toFixed(1)}</span>;
 }
 
 function OutcomeBadge({ outcome, sessionId, onUpdate }: {
@@ -467,13 +474,13 @@ function OutcomeBadge({ outcome, sessionId, onUpdate }: {
   }
 
   if (current === "closed") {
-    return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">✓ Closed</span>;
+    return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold" style={{ backgroundColor: "#1B3A63", color: "#EAF0F8" }}>✓ Closed</span>;
   }
   if (current === "lost") {
-    return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-red-500/15 text-red-400 border border-red-500/20">✗ Lost</span>;
+    return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium" style={{ backgroundColor: "rgba(158,59,48,0.12)", color: "#9E3B30", border: "1px solid rgba(158,59,48,0.30)" }}>✗ Lost</span>;
   }
   if (current === "follow_up") {
-    return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-500/20">↗ Follow-up</span>;
+    return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium" style={{ backgroundColor: "rgba(140,109,47,0.14)", color: "#8C6D2F", border: "1px solid rgba(140,109,47,0.30)" }}>↗ Follow-up</span>;
   }
 
   if (!sessionId) {
@@ -486,7 +493,7 @@ function OutcomeBadge({ outcome, sessionId, onUpdate }: {
         type="button"
         onClick={() => select("closed")}
         disabled={!!saving}
-        className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
+        className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-[#1B3A63]/10 text-[#1B3A63] border border-[#1B3A63]/30 hover:bg-[#1B3A63]/20 disabled:opacity-50 transition-colors"
       >
         {saving === "closed" ? "…" : "✓ Closed"}
       </button>
@@ -494,7 +501,7 @@ function OutcomeBadge({ outcome, sessionId, onUpdate }: {
         type="button"
         onClick={() => select("lost")}
         disabled={!!saving}
-        className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
+        className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-[#9E3B30]/10 text-[#9E3B30] border border-[#9E3B30]/30 hover:bg-[#9E3B30]/20 disabled:opacity-50 transition-colors"
       >
         {saving === "lost" ? "…" : "✗ Lost"}
       </button>
@@ -502,7 +509,7 @@ function OutcomeBadge({ outcome, sessionId, onUpdate }: {
         type="button"
         onClick={() => select("follow_up")}
         disabled={!!saving}
-        className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+        className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-[#8C6D2F]/10 text-[#8C6D2F] border border-[#8C6D2F]/30 hover:bg-[#8C6D2F]/20 disabled:opacity-50 transition-colors"
       >
         {saving === "follow_up" ? "…" : "↗ Follow-up"}
       </button>
@@ -686,19 +693,19 @@ function CallsTab() {
 // ─── Analytics Tab ────────────────────────────────────────────────────────────
 
 const ANALYTICS_PHASES = [
-  { key: "connection",        phase: "Connection",        color: "#1A3358" },
+  { key: "connection",        phase: "Connection",        color: "#142846" },
   { key: "situation",         phase: "Situation",         color: "#3B82F6" },
   { key: "problemAwareness",  phase: "Problem Awareness", color: "#6366F1" },
   { key: "consequence",       phase: "Consequence",       color: "#EF4444" },
   { key: "solutionAwareness", phase: "Solution",          color: "#8B5CF6" },
   { key: "qualifying",        phase: "Qualifying",        color: "#F59E0B" },
-  { key: "close",             phase: "Close",             color: "#1A3358" },
+  { key: "close",             phase: "Close",             color: "#142846" },
 ];
 
 const DISC_ANALYTICS = [
   { type: "D" as const, label: "Dominant",     color: "#EF4444", desc: "Direct, decisive, wants results" },
   { type: "I" as const, label: "Influential",  color: "#F59E0B", desc: "Social, optimistic, emotionally driven" },
-  { type: "S" as const, label: "Steady",       color: "#1A3358", desc: "Patient, risk-averse, needs trust" },
+  { type: "S" as const, label: "Steady",       color: "#142846", desc: "Patient, risk-averse, needs trust" },
   { type: "C" as const, label: "Conscientious",color: "#3B82F6", desc: "Analytical, detail-focused, cautious" },
 ];
 
@@ -775,7 +782,7 @@ function AnalyticsTab() {
     }
   }
   const objectionData = Array.from(objectionCounts.entries())
-    .map(([type, count], idx) => ({ type, count, color: ["#EF4444", "#8B5CF6", "#F59E0B", "#3B82F6", "#1A3358"][idx % 5] }))
+    .map(([type, count], idx) => ({ type, count, color: ["#EF4444", "#8B5CF6", "#F59E0B", "#3B82F6", "#142846"][idx % 5] }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 6);
   const maxObj = Math.max(1, ...objectionData.map(o => o.count));
@@ -1740,7 +1747,7 @@ function LeadsTab() {
                 <div key={lead.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-7 w-7 shrink-0 rounded-full bg-[#0F2444] text-[#C8D2E0] flex items-center justify-center text-[11px] font-semibold">{i + 1}</div>
+                      <div className="h-7 w-7 shrink-0 rounded-full bg-[#0B1B34] text-[#C8D2E0] flex items-center justify-center text-[11px] font-semibold">{i + 1}</div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-zinc-100 truncate">{fullName}</p>
                         <p className="text-[11px] text-zinc-500 truncate">{meta}</p>
@@ -1757,7 +1764,7 @@ function LeadsTab() {
                     <div className="flex items-center gap-2 shrink-0">
                       {lead.phone && <a href={`tel:${lead.phone}`} className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors">{lead.phone}</a>}
                       <Link href="/dashboard/live"
-                        className="px-2.5 py-1.5 rounded-lg bg-[#1A3358] hover:bg-[#0F2444] text-white text-[11px] font-semibold flex items-center gap-1.5 transition-colors">
+                        className="px-2.5 py-1.5 rounded-lg bg-[#142846] hover:bg-[#0B1B34] text-white text-[11px] font-semibold flex items-center gap-1.5 transition-colors">
                         <Phone className="h-3 w-3" /> Start call
                       </Link>
                     </div>
@@ -1947,7 +1954,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
 
         {status === "sent" ? (
           <div>
-            <div style={{ background: "rgba(26,51,88,0.1)", border: "1px solid rgba(26,51,88,0.3)", borderRadius: "10px", padding: "16px", marginBottom: "16px" }}>
+            <div style={{ background: "rgba(20,40,70,0.1)", border: "1px solid rgba(20,40,70,0.3)", borderRadius: "10px", padding: "16px", marginBottom: "16px" }}>
               <p style={{ color: "#4A6FA5", fontSize: "13px", fontWeight: 600, marginBottom: "6px" }}>✓ Invite sent to {email}</p>
               <p style={{ color: "#94A3B8", fontSize: "12px" }}>Share this link if their email doesn't arrive:</p>
             </div>
@@ -2047,7 +2054,7 @@ function AgentDrillDown({ agent, onClose }: { agent: LiveAgentStat; onClose: () 
         {!loading && calls.map(call => {
           const date = new Date(call.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
           const mins = Math.floor((call.duration_seconds ?? 0) / 60);
-          const outcomeColor = call.outcome === "closed" ? "#4A6FA5" : call.outcome === "follow_up" ? "#FBBF24" : "#F87171";
+          const outcomeColor = call.outcome === "closed" ? "#7BA0D9" : call.outcome === "follow_up" ? "#C9A84C" : "#D9776B";
           return (
             <div key={call.id} style={{ background: "#1E293B", border: "1px solid #334155", borderRadius: "10px", padding: "14px 16px", marginBottom: "8px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: call.notes ? "8px" : "0" }}>
@@ -2057,7 +2064,7 @@ function AgentDrillDown({ agent, onClose }: { agent: LiveAgentStat; onClose: () 
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   {call.overall_score != null && (
-                    <span style={{ fontSize: "12px", fontWeight: 700, color: call.overall_score >= 8 ? "#4A6FA5" : call.overall_score >= 6 ? "#FBBF24" : "#F87171", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "6px" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: call.overall_score >= 8 ? "#7BA0D9" : call.overall_score >= 6 ? "#9AA7BC" : "#D9776B", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "6px" }}>
                       {call.overall_score.toFixed(1)}
                     </span>
                   )}
@@ -2975,8 +2982,8 @@ function DashboardPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-[#0F2444] bg-zinc-950 overflow-y-auto">
-          <div className="px-5 py-4 border-b border-[#0F2444]">
+        <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-[#0B1B34] bg-zinc-950 overflow-y-auto">
+          <div className="px-5 py-4 border-b border-[#0B1B34]">
             <span style={{ fontSize: "22px", fontWeight: 800, color: "#C8D2E0", letterSpacing: "-0.5px", fontFamily: "var(--font-space), system-ui, sans-serif" }}>SPEAR</span>
           </div>
 
@@ -2984,11 +2991,11 @@ function DashboardPage() {
             {/* Live Call — navigates to full-screen live call page */}
             <Link
               href="/dashboard/live"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors border border-[#1A3358]/30 bg-[#1A3358]/10 text-[#C8D2E0] hover:bg-[#0F2444] mb-1"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors border border-[#142846]/30 bg-[#142846]/10 text-[#C8D2E0] hover:bg-[#0B1B34] mb-1"
             >
-              <Mic className="h-4 w-4 shrink-0 text-[#1A3358]" />
+              <Mic className="h-4 w-4 shrink-0 text-[#142846]" />
               Live Call
-              <span style={{ fontSize: "9px", marginLeft: "auto", padding: "2px 6px", borderRadius: 4, backgroundColor: "rgba(26,51,88,0.3)", color: "#1A3358", fontWeight: 700, letterSpacing: "0.1em" }}>
+              <span style={{ fontSize: "9px", marginLeft: "auto", padding: "2px 6px", borderRadius: 4, backgroundColor: "rgba(20,40,70,0.3)", color: "#142846", fontWeight: 700, letterSpacing: "0.1em" }}>
                 LIVE
               </span>
             </Link>
@@ -2999,8 +3006,8 @@ function DashboardPage() {
                 <button key={id} type="button" onClick={() => setActiveTab(id)}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
                     activeTab === id
-                      ? "bg-[#0F2444] text-[#C8D2E0] border border-[#0F2444]"
-                      : "text-[#C8D2E0]/75 hover:bg-[#0F2444] hover:text-[#C8D2E0] border border-transparent"
+                      ? "bg-[#0B1B34] text-[#C8D2E0] border border-[#0B1B34]"
+                      : "text-[#C8D2E0]/75 hover:bg-[#0B1B34] hover:text-[#C8D2E0] border border-transparent"
                   }`}>
                   {locked ? <Lock className="h-4 w-4 shrink-0 text-[#C8D2E0]/40" /> : <Icon className="h-4 w-4 shrink-0" />}
                   {label}
@@ -3015,14 +3022,14 @@ function DashboardPage() {
           </div>
 
           {/* Product Focus Selector */}
-          <div className="px-3 pb-3 border-t border-[#0F2444] pt-3">
+          <div className="px-3 pb-3 border-t border-[#0B1B34] pt-3">
             <p className="text-[10px] font-semibold text-[#7A8EAE] uppercase tracking-wider mb-1.5 px-1" style={{ letterSpacing: "0.1em" }}>Product Focus</p>
             <div className="relative">
               <select
                 value={productFocus}
                 onChange={e => handleProductFocusChange(e.target.value)}
                 disabled={savingFocus}
-                className="w-full appearance-none bg-[#0F2444] border border-[#1A3358] text-[#C8D2E0] text-xs rounded-lg px-3 py-2 pr-7 focus:outline-none focus:border-[#C8D2E0]/40 focus:ring-1 focus:ring-[#C8D2E0]/10 transition-colors cursor-pointer disabled:opacity-50"
+                className="w-full appearance-none bg-[#0B1B34] border border-[#142846] text-[#C8D2E0] text-xs rounded-lg px-3 py-2 pr-7 focus:outline-none focus:border-[#C8D2E0]/40 focus:ring-1 focus:ring-[#C8D2E0]/10 transition-colors cursor-pointer disabled:opacity-50"
               >
                 <option value="life_insurance">All Life Insurance</option>
                 <option value="mortgage_protection">Mortgage Protection</option>
@@ -3036,25 +3043,25 @@ function DashboardPage() {
             {savingFocus && <p className="text-[10px] text-zinc-600 mt-1 px-1">Saving…</p>}
           </div>
 
-          <div className="px-3 py-4 border-t border-[#0F2444] space-y-0.5">
+          <div className="px-3 py-4 border-t border-[#0B1B34] space-y-0.5">
             <Link href="/settings/privacy"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#0F2444] hover:text-[#C8D2E0] transition-colors border border-transparent">
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#0B1B34] hover:text-[#C8D2E0] transition-colors border border-transparent">
               <Settings className="h-4 w-4 shrink-0" />
               Privacy &amp; Data
             </Link>
             <Link href="/Terms" target="_blank"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#0F2444] hover:text-[#C8D2E0] transition-colors border border-transparent">
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#0B1B34] hover:text-[#C8D2E0] transition-colors border border-transparent">
               <BookOpen className="h-4 w-4 shrink-0" />
               Terms of Service
             </Link>
             <Link href="/Privacy" target="_blank"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#0F2444] hover:text-[#C8D2E0] transition-colors border border-transparent">
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#0B1B34] hover:text-[#C8D2E0] transition-colors border border-transparent">
               <Lock className="h-4 w-4 shrink-0" />
               Privacy Policy
             </Link>
             <form action={logout}>
               <button type="submit"
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#0F2444] hover:text-[#C8D2E0] transition-colors">
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#C8D2E0]/75 hover:bg-[#0B1B34] hover:text-[#C8D2E0] transition-colors">
                 <LogOut className="h-4 w-4 shrink-0" />
                 Sign out
               </button>

@@ -12,7 +12,7 @@ const SPEAR_PALETTE = [
   0xB8860B, // gold dark
   0xE8C040, // gold warm
   0xD4AF37, // gold (weighted again)
-  0x0F2444, // navy highlight
+  0x0B1B34, // navy highlight
 ];
 
 interface WovenCanvasProps {
