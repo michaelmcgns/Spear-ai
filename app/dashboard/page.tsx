@@ -145,11 +145,11 @@ type AgentRecord = {
 
 // Score scale — green (strong) → steel (solid) → brick red (weak)
 function scoreBarColor(s: number) {
-  if (s >= 8) return "bg-[#2E7D5B]"; if (s >= 6) return "bg-[#5A6478]";
+  if (s >= 8) return "bg-[#2E7D5B]"; if (s >= 6) return "bg-[#C9A227]";
   return "bg-[#9E3B30]";
 }
 function scoreTextColor(s: number) {
-  if (s >= 8) return "text-[#2E7D5B]"; if (s >= 6) return "text-[#5A6478]";
+  if (s >= 8) return "text-[#2E7D5B]"; if (s >= 6) return "text-[#9A7A14]";
   return "text-[#9E3B30]";
 }
 function discBadgeColor(t: string) {
@@ -435,7 +435,7 @@ function ScoreBadge({ score }: { score: number }) {
   const t = score >= 8
     ? { bg: "#2E7D5B", fg: "#EAF6EF" }
     : score >= 6
-    ? { bg: "#5A6478", fg: "#EDEFF4" }
+    ? { bg: "#C9A227", fg: "#332806" }
     : { bg: "#9E3B30", fg: "#F6DEDA" };
   return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold" style={{ backgroundColor: t.bg, color: t.fg }}>{score.toFixed(1)}</span>;
 }
@@ -872,7 +872,7 @@ function AnalyticsTab() {
           <div className="flex items-end gap-2" style={{ height: 96 }}>
             {data.map(w => (
               <div key={w.label} className="flex-1 flex flex-col items-center gap-1.5">
-                <div className="w-full rounded-t-sm transition-all" style={{ height: `${Math.max((w.avgScore / maxWeeklyScore) * 80, w.avgScore > 0 ? 4 : 0)}px`, backgroundColor: w.avgScore >= 8 ? "#2E7D5B" : w.avgScore >= 6 ? "#5A6478" : w.avgScore > 0 ? "#9E3B30" : "#C9CDD6" }} />
+                <div className="w-full rounded-t-sm transition-all" style={{ height: `${Math.max((w.avgScore / maxWeeklyScore) * 80, w.avgScore > 0 ? 4 : 0)}px`, backgroundColor: w.avgScore >= 8 ? "#2E7D5B" : w.avgScore >= 6 ? "#C9A227" : w.avgScore > 0 ? "#9E3B30" : "#C9CDD6" }} />
                 <span className="text-[9px] text-zinc-600">{w.avgScore > 0 ? w.avgScore.toFixed(1) : "—"}</span>
               </div>
             ))}
@@ -885,7 +885,7 @@ function AnalyticsTab() {
           <p className="text-xs font-semibold text-white mb-5">NEPQ Phase Averages</p>
           <div className="space-y-3.5">
             {phaseScores.map(({ phase, score, count }) => {
-              const pc = score == null ? "#9CA3AF" : score >= 8 ? "#2E7D5B" : score >= 6 ? "#5A6478" : "#9E3B30";
+              const pc = score == null ? "#9CA3AF" : score >= 8 ? "#2E7D5B" : score >= 6 ? "#A8841C" : "#9E3B30";
               return (
               <div key={phase}>
                 <div className="flex items-center justify-between mb-1.5">
@@ -2067,7 +2067,7 @@ function AgentDrillDown({ agent, onClose }: { agent: LiveAgentStat; onClose: () 
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   {call.overall_score != null && (
-                    <span style={{ fontSize: "12px", fontWeight: 700, color: call.overall_score >= 8 ? "#5FB58A" : call.overall_score >= 6 ? "#9AA7BC" : "#D9776B", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "6px" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: call.overall_score >= 8 ? "#5FB58A" : call.overall_score >= 6 ? "#E0C155" : "#D9776B", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "6px" }}>
                       {call.overall_score.toFixed(1)}
                     </span>
                   )}

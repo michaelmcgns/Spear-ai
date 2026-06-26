@@ -1371,7 +1371,7 @@ export default function Page() {
                 <motion.button
                   whileHover={{ scale: 1.02, backgroundColor: "rgba(201,168,76,0.07)" }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => setDemoOpen(true)}
+                  onClick={() => document.getElementById("watch")?.scrollIntoView({ behavior: "smooth" })}
                   style={{
                     backgroundColor: "transparent", color: CREAM,
                     border: `1px solid rgba(255,255,255,0.45)`,
@@ -1415,6 +1415,34 @@ export default function Page() {
             <span style={{ fontSize: "9px", letterSpacing: "0.28em", color: WARM_GRAY, textTransform: "uppercase" }}>Scroll</span>
           </motion.div>
         </motion.div>
+      </section>
+
+      {/* ── WATCH / WALKTHROUGH VIDEO ─────────────────────── */}
+      <section id="watch" style={{ padding: "100px 32px", backgroundColor: BG, borderTop: `1px solid ${DIVIDER}` }}>
+        <div style={{ maxWidth: "960px", margin: "0 auto" }}>
+          <Reveal>
+            <div style={{ textAlign: "center", marginBottom: "44px" }}>
+              <p style={{ fontSize: "10px", letterSpacing: "0.3em", color: CREAM_DIM, textTransform: "uppercase", fontWeight: 700, marginBottom: "16px" }}>Watch It Work</p>
+              <h2 style={{ fontFamily: "var(--font-space)", fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 700, color: CREAM, lineHeight: 1.1, letterSpacing: "-0.02em" }}>
+                See Spear on a live call
+              </h2>
+              <p style={{ fontSize: "15px", color: CREAM_DIM, marginTop: "16px", maxWidth: "560px", marginLeft: "auto", marginRight: "auto", lineHeight: 1.6 }}>
+                A short walkthrough of real-time objection detection, buyer psychology, and live NEPQ coaching.
+              </p>
+            </div>
+          </Reveal>
+          <Reveal>
+            <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: "10px", overflow: "hidden", border: `1px solid ${NAVY}`, boxShadow: "0 24px 60px rgba(20,33,61,0.22)", backgroundColor: "#0B1220" }}>
+              <iframe
+                src="https://www.loom.com/embed/8df62d6db79c4c06bae3e19c81b296e1"
+                title="Spear AI — product walkthrough"
+                frameBorder="0"
+                allowFullScreen
+                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+              />
+            </div>
+          </Reveal>
+        </div>
       </section>
 
       {/* ── HOW IT WORKS ─────────────────────────────────── */}
