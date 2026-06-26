@@ -1168,18 +1168,21 @@ function CoachingTab() {
           )}
         </div>
         <div className="flex items-end gap-2" style={{ height: 80 }}>
-          {report.nepqPhaseScores.map(({ phase, score, color }) => (
+          {report.nepqPhaseScores.map(({ phase, score }) => {
+            const pc = score >= 8 ? "#2E7D5B" : score >= 6 ? "#9A7716" : "#9E3B30";
+            return (
             <div key={phase} className="flex-1 flex flex-col items-center gap-1.5">
               <div className="w-full bg-zinc-800 rounded-sm relative" style={{ height: 64 }}>
                 <div className="absolute bottom-0 w-full rounded-sm transition-all duration-700"
-                  style={{ height: `${(score / 10) * 64}px`, backgroundColor: color + "bb" }} />
+                  style={{ height: `${(score / 10) * 64}px`, backgroundColor: pc }} />
               </div>
               <span className="text-[8px] text-zinc-600 text-center leading-tight hidden sm:block">
                 {phase.split(" ")[0]}
               </span>
-              <span className="text-[10px] font-bold" style={{ color }}>{score.toFixed(1)}</span>
+              <span className="text-[10px] font-bold" style={{ color: pc }}>{score.toFixed(1)}</span>
             </div>
-          ))}
+            );
+          })}
         </div>
         {weakest && (
           <p className="text-[10px] text-red-400 mt-3">
