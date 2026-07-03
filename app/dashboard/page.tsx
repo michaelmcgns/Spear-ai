@@ -988,6 +988,29 @@ interface PracticeFeedback {
   ideal_response: string;
 }
 
+// ─── Training program sections ────────────────────────────────────────────────
+// Structure from Dan Marcel (top producer) feedback: the training program is
+// split into two sections — Section 1: finding the clients and bringing up the
+// concern; Section 2: presenting and closing.
+const TRAINING_SECTIONS = [
+  {
+    id: 1,
+    title: "Section 1 — Finding the Clients & Bringing Up the Concern",
+    subtitle: "Prospecting, discovery, and surfacing the problem so the prospect feels it",
+  },
+  {
+    id: 2,
+    title: "Section 2 — Presenting & Closing",
+    subtitle: "Qualifying, presenting the solution, and locking in the commitment",
+  },
+] as const;
+
+// Maps a drill's NEPQ phase to its training section. Connection, Situation,
+// Problem Awareness, Consequence, and Talk Ratio belong to Section 1;
+// Solution Awareness, Qualifying, and Close belong to Section 2.
+const drillSection = (phase: string): 1 | 2 =>
+  /close|closing|solution|qualifying|present/i.test(phase) ? 2 : 1;
+
 function CoachingTab() {
   const { hasReal, loading: ctxLoading } = useDashboardData();
   const [report, setReport]   = useState<CoachingReportData | null>(null);
@@ -1212,12 +1235,17 @@ function CoachingTab() {
         </div>
       </div>
 
-      {/* Drill queue */}
-      {report.drills.length > 0 && (
-        <>
-          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Active Drills</p>
-          <div className="space-y-3">
-            {report.drills.map(drill => {
+      {/* Drill queue — grouped into the two training sections (per Dan Marcel's structure) */}
+      {report.drills.length > 0 && TRAINING_SECTIONS.map(section => {
+        const sectionDrills = report.drills.filter(d => drillSection(d.phase) === section.id);
+        if (sectionDrills.length === 0) return null;
+        return (
+          <div key={section.id} className="space-y-3">
+            <div>
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{section.title}</p>
+              <p className="text-[11px] text-zinc-600 mt-0.5">{section.subtitle}</p>
+            </div>
+            {sectionDrills.map(drill => {
               const done     = sessions[drill.id] ?? 0;
               const isOpen   = activeDrill === drill.id;
               const pct      = done / drill.sessionsTarget;
@@ -1399,8 +1427,8 @@ function CoachingTab() {
               );
             })}
           </div>
-        </>
-      )}
+        );
+      })}
 
       {/* Recent coaching moments from real calls */}
       {report.recentMoments.length > 0 && (
